@@ -137,6 +137,7 @@ let rec size (bt : btnode) : int =
 let rec height (bt : btnode) : int =
   match bt with
   | Leaf -> 0
+  (* add 1 to the larger of the height of the left and right nodes *)
   | Node(_, left, right) -> 1 + (max (height left) (height right));;
 
 (* Returns a new list with the values of the given list incremented by 1 *)
@@ -150,22 +151,49 @@ let rec long_strings (ls : string list) (len : int): string list =
   match ls with
   | [] -> []
   | first :: rest ->
+    (* keep first if it's greater than len, otherwise omit it *)
     if (String.length first) > len then first :: (long_strings rest len) else (long_strings rest len);;
 
-(* Returns a new list containing every other element starting with the first *)
+(* Returns a new list containing every other element starting with the first 
+  E.g 
+  - [] should return []
+  - [1] should return [1]
+  - [1; 2] should return [1]
+  - [1; 2; 3] should return [1; 3]
+*)
 let rec every_other (ls : 'a list): 'a list =
   match ls with
   | [] -> []
+  (* match a list containing only one item *)
   | first :: [] -> first :: []
+  (* match a list containing at least two items and drop the second item *)
   | first :: second :: rest -> first :: (every_other rest);;
 
-(* Returns a list containing sums of integers from the nested list *)
+(* Returns a list containing sums of integers from the nested list 
+  E.g. 
+  - [] should return []
+  - [[]] should return [0]
+  - [[1; 2]; [3]; []; [4; 5; 6]] should return [3; 3; 0; 15]
+*)
 let rec sum_all (ls : int list list): int list =
   match ls with
   | [] -> []
   | first :: rest -> 
+    (* sum_list sums the int values of the given list 
+      E.g. 
+      - [] should return 0
+      - [5] should return 5
+      - [1; 2; 3] should return [6]
+    *)
     let rec sum_list sub_ls =
       match sub_ls with
       | [] -> 0
       | first :: rest -> first + (sum_list rest) in
+    (* sum the values in first with sum_list and continue handling rest with sum_all*)
     (sum_list first) :: (sum_all rest);;
+
+(* An alternate version of sum_all that uses higher order functions
+  Maps each sub-list using a fold on sub-list items to add them
+*)
+let sum_all_alternate (ls : int list list) : int list =
+  (List.map (List.fold_left (+) 0) ls);;

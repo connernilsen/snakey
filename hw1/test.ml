@@ -45,14 +45,21 @@ let fib_test_12 = t_int "fib_test_12" (fibonacci 12) 144;;
 let t_string name value expected = name>::
   (fun _ -> assert_equal value expected ~printer:(fun str -> str));;
 
+(* root nodes *)
 let a_node = Node("a", Leaf, Leaf);;
 let b_node = Node("b", Leaf, Leaf);;
 let c_node = Node("c", Leaf, Leaf);;
+(* a node with a root and a left node *)
 let a_left = Node("b", a_node, Leaf);;
+(* a node with a root and right node *)
 let c_right = Node("b", Leaf, c_node);;
+(* a node with both a left and right node *)
 let balanced = Node("b", a_node, c_node);;
+(* a node with a left node, which also has a left node *)
 let deep_left = Node("c", a_left, Leaf);;
+(* a node with a right node, which also has a right node *)
 let deep_right = Node("a", Leaf, c_right);;
+(* a fully balanced tree with a depth/height of 3 *)
 let balanced_deep = 
   Node("d", Node("c", Node("a", Leaf, Leaf), Node("b", Leaf, Leaf)), 
     Node("f", Node("e", Leaf, Leaf), Node("g", Leaf, Leaf)));;
@@ -96,6 +103,7 @@ let height_balanced = t_int "height_balanced" (height balanced) 2;;
 let height_deep_left = t_int "height_deep_left" (height deep_left) 3;;
 let height_deep_right = t_int "height_deep_right" (height deep_right) 3;;
 let height_balanced_deep = t_int "height_balanced_deep" (height balanced_deep) 3;;
+(* a test with a deep/tall tree that is unbalanced *)
 let height_unbalanced_deep = 
   t_int "height_unbalanced_deep" (height (Node("h", balanced_deep, Node("i", Leaf, Leaf)))) 4;;
 
@@ -141,6 +149,15 @@ let sum_all_nested_empty = t_sa "sum_all_nested_empty" (sum_all [[]; []]) [0; 0]
 let sum_all_lists_of_one = t_sa "sum_all_lists_of_one" (sum_all [[1]; [2]; [3]]) [1; 2; 3];;
 let sum_all_large_lists = t_sa "sum_all_large_lists" 
   (sum_all [[1; 2; 3]; [4; 5]; []; [6]; [7; 8]]) [6; 9; 0; 6; 15];;
+
+(* sum_all_alternate tests *)
+let sum_all_alternate_empty = t_sa "sum_all_alternate_empty" (sum_all_alternate []) [];;
+let sum_all_alternate_nested_empty = 
+  t_sa "sum_all_alternate_nested_empty" (sum_all_alternate [[]; []]) [0; 0];;
+let sum_all_alternate_lists_of_one = 
+  t_sa "sum_all_alternate_lists_of_one" (sum_all_alternate [[1]; [2]; [3]]) [1; 2; 3];;
+let sum_all_alternate_large_lists = 
+  t_sa "sum_all_alternate_large_lists" (sum_all_alternate [[1; 2; 3]; [4; 5]; []; [6]; [7; 8]]) [6; 9; 0; 6; 15];;
 
 let suite = "suite">:::[
   my_first_test;
@@ -201,6 +218,10 @@ let suite = "suite">:::[
   sum_all_nested_empty;
   sum_all_lists_of_one;
   sum_all_large_lists;
+  sum_all_alternate_empty;
+  sum_all_alternate_nested_empty;
+  sum_all_alternate_lists_of_one;
+  sum_all_alternate_large_lists;
   ];;
 
 run_test_tt_main suite
