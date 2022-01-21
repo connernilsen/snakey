@@ -1,0 +1,6 @@
+.vscode/
+*.cmi
+*.cmo
+*.log
+*.cache
+hw1/test
