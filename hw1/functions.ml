@@ -138,3 +138,9 @@ let rec height (bt : btnode) : int =
   match bt with
   | Leaf -> 0
   | Node(_, left, right) -> 1 + (max (height left) (height right));;
+
+(* Returns a new list with the values of the given list incremented by 1 *)
+let rec increment_all (ls : int list): int list =
+  match ls with
+  | [] -> []
+  | first :: rest -> first + 1 :: (increment_all rest);;

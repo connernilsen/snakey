@@ -1,5 +1,6 @@
 open OUnit2
 open Functions
+open Printf
 
 (* This file contains some example tests.  Feel free to delete and reorganize
 the unnecessary parts of this file; it is provided to match up with the given
@@ -40,6 +41,7 @@ let fib_test_3 = t_int "fib_test_3" (fibonacci 3) 2;;
 let fib_test_9 = t_int "fib_test_9" (fibonacci 9) 34;;
 let fib_test_12 = t_int "fib_test_12" (fibonacci 12) 144;;
 
+(* Test helper for strings *)
 let t_string name value expected = name>::
   (fun _ -> assert_equal value expected ~printer:(fun str -> str));;
 
@@ -97,6 +99,26 @@ let height_balanced_deep = t_int "height_balanced_deep" (height balanced_deep) 3
 let height_unbalanced_deep = 
   t_int "height_unbalanced_deep" (height (Node("h", balanced_deep, Node("i", Leaf, Leaf)))) 4;;
 
+(* Return a stringified list from the given ls arg
+  value_print_str should be a printf string representing the type of the list being printed 
+
+  Example: string_of_list "\d" [1; 2; 3] => "[ 1; 2; 3; ]"
+*)
+let string_of_list value_print_str ls =
+  (List.fold_left (fun str item -> (str ^ (sprintf value_print_str item) ^ "; ")) "[ " ls) ^ "]";;
+
+(* Test helper for lists 
+  value_print_str: see string_of_list
+*)
+let t_list value_print_str name value_l expected_l = name>::
+  (fun _ -> assert_equal expected_l value_l ~printer:(string_of_list value_print_str));;
+
+(* increment_all tests *)
+let t_inc_all = t_list "%d"
+let inc_all_empty = t_inc_all "inc_all_empty" (increment_all []) [];;
+let inc_all_0 = t_inc_all "inc_all_0" (increment_all [0]) [1];;
+let inc_all_range_5 = t_inc_all "inc_all_range_5" (increment_all [1; 2; 3; 4; 5]) [2; 3; 4; 5; 6];;
+
 let suite = "suite">:::[
   my_first_test;
   (* my_second_test; *)
@@ -140,6 +162,9 @@ let suite = "suite">:::[
   height_deep_right;
   height_balanced_deep;
   height_unbalanced_deep;
+  inc_all_empty;
+  inc_all_0;
+  inc_all_range_5;
   ];;
 
 run_test_tt_main suite
