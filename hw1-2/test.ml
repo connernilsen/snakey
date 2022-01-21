@@ -96,6 +96,11 @@ let pretty_tests = [
     (Times(Times(Variable("w"), Num(3)), Times(Num(3), Variable("x"))))) "w3 * 3x";
   t_any "pretty10" (pretty 
     (Plus(Plus(Num(1), Num(2)), Plus(Num(3), Num(4))))) "1 + 2 + 3 + 4";
+  t_any "pretty11" (pretty 
+    (Times(Times(Num(3), Variable("x")), Plus(Variable("x"), Variable("y"))))) "3x(x + y)";
+  t_any "pretty12" (pretty
+    (Times(Times(Num(1), Times(Num(2), Variable("x"))), 
+      Times(Times(Variable("y"), Times(Variable("z"), Num(5))), Num(4))))) "1 * 2xyz5 * 4";
 ];;
 
 let is_mult_edge_num_tests = [
@@ -124,7 +129,6 @@ let pretty_helper_tests = [
   t_any "pretty_helper2" (pretty_helper (Num(5)) false) "5";
   t_any "pretty_helper3" (pretty_helper (Variable("x")) true) "x";
   t_any "pretty_helper4" (pretty_helper (Variable("x")) false) "x";
-
   t_any "pretty_helper5" (pretty_helper (Plus(Variable("x"), Num(5))) true) "(x + 5)";
   t_any "pretty_helper4" (pretty_helper 
     (Plus(Num(5), Times(Num(3), Variable("x")))) true) "(5 + 3x)";
