@@ -119,6 +119,29 @@ let inc_all_empty = t_inc_all "inc_all_empty" (increment_all []) [];;
 let inc_all_0 = t_inc_all "inc_all_0" (increment_all [0]) [1];;
 let inc_all_range_5 = t_inc_all "inc_all_range_5" (increment_all [1; 2; 3; 4; 5]) [2; 3; 4; 5; 6];;
 
+(* long_strings tests *)
+let t_ls = t_list "%s"
+let long_strings_empty = t_ls "long_strings_empty" (long_strings [] 10) [];;
+let long_strings_all = t_ls "long_strings_all" (long_strings ["a"; "b"; "c"; "d"] 0) ["a"; "b"; "c"; "d"];;
+let long_strings_1 = t_ls "long_strings_1" (long_strings ["a"; "b"; "c"; "d"] 1) [];;
+let long_strings_some = t_ls "long_strings_some" (long_strings ["I'm"; "taking"; "compilers!"] 5) ["taking"; "compilers!"];;
+
+(* every_other tests *)
+let every_other_empty = t_list "%d" "every_other_empty" (every_other []) [];;
+let every_other_one = t_list "%d" "every_other_one" (every_other [1]) [1];;
+let every_other_two = t_list "%d" "every_other_two" (every_other [1; 2]) [1];;
+let every_other_three = t_list "%d" "every_other_three" (every_other [1; 2; 3]) [1; 3];;
+let every_other_strings = 
+  t_list "%s" "every_other_strings" (every_other ["take this"; "not this"; "and this"]) ["take this"; "and this"];;
+
+(* sum_all tests *)
+let t_sa = t_list "%d";;
+let sum_all_empty = t_sa "sum_all_empty" (sum_all []) [];;
+let sum_all_nested_empty = t_sa "sum_all_nested_empty" (sum_all [[]; []]) [0; 0];;
+let sum_all_lists_of_one = t_sa "sum_all_lists_of_one" (sum_all [[1]; [2]; [3]]) [1; 2; 3];;
+let sum_all_large_lists = t_sa "sum_all_large_lists" 
+  (sum_all [[1; 2; 3]; [4; 5]; []; [6]; [7; 8]]) [6; 9; 0; 6; 15];;
+
 let suite = "suite">:::[
   my_first_test;
   (* my_second_test; *)
@@ -165,6 +188,19 @@ let suite = "suite">:::[
   inc_all_empty;
   inc_all_0;
   inc_all_range_5;
+  long_strings_empty;
+  long_strings_all;
+  long_strings_1;
+  long_strings_some;
+  every_other_empty;
+  every_other_one;
+  every_other_two;
+  every_other_three;
+  every_other_strings;
+  sum_all_empty;
+  sum_all_nested_empty;
+  sum_all_lists_of_one;
+  sum_all_large_lists;
   ];;
 
 run_test_tt_main suite

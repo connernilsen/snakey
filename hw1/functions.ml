@@ -144,3 +144,28 @@ let rec increment_all (ls : int list): int list =
   match ls with
   | [] -> []
   | first :: rest -> first + 1 :: (increment_all rest);;
+
+(* Returns a new list where the strings in the given list have length greater than the given len *)
+let rec long_strings (ls : string list) (len : int): string list = 
+  match ls with
+  | [] -> []
+  | first :: rest ->
+    if (String.length first) > len then first :: (long_strings rest len) else (long_strings rest len);;
+
+(* Returns a new list containing every other element starting with the first *)
+let rec every_other (ls : 'a list): 'a list =
+  match ls with
+  | [] -> []
+  | first :: [] -> first :: []
+  | first :: second :: rest -> first :: (every_other rest);;
+
+(* Returns a list containing sums of integers from the nested list *)
+let rec sum_all (ls : int list list): int list =
+  match ls with
+  | [] -> []
+  | first :: rest -> 
+    let rec sum_list sub_ls =
+      match sub_ls with
+      | [] -> 0
+      | first :: rest -> first + (sum_list rest) in
+    (sum_list first) :: (sum_all rest);;
