@@ -99,47 +99,43 @@ let sexp_info s =
   | Nest (_, x) -> x
 ;;
 
-let append_to_stack_first (acc : pos sexp list list) (app_item : pos sexp) : pos sexp list list =
-  match acc with
-  | [] -> [[app_item]]
-  | first :: rest -> (app_item :: first) :: rest
-;;
+type p_sexp_list = pos sexp list;;
+type nest_acc_type = (p_sexp_list * pos) list;;
 
-let rec parse_toks_helper (toks : pos tok list) (lp_loc : pos list) (nest_acc : pos sexp list list) (ret_acc : pos sexp list) : pos sexp list =
-  let rparen_helper (rest : pos tok list) (loc_rest : pos list) (t_nest_acc : pos sexp list list) (t_ret_acc : pos sexp list) (position : pos) : pos sexp list =
+
+
+let rec parse_toks_helper (toks : pos tok list) (nest_acc : nest_acc_type) (ret_acc : p_sexp_list) : p_sexp_list =
+  let append_and_continue (rest : pos tok list) (t_nest_acc : nest_acc_type) (t_ret_acc : p_sexp_list) (value : pos sexp) =
     match t_nest_acc with
-    | [] -> parse_toks_helper rest loc_rest [] (Nest([], position) :: t_ret_acc)
-    | first :: [] -> parse_toks_helper rest loc_rest [] (Nest((List.rev first), position) :: t_ret_acc)
-    | first :: acc_rest -> 
-      parse_toks_helper rest loc_rest (append_to_stack_first acc_rest (Nest((List.rev first), position))) t_ret_acc
+    | [] -> parse_toks_helper rest [] (value :: t_ret_acc)
+    | (nest_first, o_pos) :: nest_rest -> 
+      parse_toks_helper rest ((value :: nest_first, o_pos) :: nest_rest) t_ret_acc
     in
-  let value_helper (rest : pos tok list) (t_lp_loc : pos list) (t_nest_acc : pos sexp list list) (t_ret_acc : pos sexp list) (value : pos sexp) : pos sexp list =
-    match t_nest_acc with
-    | [] -> parse_toks_helper rest lp_loc [] (value :: ret_acc)
-    | _ :: _ -> parse_toks_helper rest lp_loc (append_to_stack_first t_nest_acc value) ret_acc
+  let rparen_helper (rest : pos tok list) (t_nest_acc : nest_acc_type) (t_ret_acc : p_sexp_list) (position : pos) (values : p_sexp_list) : p_sexp_list =
+    append_and_continue rest t_nest_acc t_ret_acc (Nest((List.rev values), position))
     in
   match toks with 
   | [] -> 
-    (match lp_loc with
+    (match nest_acc with
      | [] -> ret_acc
-     | first :: _ -> failwith (sprintf "Unmatched left paren at %s" (pos_to_string first false)))
+     | (_, unmatched_pos) :: _ -> failwith (sprintf "Unmatched left paren at %s" (pos_to_string unmatched_pos false)))
   | first :: rest ->
     (match first with
-     | LPAREN x -> parse_toks_helper rest (x :: lp_loc) ([] :: nest_acc) ret_acc
+     | LPAREN x -> parse_toks_helper rest (([], x) :: nest_acc) ret_acc
      | RPAREN x -> 
-      (match lp_loc with
+      (match nest_acc with
        | [] -> failwith (sprintf "Unmatched right paren at %s" (pos_to_string x false))
-       | loc_first :: loc_rest -> 
-        (let (from_line, from_col, _, _) = loc_first in 
+       | (nest_first, start_pos) :: nest_rest -> 
+        (let (from_line, from_col, _, _) = start_pos in 
          let (_, _, to_line, to_col) = x in
-         rparen_helper rest loc_rest nest_acc ret_acc (from_line, from_col, to_line, to_col)))
-     | TBool(value, x) -> value_helper rest lp_loc nest_acc ret_acc (Bool(value, x))
-     | TInt(value, x)-> value_helper rest lp_loc nest_acc ret_acc (Int(value, x))
-     | TSym(value, x)-> value_helper rest lp_loc nest_acc ret_acc (Sym(value, x)))
+         rparen_helper rest nest_rest ret_acc (from_line, from_col, to_line, to_col)) nest_first)
+     | TBool(value, x) -> append_and_continue rest nest_acc ret_acc (Bool(value, x))
+     | TInt(value, x)-> append_and_continue rest nest_acc ret_acc (Int(value, x))
+     | TSym(value, x)-> append_and_continue rest nest_acc ret_acc (Sym(value, x)))
 ;;
 
 let parse_toks (toks : pos tok list) : (pos sexp list, string) result =
-  try Ok(List.rev (parse_toks_helper toks [] [] [])) with 
+  try Ok(List.rev (parse_toks_helper toks [] [])) with 
   | Failure msg -> Error(msg)
 ;;
 let parse str = Error "Not yet implemented"
