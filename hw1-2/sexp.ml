@@ -99,20 +99,22 @@ let sexp_info s =
   | Nest (_, x) -> x
 ;;
 
+(* A defined type for a list of pos sexps *)
 type p_sexp_list = pos sexp list;;
+(* A defined type for the nest accumulator used in parse_toks_helper;
+  This is a list of (list of pos sexps paired with the open paren pos)
+*)
 type nest_acc_type = (p_sexp_list * pos) list;;
 
-
-
 let rec parse_toks_helper (toks : pos tok list) (nest_acc : nest_acc_type) (ret_acc : p_sexp_list) : p_sexp_list =
-  let append_and_continue (rest : pos tok list) (t_nest_acc : nest_acc_type) (t_ret_acc : p_sexp_list) (value : pos sexp) =
+  let prepend_and_continue (rest : pos tok list) (t_nest_acc : nest_acc_type) (t_ret_acc : p_sexp_list) (value : pos sexp) =
     match t_nest_acc with
     | [] -> parse_toks_helper rest [] (value :: t_ret_acc)
     | (nest_first, o_pos) :: nest_rest -> 
       parse_toks_helper rest ((value :: nest_first, o_pos) :: nest_rest) t_ret_acc
     in
   let rparen_helper (rest : pos tok list) (t_nest_acc : nest_acc_type) (t_ret_acc : p_sexp_list) (position : pos) (values : p_sexp_list) : p_sexp_list =
-    append_and_continue rest t_nest_acc t_ret_acc (Nest((List.rev values), position))
+    prepend_and_continue rest t_nest_acc t_ret_acc (Nest((List.rev values), position))
     in
   match toks with 
   | [] -> 
@@ -129,14 +131,21 @@ let rec parse_toks_helper (toks : pos tok list) (nest_acc : nest_acc_type) (ret_
         (let (from_line, from_col, _, _) = start_pos in 
          let (_, _, to_line, to_col) = x in
          rparen_helper rest nest_rest ret_acc (from_line, from_col, to_line, to_col)) nest_first)
-     | TBool(value, x) -> append_and_continue rest nest_acc ret_acc (Bool(value, x))
-     | TInt(value, x)-> append_and_continue rest nest_acc ret_acc (Int(value, x))
-     | TSym(value, x)-> append_and_continue rest nest_acc ret_acc (Sym(value, x)))
+     | TBool(value, x) -> prepend_and_continue rest nest_acc ret_acc (Bool(value, x))
+     | TInt(value, x)-> prepend_and_continue rest nest_acc ret_acc (Int(value, x))
+     | TSym(value, x)-> prepend_and_continue rest nest_acc ret_acc (Sym(value, x)))
 ;;
 
-let parse_toks (toks : pos tok list) : (pos sexp list, string) result =
+(* Parse the given pos tok list into an Ok list of pos sexp or Error containing a
+  message describing the parse error
+*)
+let parse_toks (toks : pos tok list) : (p_sexp_list, string) result =
   try Ok(List.rev (parse_toks_helper toks [] [])) with 
   | Failure msg -> Error(msg)
 ;;
-let parse str = Error "Not yet implemented"
+(* Parse the given string into an OK list of pos sexp or Error containing a message
+  describing a parsing error;
+  Done by tokenizing it and calling parse_toks on the returned tokens
+*)
+let parse str = (parse_toks (tokenize str))
 ;;

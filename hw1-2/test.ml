@@ -201,6 +201,29 @@ let parse_toks_tests = [
     ]));
     t_any "parse_toks_nest7" (parse_toks (tokenize "() a b")) 
       (Ok([Nest([], (0, 0, 0, 2)); Sym("a", (0, 3, 0, 4)); Sym("b", (0, 5, 0, 6))]));
+    t_any "parse_toks_nest8" (parse_toks (tokenize "(((())()))()"))
+      (Ok([Nest([Nest([
+        Nest([Nest([], (0, 3, 0, 5))], (0, 2, 0, 6)); 
+        Nest([], (0, 6, 0, 8))], (0, 1, 0, 9))], (0, 0, 0, 10));
+        Nest([], (0, 10, 0, 12))]));
+    t_any "parse_toks_nest9" (parse_toks (tokenize "(((()))))())()"))
+      (Error("Unmatched right paren at line 0, col 8"));
+    t_any "parse_toks_nest10" (parse_toks (tokenize "(a (b (c (3) d) e) f) g) h)())()"))
+      (Error("Unmatched right paren at line 0, col 23"));
+    t_any "parse_toks_nest11" (parse_toks (tokenize "(((()(()((()))((((((()))())()"))
+      (Error("Unmatched left paren at line 0, col 16"));
+    t_any "parse_toks_nest12" (parse_toks (tokenize "("))
+      (Error("Unmatched left paren at line 0, col 0"));
+    t_any "parse_toks_nest13" (parse_toks (tokenize ")"))
+      (Error("Unmatched right paren at line 0, col 0"));
+    t_any "parse_toks_nest14" (parse_toks (tokenize "a (b) c"))
+      (Ok([Sym("a", (0, 0, 0, 1)); 
+        Nest([Sym("b", (0, 3, 0, 4))], (0, 2, 0, 5)); 
+        Sym("c", (0, 6, 0, 7))]));
+    t_any "parse_toks_nest15" (parse_toks (tokenize "(((\n()\n(()(((\n)))\n((((\n((())\n)())()"))
+      (Error("Unmatched left paren at line 4, col 2"));
+    t_any "parse_toks_test16" (parse_toks (tokenize "\n(\nabcd\n\tbcd\t)"))
+      (Ok([Nest([Sym("abcd", (2, 0, 2, 4)); Sym("bcd", (3, 1, 3, 4))], (1, 0, 3, 6))]));
 ];;
 
 let all_sexp_tests = 
