@@ -106,34 +106,61 @@ type p_sexp_list = pos sexp list;;
 *)
 type nest_acc_type = (p_sexp_list * pos) list;;
 
+(* Accumulator helper for parsing tokens into a list of pos sexps;
+  This works using two accumulators, one for tokens that should be nested (nest_acc),
+    and one for top-level tokens that should be returned in the Ok list by the 
+    parse_toks call (ret_acc);
+  Syntax errors raise a Failure exception containing a message to alert the caller 
+    that there was an error with parsing, the caller should be prepared to react to this;
+  For functionality, when a top-level value is found (other than an LPAREN) (detected
+    by whether or not nest_acc has any elements), the value is added directly to ret_acc;
+    when a nested value is found (nest_acc has 1 or more elements), then the value is
+    added to the first nest_acc sub-list
+*)
 let rec parse_toks_helper (toks : pos tok list) (nest_acc : nest_acc_type) (ret_acc : p_sexp_list) : p_sexp_list =
-  let prepend_and_continue (rest : pos tok list) (t_nest_acc : nest_acc_type) (t_ret_acc : p_sexp_list) (value : pos sexp) =
+  (* Prepends the given value onto either the first sub-list of t_nest_acc (if one exists for a Nest currently 
+      being built) or ret_acc and continues processing by passing the updated list values into parse_toks_helper 
+      with the remaining tokens;
+    t_nest_acc is required instead of using the already-available nest_acc because the list may
+      be updated when creating the value param
+  *)
+  let prepend_and_continue (tok_rest : pos tok list) (t_nest_acc : nest_acc_type) (value : pos sexp) =
     match t_nest_acc with
-    | [] -> parse_toks_helper rest [] (value :: t_ret_acc)
-    | (nest_first, o_pos) :: nest_rest -> 
-      parse_toks_helper rest ((value :: nest_first, o_pos) :: nest_rest) t_ret_acc
+    (* if t_nest_acc is empty, append the value to ret_acc as a top-level value and call parse_toks_helper*)
+    | [] -> parse_toks_helper tok_rest [] (value :: ret_acc)
+    (* if t_nest_acc is not empty, append the value to the first sub-list of t_nest_acc,
+      keeping the same open_position value for the Nest currently being created and call parse_toks_helper
+    *)
+    | (nest_first, open_position) :: nest_rest -> 
+      parse_toks_helper tok_rest ((value :: nest_first, open_position) :: nest_rest) ret_acc
     in
-  let rparen_helper (rest : pos tok list) (t_nest_acc : nest_acc_type) (t_ret_acc : p_sexp_list) (position : pos) (values : p_sexp_list) : p_sexp_list =
-    prepend_and_continue rest t_nest_acc t_ret_acc (Nest((List.rev values), position))
+  (* Handle closing a Nest when a RPAREN is encoutered by either:
+    - raising a Fail if there is no Nest currently being created (unmatched right paren), or
+    - calling prepend_and_continue with the value being a new Nest containing the reversed 
+      list of
+
+  *)
+  let rparen_helper (tok_rest : pos tok list) (end_pos : pos) : p_sexp_list =
+    match nest_acc with
+    | [] -> failwith (sprintf "Unmatched right paren at %s" (pos_to_string end_pos false))
+    | (nest_first, start_pos) :: nest_rest -> 
+     let (from_line, from_col, _, _) = start_pos in 
+     let (_, _, to_line, to_col) = end_pos in
+     (prepend_and_continue tok_rest nest_rest 
+       (Nest((List.rev nest_first), (from_line, from_col, to_line, to_col))))
     in
   match toks with 
   | [] -> 
     (match nest_acc with
      | [] -> ret_acc
      | (_, unmatched_pos) :: _ -> failwith (sprintf "Unmatched left paren at %s" (pos_to_string unmatched_pos false)))
-  | first :: rest ->
-    (match first with
-     | LPAREN x -> parse_toks_helper rest (([], x) :: nest_acc) ret_acc
-     | RPAREN x -> 
-      (match nest_acc with
-       | [] -> failwith (sprintf "Unmatched right paren at %s" (pos_to_string x false))
-       | (nest_first, start_pos) :: nest_rest -> 
-        (let (from_line, from_col, _, _) = start_pos in 
-         let (_, _, to_line, to_col) = x in
-         rparen_helper rest nest_rest ret_acc (from_line, from_col, to_line, to_col)) nest_first)
-     | TBool(value, x) -> prepend_and_continue rest nest_acc ret_acc (Bool(value, x))
-     | TInt(value, x)-> prepend_and_continue rest nest_acc ret_acc (Int(value, x))
-     | TSym(value, x)-> prepend_and_continue rest nest_acc ret_acc (Sym(value, x)))
+  | tok_first :: tok_rest ->
+    (match tok_first with
+     | LPAREN position -> parse_toks_helper tok_rest (([], position) :: nest_acc) ret_acc
+     | RPAREN position -> rparen_helper tok_rest position
+     | TBool(value, position) -> prepend_and_continue tok_rest nest_acc (Bool(value, position))
+     | TInt(value, position)-> prepend_and_continue tok_rest nest_acc (Int(value, position))
+     | TSym(value, position)-> prepend_and_continue tok_rest nest_acc (Sym(value, position)))
 ;;
 
 (* Parse the given pos tok list into an Ok list of pos sexp or Error containing a
