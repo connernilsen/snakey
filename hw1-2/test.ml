@@ -175,9 +175,36 @@ let arith_suite = "arithmetic_evaluation">:::all_arith_tests
 run_test_tt_main arith_suite
 ;;
 
-let all_sexp_tests = [
-    (* More tests here *)
-  ]
+let parse_toks_tests = [
+  t_any "parse_toks_test1" (parse_toks (tokenize "(a b)"))
+    (Ok([Nest([Sym("a", (0, 1, 0, 2)); Sym("b", (0, 3, 0, 4))], (0, 0, 0, 5))]));
+  t_any "parse_toks_test2" (parse_toks (tokenize "(a (b true) 3)")) 
+    (Ok([
+      Nest([Sym("a", (0, 1, 0, 2)); 
+        Nest([Sym("b", (0, 4, 0, 5)); Bool(true, (0, 6, 0, 10))], (0, 3, 0, 11)); 
+      Int(3, (0, 12, 0, 13))],
+    (0, 0, 0, 14))]));
+  t_any "parse_toks_test3" (parse_toks (tokenize "(a")) (Error("Unmatched left paren at line 0, col 0"));
+  t_any "parse_toks_test4" (parse_toks (tokenize "(a (b c")) (Error("Unmatched left paren at line 0, col 3"));
+  t_any "parse_toks_test5" (parse_toks (tokenize "(a (b c)))")) (Error("Unmatched right paren at line 0, col 9"));
+  t_any "parse_toks_test6" (parse_toks (tokenize "(a (b (c) d) e)"))
+    (Ok([
+      Nest([
+        Sym("a", (0, 1, 0, 2)); Nest([
+          Sym("b", (0, 4, 0, 5)); Nest([
+            Sym("c", (0, 7, 0, 8))
+          ], (0, 6, 0, 9)); 
+          Sym("d", (0, 10, 0, 11))
+        ], (0, 3, 0, 12)); 
+        Sym("e", (0, 13, 0, 14))
+      ], (0, 0, 0, 15))
+    ]));
+    t_any "parse_toks_nest7" (parse_toks (tokenize "() a b")) 
+      (Ok([Nest([], (0, 0, 0, 2)); Sym("a", (0, 3, 0, 4)); Sym("b", (0, 5, 0, 6))]));
+];;
+
+let all_sexp_tests = 
+  parse_toks_tests
 ;;
 
 let sexp_suite = "sexp_parsing">:::all_sexp_tests

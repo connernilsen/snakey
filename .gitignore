@@ -3,5 +3,5 @@
 *.cmo
 *.log
 *.cache
-hw1/test
+**/test
 *.zip
