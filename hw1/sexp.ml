@@ -167,7 +167,7 @@ let rec parse_toks_helper (toks : pos tok list) (nest_acc : nest_acc_type) (ret_
   | [] -> 
     (match nest_acc with
     (* if nest_acc is empty, then all LPARENS had a matching RPAREN*)
-     | [] -> ret_acc
+     | [] -> List.rev ret_acc
     (* if nest_acc has a first value, then get the unmatched LPAREN info and raise an exception *)
      | (_, unmatched_pos) :: _ -> failwith (sprintf "Unmatched left paren at %s" (pos_to_string unmatched_pos false)))
   (* some tokens remain *)
@@ -188,7 +188,7 @@ let rec parse_toks_helper (toks : pos tok list) (nest_acc : nest_acc_type) (ret_
   message describing the parse error
 *)
 let parse_toks (toks : pos tok list) : (p_sexp_list, string) result =
-  try Ok(List.rev (parse_toks_helper toks [] [])) with 
+  try Ok(parse_toks_helper toks [] []) with 
   | Failure msg -> Error(msg)
 ;;
 (* Parse the given string into an OK list of pos sexp or Error containing a message
