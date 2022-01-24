@@ -314,6 +314,13 @@ let parse_tests = [
       (Ok([Nest([Sym("abcd", (2, 0, 2, 4)); Sym("bcd", (3, 1, 3, 4))], (1, 0, 3, 6))]));
 ];;
 
+let t_parse_help_ex = 
+  (fun name func is_lp line_no col_no -> 
+    t_expect_ex name (func) 
+      (sprintf "Unmatched %s paren at line %d, col %d" 
+        (if is_lp then "left" else "right")
+        line_no col_no))
+  
 (* Tests for parse_toks_helper that add different accumulator values;
   NOTE: "|" (a pipe character) represents where the tokenized string input starts from --
     all values preceeding the | are added in the accumulators
@@ -366,12 +373,12 @@ let parse_toks_helper_tests = [
     (parse_toks_helper (tokenize "\n\n))") 
       [([Sym("b", (1, 4, 1, 5)); Sym("a", (1, 2, 1, 3))], (1, 0, 1, 1)); ([Int(5, (0, 2, 0, 3))], (0, 0, 0, 1))] [])
     [Nest([Int(5, (0, 2, 0, 3)); Nest([Sym("a", (1, 2, 1, 3)); Sym("b", (1, 4, 1, 5))], (1, 0, 2, 1))], (0, 0, 2, 2))];
-  t_any "parse_toks_helper_test8"
+  t_any "parse_toks_helper_test8_complex_nested_input"
   (* mock input:
     0 
     (1 
       (2 
-        (3 4) 
+        (3 |4) 
         5) 
       6) 
     7
@@ -388,6 +395,32 @@ let parse_toks_helper_tests = [
         Int(5, (4, 2, 4, 3))], (2, 1, 4, 4));
       Int(6, (5, 1, 5, 2))], (1, 0, 5, 3));
     Int(7, (6, 0, 6, 1))];
+  t_parse_help_ex "parse_toks_helper_test9_ex_simple_lp"
+    (fun _ -> (parse_toks_helper (tokenize "(") [] []))
+    true 0 0;
+  t_parse_help_ex "parse_toks_helper_test10_ex_simple_rp"
+    (fun _ -> (parse_toks_helper (tokenize ")") [] []))
+    false 0 0;
+  t_parse_help_ex "parse_toks_helper_test11_ex_top_level_value_lp"
+    (fun _ -> (parse_toks_helper (tokenize " (") [] [Sym("a", (0, 0, 0, 1))]))
+    true 0 1;
+  t_parse_help_ex "parse_toks_helper_test12_ex_top_level_value_rp"
+    (fun _ -> (parse_toks_helper (tokenize " )") [] [Sym("a", (0, 0, 0, 1))]))
+    false 0 1;
+  t_parse_help_ex "parse_toks_helper_test13_ex_unmatched_lp_in_acc"
+    (fun _ -> (parse_toks_helper (tokenize "") [([], (0, 0, 0, 0))] []))
+    true 0 0;
+  t_parse_help_ex "parse_toks_helper_test14_ex_unmatched_rp_lp_in_acc"
+    (fun _ -> (parse_toks_helper (tokenize " ))") [([], (0, 0, 0, 0))] []))
+    false 0 2;
+  t_parse_help_ex "parse_toks_helper_test15_deep_ex_unmatched_rp_with_tokenized_rp"
+    (fun _ -> (parse_toks_helper (tokenize "   )))") 
+      [([], (0, 1, 0, 2)); ([], (0, 0, 0, 1))] []))
+    false 0 5;
+  t_parse_help_ex "parse_toks_helper_test16_deep_ex_unmatched_lp_with_some_rp"
+    (fun _ -> (parse_toks_helper (tokenize "   ))") 
+      [([], (0, 2, 0, 3)); ([], (0, 1, 0, 2)); ([], (0, 0, 0, 1))] []))
+    true 0 0;
 ];;
 
 let all_sexp_tests = 
