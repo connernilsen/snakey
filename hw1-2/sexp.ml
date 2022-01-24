@@ -102,7 +102,11 @@ let sexp_info s =
 (* A defined type for a list of pos sexps *)
 type p_sexp_list = pos sexp list;;
 (* A defined type for the nest accumulator used in parse_toks_helper;
-  This is a list of (list of pos sexps paired with the open paren pos)
+  This is a list of (list of pos sexps paired with the open paren pos);
+  Each (p_sexp_list * pos) item represents a an LPAREN found, where
+    each item in the p_sexp_list is an item that should be nested in the 
+    Nest that eventually gets created, and the pos represents the position
+    of the opening LPAREN for the Nest
 *)
 type nest_acc_type = (p_sexp_list * pos) list;;
 
@@ -136,26 +140,43 @@ let rec parse_toks_helper (toks : pos tok list) (nest_acc : nest_acc_type) (ret_
     in
   (* Handle closing a Nest when a RPAREN is encoutered by either:
     - raising a Fail if there is no Nest currently being created (unmatched right paren), or
-    - calling prepend_and_continue with the value being a new Nest containing the reversed 
-      list of
-
+    - calling prepend_and_continue with the value being a new Nest to continue parsing new tokens;
+    In the case a new Nest is returned, it uses the first value available in the nest_acc for information,
+    - the pos information takes the start LPAREN info from the first value in nest_acc, and uses the
+      end position information from the RPAREN to construct a new pos spanning the LPAREN to the RPAREN
+    - the Nest list contents use the reversed nest_acc's first value's p_sexp_list, since the values
+      are prepended, creating the list in reverse order
   *)
   let rparen_helper (tok_rest : pos tok list) (end_pos : pos) : p_sexp_list =
     match nest_acc with
+    (* if nest_acc is empty, but an RPAREN was encountered, then this is an unmatched RPAREN *)
     | [] -> failwith (sprintf "Unmatched right paren at %s" (pos_to_string end_pos false))
+    (* otherwise, construct the pos information spanning the matched LPAREN to this RPAREN, and create a new NEST;
+      call prepend_and_continue with the new nest *)
     | (nest_first, start_pos) :: nest_rest -> 
+     (* get the from_line and from_col from the corresponding LPAREN *)
      let (from_line, from_col, _, _) = start_pos in 
+     (* get the to_line and to_col from this RPAREN *)
      let (_, _, to_line, to_col) = end_pos in
+     (* call prepend_and_continue with the remaining tok values, nest_acc values, and created Nest object *)
      (prepend_and_continue tok_rest nest_rest 
        (Nest((List.rev nest_first), (from_line, from_col, to_line, to_col))))
     in
   match toks with 
+  (* no tokens remain *)
   | [] -> 
     (match nest_acc with
+    (* if nest_acc is empty, then all LPARENS had a matching RPAREN*)
      | [] -> ret_acc
+    (* if nest_acc has a first value, then get the unmatched LPAREN info and raise an exception *)
      | (_, unmatched_pos) :: _ -> failwith (sprintf "Unmatched left paren at %s" (pos_to_string unmatched_pos false)))
+  (* some tokens remain *)
   | tok_first :: tok_rest ->
+    (* handle creating a sexp for the given token *)
     (match tok_first with
+    (* LPAREN is a special case, instead of creating a new sexp, prepend new LPAREN info onto nest_acc to mark 
+      the start of this
+    *)
      | LPAREN position -> parse_toks_helper tok_rest (([], position) :: nest_acc) ret_acc
      | RPAREN position -> rparen_helper tok_rest position
      | TBool(value, position) -> prepend_and_continue tok_rest nest_acc (Bool(value, position))
