@@ -1,4 +1,5 @@
-S src/**
+S hw0/**
+S hw1/**
 
 B _build/*
 

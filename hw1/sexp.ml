@@ -25,7 +25,7 @@ let pos_to_string (startline, startcol, endline, endcol) range =
   else
     Printf.sprintf "line %d, col %d" startline startcol
 ;;
-  
+
 (* This function tokenizes a string into a list of pos toks.
   This occurs by creating a regex using (regexp "[()\n\t ]"), which splits on "(", ")", or 
   whitespace, then splitting the given string into Delims and Text, and finally folding
@@ -35,7 +35,11 @@ let pos_to_string (startline, startcol, endline, endcol) range =
   where this token appears in the given string. In the fold_left call, if the current token
   is Text and not a boolean value, the function will try to convert it to an int in a try/with
   statement. If the value cannot be converted to an int, a Failure will be raised by
-  string_of_int, caught by the with statement, and identified as a TSym.
+  string_of_int, caught by the with statement, and identified as a TSym. If the token
+  value is whitespace, then only line and col nums are updated corresponding to the whitespace
+  value. If, finally, the token is a "(" or ")", then the corresponding LPAREN or RPAREN
+  is created. The final tuple returned from fold_left gets and returns only the first 
+  toks value, representing the tokens created.
 
   In depth explanation:
   - calling regexp with "[()\n\t ]" to create a regex matching parens and whitespace
@@ -141,11 +145,11 @@ let rec parse_toks_helper (toks : pos tok list) (nest_acc : nest_acc_type) (ret_
   (* Handle closing a Nest when a RPAREN is encoutered by either:
     - raising a Fail if there is no Nest currently being created (unmatched right paren), or
     - calling prepend_and_continue with the value being a new Nest to continue parsing new tokens;
-    In the case a new Nest is returned, it uses the first value available in the nest_acc for information,
-    - the pos information takes the start LPAREN info from the first value in nest_acc, and uses the
-      end position information from the RPAREN to construct a new pos spanning the LPAREN to the RPAREN
+    In the case a new Nest is created, it uses the first value available in the nest_acc for information,
     - the Nest list contents use the reversed nest_acc's first value's p_sexp_list, since the values
       are prepended, creating the list in reverse order
+    - the pos information takes the start LPAREN info from the first value in nest_acc, and uses the
+      end position information from the RPAREN to construct a new pos spanning the LPAREN to the RPAREN
   *)
   let rparen_helper (tok_rest : pos tok list) (end_pos : pos) : p_sexp_list =
     match nest_acc with

@@ -103,6 +103,8 @@ let pretty_tests = [
   t_any "pretty12_nested_complex_adjacent_nums" (pretty
     (Times(Times(Num(1), Times(Num(2), Variable("x"))), 
       Times(Times(Variable("y"), Times(Variable("z"), Num(5))), Num(4))))) "1 * 2xyz5 * 4";
+  t_any "pretty13_multiply_in_times_with_adj_nums" (pretty 
+    (Times(Num(2), Plus(Num(3), Num(6))))) "2(3 + 6)";
 ];;
 
 let is_mult_edge_num_tests = [
