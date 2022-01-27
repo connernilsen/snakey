@@ -1,6 +1,10 @@
 S hw0/**
 S hw1/**
 
-B _build/*
-
+PKG extlib
+PKG oUnit
+PKG unix
+PKG batteries
 PKG base
+
+B _build/*
