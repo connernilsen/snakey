@@ -27,6 +27,12 @@ type 'a expr =
   | Let of (string * 'a expr) list * 'a expr * 'a
   | Prim1 of prim1 * 'a expr * 'a
 
+let expr_info e = match e with Number (_, x) | Id (_, x) | Let (_, _, x) | Prim1 (_, _, x) -> x
+
+let create_wrapped_loc ((start_line, start_col, _, _) : pos) ((_, _, end_line, end_col) : pos) : pos
+    =
+  (start_line, start_col, end_line, end_col)
+
 (* Function to convert from unknown s-expressions to Adder exprs Throws a SyntaxError message if
 
    there's a problem *)
@@ -34,9 +40,30 @@ type 'a expr =
 exception SyntaxError of string
 
 let rec expr_of_sexp (s : pos sexp) : pos expr =
-  (* COMPLETE THIS FUNCTION *)
-  failwith
-    (sprintf "Converting sexp not yet implemented at pos %s" (pos_to_string (sexp_info s) true))
+  match s with
+  | Sym (sym, position) -> Id (sym, position)
+  | Int (value, position) -> Number (value, position)
+  | Bool (_, position) ->
+      failwith (sprintf "Booleans not defined in lang found at %s" (pos_to_string position false))
+      (* TODO: do we want let pos? *)
+      (* Handle let *)
+  | Nest ([Sym ("let", _); Nest (bindings, _); expr], nest_pos) ->
+      Let (handle_let_bindings bindings, expr_of_sexp expr, nest_pos) (* Handle add1 *)
+  | Nest ([Sym ("add1", add_loc); add], nest_pos) ->
+      let e = expr_of_sexp add in
+      Prim1 (Add1, e, nest_pos)
+  | Nest ([Sym ("sub1", sub1_pos); sub], nest_pos) ->
+      let e = expr_of_sexp sub in
+      Prim1 (Sub1, e, nest_pos)
+  | Nest (_, nest_pos) -> failwith "failed nest TODO MESSAGE"
+
+and handle_let_bindings (bindings : pos sexp list) : (string * 'a expr) list =
+  match bindings with
+  | [] -> []
+  | Nest ([Sym (id, id_pos); value], pos) :: rest ->
+      (id, expr_of_sexp value) :: handle_let_bindings rest
+  | Nest (_, nest_pos) :: _ -> failwith "Incorrect nest signature TODO fix message"
+  | _ -> failwith "TODO fix this"
 
 (* Functions that implement the compiler *)
 
@@ -44,21 +71,19 @@ let rec expr_of_sexp (s : pos sexp) : pos expr =
 
    one function has been fully implemented for you. *)
 
-let reg_to_asm_string (r : reg) : string =
-  (* COMPLETE THIS FUNCTION *)
-  failwith "Not yet implemented"
+let reg_to_asm_string (r : reg) : string = match r with RAX -> "RAX" | RSP -> "RSP"
 
 let arg_to_asm_string (a : arg) : string =
   match a with
   | Const n -> sprintf "%Ld" n
-  (* COMPLETE THIS FUNCTION *)
-  | _ -> failwith "Other args not yet implemented"
+  | Reg r -> reg_to_asm_string r
+  | RegOffset (o, r) -> sprintf "[%s + %d * %d]" (reg_to_asm_string r) word_size o
 
 let instruction_to_asm_string (i : instruction) : string =
   match i with
   | IMov (dest, value) -> sprintf "\tmov %s, %s" (arg_to_asm_string dest) (arg_to_asm_string value)
-  (* COMPLETE THIS FUNCTION *)
-  | _ -> failwith "Other instructions not yet implemented"
+  | IAdd (dest, value) -> sprintf "\tadd %s, %s" (arg_to_asm_string dest) (arg_to_asm_string value)
+  | IRet -> "\tret"
 
 let to_asm_string (is : instruction list) : string =
   List.fold_left (fun s i -> sprintf "%s\n%s" s (instruction_to_asm_string i)) "" is
@@ -88,8 +113,10 @@ let rec compile_env (p : pos expr) (* the program, currently annotated with sour
 
   (* the instructions that would execute this program *)
   match p with
-  | Number (n, _) -> [IMov (Reg RAX, Const n)]
-  | _ -> failwith "Other exprs not yet implemented"
+  | Number (n, x) -> [IMov (Reg RAX, Const n)]
+  | Id (id, x) -> []
+  | Let (_, _, x) -> []
+  | Prim1 (_, _, x) -> []
 
 let compile (p : pos expr) : instruction list = compile_env p 1 []
 
