@@ -16,7 +16,6 @@ let string_of_file (file_name : string) : string =
   let ans = really_input_string inchan (in_channel_length inchan) in
   close_in inchan ; ans
 
-
 let parse_string (s : string) : pos expr = Compile.expr_of_sexp (Sexp.parse s)
 
 let compile_string_to_string (s : string) : string =
@@ -39,27 +38,18 @@ let make_tmpfiles (name : string) (std_input : string) : tempfiles =
   let stdout_name = temp_file ("stdout_" ^ name) ".out" in
   let stderr_name = temp_file ("stderr_" ^ name) ".err" in
   ignore (Unix.write_substring stdin_write std_input 0 (String.length std_input)) ;
-
   Unix.close stdin_write ;
-
   ( openfile stdout_name [O_RDWR] 0o600
-
   , stdout_name
-
   , openfile stderr_name [O_RDWR] 0o600
-
   , stderr_name
-
   , stdin_read )
-
 
 let run_no_vg (program_name : string) args std_input : (string, string) result =
   let rstdout, rstdout_name, rstderr, rstderr_name, rstdin = make_tmpfiles "run" std_input in
-
   let ran_pid =
     Unix.create_process (program_name ^ ".run")
       (Array.of_list ([program_name ^ ".run"] @ args))
-
       rstdin rstdout rstderr
   in
   let _, status = waitpid [] ran_pid in
@@ -67,33 +57,22 @@ let run_no_vg (program_name : string) args std_input : (string, string) result =
     match status with
     | WEXITED 0 -> Ok (string_of_file rstdout_name)
     | WEXITED n -> Error (sprintf "Error %d: %s" n (string_of_file rstderr_name))
-
     | WSIGNALED n -> Error (sprintf "Signalled with %d while running %s." n program_name)
-
     | WSTOPPED n -> Error (sprintf "Stopped with signal %d while running %s." n program_name)
-
   in
   List.iter close [rstdout; rstderr; rstdin] ;
-
   List.iter unlink [rstdout_name; rstderr_name] ;
-
   result
 
 let run_asm (asm_string : string) (out : string)
     (runner : string -> string list -> string -> (string, string) result) args (std_input : string)
-
     =
-
   let outfile = open_out (out ^ ".s") in
   fprintf outfile "%s" asm_string ;
-
   close_out outfile ;
-
   let bstdout, bstdout_name, bstderr, bstderr_name, bstdin = make_tmpfiles "build" "" in
-
   let built_pid =
     Unix.create_process "make" (Array.of_list ["make"; out ^ ".run"]) bstdin bstdout bstderr
-
   in
   let _, status = waitpid [] built_pid in
   let try_running =
@@ -102,24 +81,15 @@ let run_asm (asm_string : string) (out : string)
     | WEXITED n ->
         Error
           (sprintf "Finished with error while building %s:\nStderr:\n%s\nStdout:\n%s" out
-
              (string_of_file bstderr_name) (string_of_file bstdout_name) )
-
     | WSIGNALED n -> Error (sprintf "Signalled with %d while building %s." n out)
-
     | WSTOPPED n -> Error (sprintf "Stopped with signal %d while building %s." n out)
-
   in
   let result =
-
     match try_running with Error _ -> try_running | Ok msg -> runner out args std_input
-
   in
-
   List.iter close [bstdout; bstderr; bstdin] ;
-
   List.iter unlink [bstdout_name; bstderr_name] ;
-
   result
 
 let run p out runner args std_input =
@@ -147,12 +117,9 @@ let test_err (program_str : string) (outfile : string) (errmsg : string)
     | err -> Error (Printexc.to_string err)
   in
   assert_equal (Error errmsg) result ~printer:result_printer ~cmp:(fun check result ->
-
       match (check, result) with
       | Error expect_msg, Error actual_message -> String.exists actual_message expect_msg
-
       | _ -> false )
-
 
 let test_run_input filename expected test_ctxt =
   test_run (string_of_file ("input/" ^ filename)) filename expected test_ctxt
