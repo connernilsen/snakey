@@ -1,6 +1,19 @@
-profile = ocamlformat
-break-cases = fit
+profile = default # ocamlformat
 margin = 100
-parse-docstrings = true
-wrap-comments = true
 line-endings = crlf
+
+break-cases = fit-or-vertical # fit ?
+break-infix = fit-or-vertical
+break-fun-decl = fit-or-vertical
+break-fun-sig = fit-or-vertical
+break-infix = fit-or-vertical
+break-separators = after # can remove if we keep default
+doc-comments = before-except-val # before / after-when-possible ?
+let-and = sparse
+let-binding-spacing = double-semicolon
+# no-space-around-arrays = true
+# no-space-around-lists = true
+# no-space-around-records = true
+# no-space-around-variants = true
+parse-docstrings = true # do we want?
+wrap-comments = true # do we want?
