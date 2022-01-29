@@ -100,6 +100,10 @@ let rec find (ls : (string * 'a) list) (x : string) : 'a option =
 (* The exception to be thrown when some sort of problem is found with names *)
 exception BindingError of string
 
+type env = (string * int) list
+
+let rec add (name : string) (slot : int) (env : env) : env = (name, slot) :: env
+
 (* The actual compilation process. The `compile` function is the primary function, and uses
 
    `compile_env` as its helper. In a more idiomatic OCaml program, this helper would likely be a
@@ -114,8 +118,18 @@ let rec compile_env (p : pos expr) (* the program, currently annotated with sour
   (* the instructions that would execute this program *)
   match p with
   | Number (n, x) -> [IMov (Reg RAX, Const n)]
-  | Id (id, x) -> []
-  | Let (_, _, x) -> []
+  | Id (id, x) -> (
+      let lex = find env id in
+      match lex with
+      | Some lex -> [IMov (Reg RAX, RegOffset (~-stack_index * lex, RSP))]
+      | None -> failwith "Unknown variable" )
+  | Let ([], e, loc) -> compile_env e stack_index env
+  | Let ((id, expr) :: bindings, body, loc) ->
+      let env' = add id stack_index env in
+      (* Assuming you can't have a let in the right side of a let binding *)
+      compile_env expr (stack_index + 1) env
+      @ [IMov (RegOffset (~-1 * (stack_index + 1), RSP), Reg RAX)]
+      @ compile_env (Let (bindings, body, loc)) (stack_index + 1) env'
   | Prim1 (_, _, x) -> []
 
 let compile (p : pos expr) : instruction list = compile_env p 1 []
