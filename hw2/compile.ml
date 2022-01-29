@@ -30,7 +30,7 @@ type 'a expr =
 let expr_info e = match e with Number (_, x) | Id (_, x) | Let (_, _, x) | Prim1 (_, _, x) -> x
 
 let create_wrapped_loc ((start_line, start_col, _, _) : pos) ((_, _, end_line, end_col) : pos) : pos
-    =
+  =
   (start_line, start_col, end_line, end_col)
 
 (* Function to convert from unknown s-expressions to Adder exprs Throws a SyntaxError message if
@@ -44,24 +44,24 @@ let rec expr_of_sexp (s : pos sexp) : pos expr =
   | Sym (sym, position) -> Id (sym, position)
   | Int (value, position) -> Number (value, position)
   | Bool (_, position) ->
-      failwith (sprintf "Booleans not defined in lang found at %s" (pos_to_string position false))
-      (* TODO: do we want let pos? *)
-      (* Handle let *)
+    failwith (sprintf "Booleans not defined in lang found at %s" (pos_to_string position false))
+  (* TODO: do we want let pos? *)
+  (* Handle let *)
   | Nest ([Sym ("let", _); Nest (bindings, _); expr], nest_pos) ->
-      Let (handle_let_bindings bindings, expr_of_sexp expr, nest_pos) (* Handle add1 *)
+    Let (handle_let_bindings bindings, expr_of_sexp expr, nest_pos) (* Handle add1 *)
   | Nest ([Sym ("add1", add_loc); add], nest_pos) ->
-      let e = expr_of_sexp add in
-      Prim1 (Add1, e, nest_pos)
+    let e = expr_of_sexp add in
+    Prim1 (Add1, e, nest_pos)
   | Nest ([Sym ("sub1", sub1_pos); sub], nest_pos) ->
-      let e = expr_of_sexp sub in
-      Prim1 (Sub1, e, nest_pos)
+    let e = expr_of_sexp sub in
+    Prim1 (Sub1, e, nest_pos)
   | Nest (_, nest_pos) -> failwith "failed nest TODO MESSAGE"
 
 and handle_let_bindings (bindings : pos sexp list) : (string * 'a expr) list =
   match bindings with
   | [] -> []
   | Nest ([Sym (id, id_pos); value], pos) :: rest ->
-      (id, expr_of_sexp value) :: handle_let_bindings rest
+    (id, expr_of_sexp value) :: handle_let_bindings rest
   | Nest (_, nest_pos) :: _ -> failwith "Incorrect nest signature TODO fix message"
   | _ -> failwith "TODO fix this"
 
@@ -112,7 +112,7 @@ let rec add (name : string) (slot : int) (env : env) : env = (name, slot) :: env
 
 let rec compile_env (p : pos expr) (* the program, currently annotated with source location info *)
     (stack_index : int) (* the next available stack index *) (env : (string * int) list) :
-    instruction list =
+  instruction list =
   (* the current binding environment of names to stack slots *)
 
   (* the instructions that would execute this program *)
@@ -125,11 +125,11 @@ let rec compile_env (p : pos expr) (* the program, currently annotated with sour
       | None -> failwith "Unknown variable" )
   | Let ([], e, loc) -> compile_env e stack_index env
   | Let ((id, expr) :: bindings, body, loc) ->
-      let env' = add id stack_index env in
-      (* Assuming you can't have a let in the right side of a let binding *)
-      compile_env expr (stack_index + 1) env
-      @ [IMov (RegOffset (~-1 * (stack_index + 1), RSP), Reg RAX)]
-      @ compile_env (Let (bindings, body, loc)) (stack_index + 1) env'
+    let env' = add id stack_index env in
+    (* Assuming you can't have a let in the right side of a let binding *)
+    compile_env expr (stack_index + 1) env
+    @ [IMov (RegOffset (~-1 * (stack_index + 1), RSP), Reg RAX)]
+    @ compile_env (Let (bindings, body, loc)) (stack_index + 1) env'
   | Prim1 (_, _, x) -> []
 
 let compile (p : pos expr) : instruction list = compile_env p 1 []
