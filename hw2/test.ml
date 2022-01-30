@@ -52,7 +52,22 @@ let expr_of_sexp_tests =
 let compile_env_tests =
   [t_any "compile_env_simple" (compile (Number (1L, (0, 9, 0, 10)))) [IMov (Reg RAX, Const 1L)];
    t_any "compile_env_add1" (compile (expr_of_sexp (parse "(add1 1)"))) [IMov (Reg RAX, Const 1L);IAdd (Reg RAX, Const 1L)];
-   t_any "compile_env_simple_let" (compile (expr_of_sexp (parse "(let ((x 1)) x)"))) [IMov (Reg RAX, Const 1L);IMov (RegOffset (~-1, RSP), Reg RAX);IMov  (Reg RAX, RegOffset (~-1, RSP));]
+   t_any "compile_env_simple_let" (compile (expr_of_sexp (parse "(let ((x 1)) x)"))) [IMov (Reg RAX, Const 1L);IMov (RegOffset (~-1, RSP), Reg RAX);IMov  (Reg RAX, RegOffset (~-1, RSP));];
+   t_any "compile_env_multi_let" (compile (expr_of_sexp (parse "(let ((x 10) (y (add1 x)) (z (add1 y))) (add1 z))")))
+    [IMov (Reg RAX, Const 10L); IMov (RegOffset (~-1, RSP), Reg RAX); 
+    IMov (Reg RAX, RegOffset (~-1, RSP)); IAdd (Reg RAX, Const 1L); 
+    IMov (RegOffset (~-2, RSP), Reg RAX);
+    IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L);
+    IMov (RegOffset (~-3, RSP), Reg RAX);
+    IMov (Reg RAX, RegOffset (~-3, RSP)); IAdd (Reg RAX, Const 1L)];
+  t_any "compile_env_nested_let" (compile (expr_of_sexp (parse "(let ((a 10) (c (let ((b (add1 a)) (d (add1 b))) (add1 b)))) (add1 c))")))
+  [IMov (Reg RAX, Const 10L); IMov (RegOffset (~-1, RSP), Reg RAX);
+  IMov (Reg RAX, RegOffset (~-1, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-2, RSP), Reg RAX);
+  IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-3, RSP), Reg RAX);
+  IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L); 
+  IMov (RegOffset (~-2, RSP), Reg RAX);
+  IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L)
+  ]
   ]
 
 let integration_tests =
