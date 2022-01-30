@@ -66,7 +66,7 @@ let run_no_vg (program_name : string) args std_input : (string, string) result =
 
 let run_asm (asm_string : string) (out : string)
     (runner : string -> string list -> string -> (string, string) result) args (std_input : string)
-    =
+  =
   let outfile = open_out (out ^ ".s") in
   fprintf outfile "%s" asm_string ;
   close_out outfile ;
@@ -79,9 +79,9 @@ let run_asm (asm_string : string) (out : string)
     match status with
     | WEXITED 0 -> Ok (string_of_file bstdout_name)
     | WEXITED n ->
-        Error
-          (sprintf "Finished with error while building %s:\nStderr:\n%s\nStdout:\n%s" out
-             (string_of_file bstderr_name) (string_of_file bstdout_name) )
+      Error
+        (sprintf "Finished with error while building %s:\nStderr:\n%s\nStdout:\n%s" out
+           (string_of_file bstderr_name) (string_of_file bstdout_name) )
     | WSIGNALED n -> Error (sprintf "Signalled with %d while building %s." n out)
     | WSTOPPED n -> Error (sprintf "Stopped with signal %d while building %s." n out)
   in

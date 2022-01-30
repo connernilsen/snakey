@@ -29,7 +29,7 @@ type 'a expr =
 let expr_info e = match e with Number (_, x) | Id (_, x) | Let (_, _, x) | Prim1 (_, _, x) -> x
 
 let create_wrapped_loc ((start_line, start_col, _, _) : pos) ((_, _, end_line, end_col) : pos) : pos
-    =
+  =
   (start_line, start_col, end_line, end_col)
 
 (* Function to convert from unknown s-expressions to Adder exprs Throws a SyntaxError message if
@@ -43,24 +43,24 @@ let rec expr_of_sexp (s : pos sexp) : pos expr =
   | Sym (sym, position) -> Id (sym, position)
   | Int (value, position) -> Number (value, position)
   | Bool (_, position) ->
-      failwith (sprintf "Booleans not defined in lang found at %s" (pos_to_string position false))
-      (* TODO: do we want let pos? *)
-      (* Handle let *)
+    failwith (sprintf "Booleans not defined in lang found at %s" (pos_to_string position false))
+  (* TODO: do we want let pos? *)
+  (* Handle let *)
   | Nest ([Sym ("let", _); Nest (bindings, _); expr], nest_pos) ->
-      Let (handle_let_bindings bindings, expr_of_sexp expr, nest_pos) (* Handle add1 *)
+    Let (handle_let_bindings bindings, expr_of_sexp expr, nest_pos) (* Handle add1 *)
   | Nest ([Sym ("add1", add_loc); add], nest_pos) ->
-      let e = expr_of_sexp add in
-      Prim1 (Add1, e, nest_pos)
+    let e = expr_of_sexp add in
+    Prim1 (Add1, e, nest_pos)
   | Nest ([Sym ("sub1", sub1_pos); sub], nest_pos) ->
-      let e = expr_of_sexp sub in
-      Prim1 (Sub1, e, nest_pos)
+    let e = expr_of_sexp sub in
+    Prim1 (Sub1, e, nest_pos)
   | Nest (_, nest_pos) -> failwith "failed nest TODO MESSAGE"
 
 and handle_let_bindings (bindings : pos sexp list) : (string * 'a expr) list =
   match bindings with
   | [] -> []
   | Nest ([Sym (id, id_pos); value], pos) :: rest ->
-      (id, expr_of_sexp value) :: handle_let_bindings rest
+    (id, expr_of_sexp value) :: handle_let_bindings rest
   | Nest (_, nest_pos) :: _ -> failwith "Incorrect nest signature TODO fix message"
   | _ -> failwith "TODO fix this"
 
@@ -99,6 +99,10 @@ let rec find (ls : (string * 'a) list) (x : string) : 'a option =
 (* The exception to be thrown when some sort of problem is found with names *)
 exception BindingError of string
 
+type env = (string * int) list
+
+let rec add (name : string) (slot : int) (env : env) : env = (name, slot) :: env
+
 (* The actual compilation process. The `compile` function is the primary function, and uses
 
    `compile_env` as its helper. In a more idiomatic OCaml program, this helper would likely be a
@@ -115,7 +119,7 @@ let rec compile_env (p : pos expr) (* the program, currently annotated with sour
   | Id (id, x) -> 
     (match (find env id) with
     | None -> failwith (sprintf "Given variable %s not found" id)
-    | Some loc -> [IMov (Reg RAX, RegOffset(loc, RSP))])
+    | Some loc -> [IMov (Reg RAX, RegOffset(~-1 * loc, RSP))])
   | Let (values, ex, loc) -> 
     let (instrs, new_stack_idx, new_env) = (compile_lets values stack_index env []) in
     (instrs @ (compile_env ex new_stack_idx new_env))
@@ -132,7 +136,7 @@ and compile_lets (values : (string * 'a) list) (stack_index : int) (env : (strin
     (compile_lets rest (stack_index + 1) ((name, stack_index) :: env) (
       instrs 
       @ (compile_env expr stack_index env)
-      @ [IMov (RegOffset (stack_index, RSP), Reg RAX)]))
+      @ [IMov (RegOffset (~-1 * stack_index, RSP), Reg RAX)]))
 ;;
 
 let compile (p : pos expr) : instruction list = compile_env p 1 []
