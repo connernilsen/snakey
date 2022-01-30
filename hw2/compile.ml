@@ -121,16 +121,18 @@ let rec compile_env (p : pos expr) (* the program, currently annotated with sour
   | Id (id, x) -> (
       let lex = find env id in
       match lex with
-      | Some lex -> [IMov (Reg RAX, RegOffset (~-stack_index * lex, RSP))]
+      | Some lex -> [IMov (Reg RAX, RegOffset (~-(stack_index - 1) * lex, RSP))]
       | None -> failwith "Unknown variable" )
   | Let ([], e, loc) -> compile_env e stack_index env
   | Let ((id, expr) :: bindings, body, loc) ->
     let env' = add id stack_index env in
     (* Assuming you can't have a let in the right side of a let binding *)
     compile_env expr (stack_index + 1) env
-    @ [IMov (RegOffset (~-1 * (stack_index + 1), RSP), Reg RAX)]
+    @ [IMov (RegOffset (~-stack_index, RSP), Reg RAX)]
     @ compile_env (Let (bindings, body, loc)) (stack_index + 1) env'
-  | Prim1 (_, _, x) -> []
+  | Prim1 (t, p, loc) ->  match t with
+    | Add1 -> (compile_env p (stack_index + 1) env) @ [(IAdd (Reg RAX, Const 1L))]
+    | Sub1 -> (compile_env p (stack_index + 1) env) @ [IAdd (Reg RAX, Const (Int64.neg 1L))]
 
 let compile (p : pos expr) : instruction list = compile_env p 1 []
 

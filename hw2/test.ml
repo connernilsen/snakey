@@ -30,7 +30,8 @@ let tie (filename : string) (expected_err : string) =
   filename >:: test_err_input filename expected_err
 
 let expr_of_sexp_tests =
-  [ t_any "expr_of_sexp0" (expr_of_sexp (parse "1")) (Number (1L, (0, 0, 0, 1)))
+  [ t_any "expr_of_sexp0" (expr_of_sexp (parse "1")) (Number (1L, (0, 0, 0, 1)));
+    t_any "expr_of_sexp_add" (expr_of_sexp (parse "(add1 0)")) (Prim1 (Add1, Number (0L, (0, 6, 0, 7)), (0, 0, 0, 8)))
   ; t_any "expr_of_sexp1"
       (expr_of_sexp (parse "(let ((x 1)) x)"))
       (Let ([("x", Number (1L, (0, 9, 0, 10)))], Id ("x", (0, 13, 0, 14)), (0, 0, 0, 15)))
@@ -42,7 +43,19 @@ let expr_of_sexp_tests =
          , Prim1 (Add1, Id ("y", (0, 39, 0, 40)), (0, 33, 0, 41))
          , (0, 0, 0, 42) ) ) ]
 
-let all_tests = expr_of_sexp_tests
+let compile_env_tests =
+  [t_any "compile env simple" (compile (Number (1L, (0, 9, 0, 10)))) [IMov (Reg RAX, Const 1L)];
+   t_any "compile env add1" (compile (expr_of_sexp (parse "(add1 1)"))) [IMov (Reg RAX, Const 1L);IAdd (Reg RAX, Const 1L)];
+   t_any "compile env simple let" (compile (expr_of_sexp (parse "(let ((x 1)) x)"))) [IMov (Reg RAX, Const 1L);IMov (Reg RAX, RegOffset (1, RSP));IMov  (RegOffset (~-1 * 1, RSP), Reg RAX);]
+  ]
+
+let integration_tests =
+  [t "test.simple" "1" "1";
+   t "test.let" "(let ((x 5)) x)" "5";
+   t "test.let.complex" "(let ((x 5) (y 6)) y)" "6";
+   ti "test1.adder" "2";]
+
+let all_tests = expr_of_sexp_tests @ compile_env_tests @ integration_tests
 
 let suite : OUnit2.test = "suite" >::: all_tests
 
