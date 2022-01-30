@@ -18,7 +18,6 @@ type instruction = IMov of arg * arg | IAdd of arg * arg | IRet
    ‹bindings›: | ( IDENTIFIER ‹expr› ) | ( IDENTIFIER ‹expr› ) ‹bindings› *)
 
 (* Abstract syntax of the Adder language *)
-
 type prim1 = Add1 | Sub1
 
 type 'a expr =
@@ -107,16 +106,34 @@ exception BindingError of string
    local definition within `compile`, but separating it out makes it easier for you to test it. *)
 
 let rec compile_env (p : pos expr) (* the program, currently annotated with source location info *)
-    (stack_index : int) (* the next available stack index *) (env : (string * int) list) :
-    instruction list =
-  (* the current binding environment of names to stack slots *)
+    (stack_index : int) (* the next available stack index *) 
+    (env : (string * int) list) : instruction list = (* the current binding environment of names to stack slots *)
 
   (* the instructions that would execute this program *)
   match p with
   | Number (n, x) -> [IMov (Reg RAX, Const n)]
-  | Id (id, x) -> []
-  | Let (_, _, x) -> []
-  | Prim1 (_, _, x) -> []
+  | Id (id, x) -> 
+    (match (find env id) with
+    | None -> failwith (sprintf "Given variable %s not found" id)
+    | Some loc -> [IMov (Reg RAX, RegOffset(loc, RSP))])
+  | Let (values, ex, loc) -> 
+    let (instrs, new_stack_idx, new_env) = (compile_lets values stack_index env []) in
+    (instrs @ (compile_env ex new_stack_idx new_env))
+  | Prim1 (Add1, sub_expr, loc) ->
+    (compile_env sub_expr stack_index env)
+    @ [IAdd (Reg RAX, Const 1L)]
+  | Prim1 (Sub1, sub_expr, loc) ->
+    (compile_env sub_expr stack_index env)
+    @ [IAdd (Reg RAX, Const (Int64.neg 1L))]
+and compile_lets (values : (string * 'a) list) (stack_index : int) (env : (string * int) list) (instrs : instruction list) : ((instruction list) * int * ((string * int) list)) =
+  match values with 
+  | [] -> (instrs, stack_index, env)
+  | (name, expr) :: rest ->
+    (compile_lets rest (stack_index + 1) ((name, stack_index) :: env) (
+      instrs 
+      @ (compile_env expr stack_index env)
+      @ [IMov (RegOffset (stack_index, RSP), Reg RAX)]))
+;;
 
 let compile (p : pos expr) : instruction list = compile_env p 1 []
 
