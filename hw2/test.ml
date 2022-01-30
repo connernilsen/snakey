@@ -67,7 +67,13 @@ let compile_env_tests =
   IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L); 
   IMov (RegOffset (~-2, RSP), Reg RAX);
   IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L)
-  ]
+  ];
+  t_any "compile_env_nested_adds_and_subs" (compile (expr_of_sexp (parse "(sub1 (add1 (add1 42)))")))
+  [IMov (Reg RAX, Const 42L); IAdd (Reg RAX, Const 1L); IAdd (Reg RAX, Const 1L); IAdd (Reg RAX, Const (Int64.neg 1L))];
+  t_any "compile_env_empty_let" (compile (expr_of_sexp (parse "(let () (add1 5))")))
+  [IMov (Reg RAX, Const 5L); IAdd (Reg RAX, Const 1L)];
+  t_any "compile_env_let_with_empty_let" (compile (expr_of_sexp (parse "(let ((abcd (let () 5))) abcd)")))
+  [IMov (Reg RAX, Const 5L); IMov (RegOffset (~-1, RSP), Reg RAX); IMov (Reg RAX, RegOffset (~-1, RSP))]
   ]
 
 let integration_tests =

@@ -118,6 +118,7 @@ let rec compile_env (p : pos expr) (* the program, currently annotated with sour
   | Number (n, x) -> [IMov (Reg RAX, Const n)]
   | Id (id, x) -> 
     (match (find env id) with
+    (* TODO throw right exception *)
     | None -> failwith (sprintf "Given variable %s not found" id)
     | Some loc -> [IMov (Reg RAX, RegOffset(~-1 * loc, RSP))])
   | Let (values, ex, loc) -> 
