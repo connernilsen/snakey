@@ -54,7 +54,9 @@ let rec expr_of_sexp (s : pos sexp) : pos expr =
   | Nest ([Sym ("sub1", sub1_pos); sub], nest_pos) ->
     let e = expr_of_sexp sub in
     Prim1 (Sub1, e, nest_pos)
-  | Nest (_, nest_pos) -> failwith "failed nest TODO MESSAGE"
+  | Nest (singly_nested_item :: [], nest_pos) ->
+    expr_of_sexp singly_nested_item (* TODO could be a source of confusion later? *)
+  | Nest (_, nest_pos) -> failwith (sprintf "failed nest TODO MESSAGE %s" (pos_to_string nest_pos false))
 
 and handle_let_bindings (bindings : pos sexp list) : (string * 'a expr) list =
   match bindings with

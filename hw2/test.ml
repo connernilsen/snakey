@@ -73,14 +73,32 @@ let compile_env_tests =
   t_any "compile_env_empty_let" (compile (expr_of_sexp (parse "(let () (add1 5))")))
   [IMov (Reg RAX, Const 5L); IAdd (Reg RAX, Const 1L)];
   t_any "compile_env_let_with_empty_let" (compile (expr_of_sexp (parse "(let ((abcd (let () 5))) abcd)")))
-  [IMov (Reg RAX, Const 5L); IMov (RegOffset (~-1, RSP), Reg RAX); IMov (Reg RAX, RegOffset (~-1, RSP))]
+  [IMov (Reg RAX, Const 5L); IMov (RegOffset (~-1, RSP), Reg RAX); IMov (Reg RAX, RegOffset (~-1, RSP))];
+  t_any "compile_env_let_in_let_expr" (compile (expr_of_sexp (parse "(let ((a 10)) (let ((b (add1 a))) (let ((c (add1 b))) (let ((d (add1 b))) (add1 c)))))")))
+  [IMov (Reg RAX, Const 10L); IMov (RegOffset (~-1, RSP), Reg RAX);
+  IMov (Reg RAX, RegOffset (~-1, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-2, RSP), Reg RAX);
+  IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-3, RSP), Reg RAX);
+  IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-4, RSP), Reg RAX);
+  IMov (Reg RAX, RegOffset (~-3, RSP)); IAdd (Reg RAX, Const 1L); 
+  ];
+  t_any "compile_env_atom" (compile (expr_of_sexp (parse "5"))) [IMov (Reg RAX, Const 5L)];
+  t_any "compile_env_wrapped_atom" (compile (expr_of_sexp (parse "(5)"))) [IMov (Reg RAX, Const 5L)];
   ]
 
 let integration_tests =
   [t "test.simple" "1" "1";
    t "test.let" "(let ((x 5)) x)" "5";
    t "test.let.complex" "(let ((x 5) (y 6)) y)" "6";
-   ti "test1.adder" "2";]
+   t "test.let.nested_let" "(let ((a 10) (c (let ((b (add1 a)) (d (add1 b))) (add1 b)))) (add1 c))" "13";
+   t "test.let.emtpy_let" "(let () (add1 5))" "6";
+   t "test.let.let_with_empty_let" "(let ((a (let () 5)) (b a)) b)" "5";
+   t "test.compile_env_atom" "5" "5";
+   t "test.compile_env_wrapped_atom" "(5)" "5";
+   t "test.compile_env_deep_wrapped_atom" "((((5))))" "5";
+   ti "test1.adder" "2";
+   ti "test2.adder" "1008";
+   ti "test3.adder" "13";
+   ]
 
 let all_tests = expr_of_sexp_tests @ compile_env_tests @ integration_tests
 

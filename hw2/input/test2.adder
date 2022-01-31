@@ -1,0 +1,13 @@
+(add1 
+    (let (
+        (a 1000)
+        (b (add1 a))
+        (f (let (
+            (c (add1 b))
+            (d (add1 b))
+            (e (add1 c))
+            (c (add1 e))) 
+            (add1 c)))
+        (g (add1 f)))
+    (add1 g))
+)
