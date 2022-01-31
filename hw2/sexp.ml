@@ -58,6 +58,16 @@ type 'a sexp =
   | Bool of bool * 'a
   | Nest of 'a sexp list * 'a
 
+let rec sexp_to_string (s: 'a sexp): string =
+  match s with
+  | Sym (s, a) -> s
+  | Int (i, a) -> sprintf "%Ld" i
+  | Bool (b, a) -> string_of_bool b
+  | Nest (n, a) -> "(" ^ String.concat ", " (List.map sexp_to_string n) ^ ")"
+
+let rec sexp_list_to_string (s: 'a sexp list): string =
+  "(" ^ String.concat " " (List.map sexp_to_string s) ^ ")"
+
 let sexp_info s =
   match s with Sym (_, x) -> x | Int (_, x) -> x | Bool (_, x) -> x | Nest (_, x) -> x
 
