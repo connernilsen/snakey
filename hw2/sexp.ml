@@ -60,10 +60,10 @@ type 'a sexp =
 
 let rec sexp_to_string (s: 'a sexp): string =
   match s with
-  | Sym (s, a) -> s
-  | Int (i, a) -> sprintf "%Ld" i
-  | Bool (b, a) -> string_of_bool b
-  | Nest (n, a) -> "(" ^ String.concat ", " (List.map sexp_to_string n) ^ ")"
+  | Sym (s, a) -> sprintf "Sym{%s}" s
+  | Int (i, a) -> sprintf "Int{%Ld}" i
+  | Bool (b, a) -> sprintf "Bool{%B}" b
+  | Nest (n, a) -> "Parens{(" ^ String.concat ", " (List.map sexp_to_string n) ^ ")}"
 
 let rec sexp_list_to_string (s: 'a sexp list): string =
   "(" ^ String.concat " " (List.map sexp_to_string s) ^ ")"

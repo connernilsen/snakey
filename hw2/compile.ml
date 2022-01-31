@@ -46,52 +46,61 @@ let rec expr_of_sexp (s : pos sexp) : pos expr =
     raise (SyntaxError (sprintf "Booleans not defined in lang found at %s" (pos_to_string position true)))
   | Nest ([Sym ("let", _); Nest (bindings, _); expr], nest_pos) ->
     Let (handle_let_bindings bindings, expr_of_sexp expr, nest_pos)
-  | Nest ([Sym ("add1", add_loc); add], nest_pos) ->
-    let e = expr_of_sexp add in
-    Prim1 (Add1, e, nest_pos)
-  | Nest ([Sym ("sub1", sub1_pos); sub], nest_pos) ->
-    let e = expr_of_sexp sub in
-    Prim1 (Sub1, e, nest_pos)
+  | Nest ([Sym ("add1", _); add], nest_pos) ->
+    Prim1 (Add1, (expr_of_sexp add), nest_pos)
+  | Nest ([Sym ("sub1", _); sub], nest_pos) ->
+    Prim1 (Sub1, (expr_of_sexp sub), nest_pos)
+  (* handle case where just one thing is in a nest (ex `(1)` or `((add 1))`) *)
   | Nest ([e], nest_pos) -> expr_of_sexp e
-  | Nest (n, nest_pos) -> raise (SyntaxError (sprintf "Incorrect syntax. Expected logical expression in nest, found %s at %s" (sexp_list_to_string n) (pos_to_string nest_pos true)))
-
+  (* handle nest with unknown syntax *)
+  | Nest (n, nest_pos) -> 
+    raise (SyntaxError 
+      (sprintf "Incorrect syntax. Expected logical expression in parens, found `%s` at %s" 
+        (sexp_list_to_string n) (pos_to_string nest_pos true)))
 and handle_let_bindings (bindings : pos sexp list) : (string * 'a expr) list =
   match bindings with
   | [] -> []
-  | Nest ([Sym (id, id_pos); value], pos) :: rest ->
+  | Nest ([Sym (id, _); value], _) :: rest ->
     (id, expr_of_sexp value) :: handle_let_bindings rest
-  | Nest (n, nest_pos) :: _ -> raise (SyntaxError (sprintf "Incorrect let syntax at %s. Expected (Symbol expr), found %s" (pos_to_string nest_pos true) (sexp_list_to_string n)))
-  | n :: _ -> raise (SyntaxError (sprintf "Incorrect let syntax at %s. Expected (Symbol expr), found %s" (pos_to_string (sexp_info n) true) (sexp_to_string n)))
+  (* handle a let that doesn't start with a Sym *)
+  | Nest (n, nest_pos) :: _ -> 
+    raise (SyntaxError 
+      (sprintf "Incorrect let syntax at %s. Expected `(Sym(id) expression)`, found `%s`" 
+        (pos_to_string nest_pos true) (sexp_list_to_string n)))
+  (* handle unknown let case *)
+  | n :: _ -> 
+    raise (SyntaxError 
+      (sprintf "Incorrect let syntax at %s. Expected `(Sym(id) expression)`, found `%s`" 
+        (pos_to_string (sexp_info n) true) (sexp_to_string n)))
 
 (* Functions that implement the compiler *)
-
 (* The next four functions convert assembly instructions into strings, one datatype at a time. Only
-
    one function has been fully implemented for you. *)
 
+(* convert a register to asm string *)
 let reg_to_asm_string (r : reg) : string = match r with RAX -> "RAX" | RSP -> "RSP"
 
+(* convert an arg to asm string *)
 let arg_to_asm_string (a : arg) : string =
   match a with
   | Const n -> sprintf "%Ld" n
   | Reg r -> reg_to_asm_string r
   | RegOffset (o, r) -> sprintf "[%s + %d * %d]" (reg_to_asm_string r) word_size o
 
+(* convert an instruction to asm string *)
 let instruction_to_asm_string (i : instruction) : string =
   match i with
   | IMov (dest, value) -> sprintf "\tmov %s, %s" (arg_to_asm_string dest) (arg_to_asm_string value)
   | IAdd (dest, value) -> sprintf "\tadd %s, %s" (arg_to_asm_string dest) (arg_to_asm_string value)
   | IRet -> "\tret"
 
+(* convert a list of instructions to an asm string *)
 let to_asm_string (is : instruction list) : string =
   List.fold_left (fun s i -> sprintf "%s\n%s" s (instruction_to_asm_string i)) "" is
 
 (* A helper function for looking up a name in a "dictionary" and returning the associated value if
-
    possible. This is definitely not the most efficient data structure for this, but it is nice and
-
    simple... *)
-
 let rec find (ls : (string * 'a) list) (x : string) : 'a option =
   match ls with [] -> None | (y, v) :: rest -> if y = x then Some v else find rest x
 
@@ -100,25 +109,25 @@ exception BindingError of string
 
 type env = (string * int) list
 
+(* a function for adding an env entry with the given RSP slot offset *)
 let rec add (name : string) (slot : int) (env : env) : env = (name, slot) :: env
 
 (* The actual compilation process. The `compile` function is the primary function, and uses
-
    `compile_env` as its helper. In a more idiomatic OCaml program, this helper would likely be a
-
    local definition within `compile`, but separating it out makes it easier for you to test it. *)
-
 let rec compile_env (p : pos expr) (* the program, currently annotated with source location info *)
     (stack_index : int) (* the next available stack index *) 
     (env : (string * int) list) : instruction list = (* the current binding environment of names to stack slots *)
-
   (* the instructions that would execute this program *)
   match p with
   | Number (n, x) -> [IMov (Reg RAX, Const n)]
+  (* find the given identifier or raise an exception if it doesn't exist *)
   | Id (id, x) -> 
     (match (find env id) with
-     | None -> raise (SyntaxError (sprintf "Unbound variable %s referenced at %s" id (pos_to_string x true)))
+     | None -> 
+        raise (SyntaxError (sprintf "Unbound variable `%s` referenced at %s" id (pos_to_string x true)))
      | Some loc -> [IMov (Reg RAX, RegOffset(~-1 * loc, RSP))])
+  (* create let bindings and append the instructions that follow with the updated env *)
   | Let (values, ex, loc) -> 
     let (instrs, new_stack_idx, new_env) = (compile_lets values stack_index env []) in
     (instrs @ (compile_env ex new_stack_idx new_env))
@@ -128,11 +137,17 @@ let rec compile_env (p : pos expr) (* the program, currently annotated with sour
   | Prim1 (Sub1, sub_expr, loc) ->
     (compile_env sub_expr stack_index env)
     @ [IAdd (Reg RAX, Const (Int64.neg 1L))]
-and compile_lets (values : (string * 'a) list) (stack_index : int) (env : (string * int) list) (instrs : instruction list) : ((instruction list) * int * ((string * int) list)) =
+and compile_lets (values : (string * 'a) list) (* the bindings to create *)
+  (stack_index : int)  (* the current stack index, updated with the bindings created for this let *)
+  (env : (string * int) list) (* the env, updated with the bindings created for this let *)
+  (instrs : instruction list) : (* the accumulator of instructions already created *)
+  ((instruction list) * int * ((string * int) list)) = (* returns a list of instrs for this let, the final stack_index, and final env *)
   match values with 
   | [] -> (instrs, stack_index, env)
   | (name, expr) :: rest ->
+    (* compile the rest of the bindings, with the updated stack_index, and updated accumulator *)
     (compile_lets rest (stack_index + 1) ((name, stack_index) :: env) (
+        (* these are the instrs in the accumulator, with the instrs for this binding added *)
         instrs 
         @ (compile_env expr stack_index env)
         @ [IMov (RegOffset (~-1 * stack_index, RSP), Reg RAX)]))
