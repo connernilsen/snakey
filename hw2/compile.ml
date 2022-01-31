@@ -50,13 +50,11 @@ let rec expr_of_sexp (s : pos sexp) : pos expr =
     Prim1 (Add1, (expr_of_sexp add), nest_pos)
   | Nest ([Sym ("sub1", _); sub], nest_pos) ->
     Prim1 (Sub1, (expr_of_sexp sub), nest_pos)
-  (* handle case where just one thing is in a nest (ex `(1)` or `((add 1))`) *)
-  | Nest ([e], nest_pos) -> expr_of_sexp e
   (* handle nest with unknown syntax *)
   | Nest (n, nest_pos) -> 
     raise (SyntaxError 
-      (sprintf "Incorrect syntax. Expected logical expression in parens, found `%s` at %s" 
-        (sexp_list_to_string n) (pos_to_string nest_pos true)))
+             (sprintf "Incorrect syntax. Expected logical expression in parens, found `%s` at %s" 
+                (sexp_list_to_string n) (pos_to_string nest_pos true)))
 and handle_let_bindings (bindings : pos sexp list) : (string * 'a expr) list =
   match bindings with
   | [] -> []
@@ -65,13 +63,13 @@ and handle_let_bindings (bindings : pos sexp list) : (string * 'a expr) list =
   (* handle a let that doesn't start with a Sym *)
   | Nest (n, nest_pos) :: _ -> 
     raise (SyntaxError 
-      (sprintf "Incorrect let syntax at %s. Expected `(Sym(id) expression)`, found `%s`" 
-        (pos_to_string nest_pos true) (sexp_list_to_string n)))
+             (sprintf "Incorrect let syntax at %s. Expected `(Sym(id) expression)`, found `%s`" 
+                (pos_to_string nest_pos true) (sexp_list_to_string n)))
   (* handle unknown let case *)
   | n :: _ -> 
     raise (SyntaxError 
-      (sprintf "Incorrect let syntax at %s. Expected `(Sym(id) expression)`, found `%s`" 
-        (pos_to_string (sexp_info n) true) (sexp_to_string n)))
+             (sprintf "Incorrect let syntax at %s. Expected `(Sym(id) expression)`, found `%s`" 
+                (pos_to_string (sexp_info n) true) (sexp_to_string n)))
 
 (* Functions that implement the compiler *)
 (* The next four functions convert assembly instructions into strings, one datatype at a time. Only
@@ -125,7 +123,7 @@ let rec compile_env (p : pos expr) (* the program, currently annotated with sour
   | Id (id, x) -> 
     (match (find env id) with
      | None -> 
-        raise (SyntaxError (sprintf "Unbound variable `%s` referenced at %s" id (pos_to_string x true)))
+       raise (SyntaxError (sprintf "Unbound variable `%s` referenced at %s" id (pos_to_string x true)))
      | Some loc -> [IMov (Reg RAX, RegOffset(~-1 * loc, RSP))])
   (* create let bindings and append the instructions that follow with the updated env *)
   | Let (values, ex, loc) -> 
@@ -138,9 +136,9 @@ let rec compile_env (p : pos expr) (* the program, currently annotated with sour
     (compile_env sub_expr stack_index env)
     @ [IAdd (Reg RAX, Const (Int64.neg 1L))]
 and compile_lets (values : (string * 'a) list) (* the bindings to create *)
-  (stack_index : int)  (* the current stack index, updated with the bindings created for this let *)
-  (env : (string * int) list) (* the env, updated with the bindings created for this let *)
-  (instrs : instruction list) : (* the accumulator of instructions already created *)
+    (stack_index : int)  (* the current stack index, updated with the bindings created for this let *)
+    (env : (string * int) list) (* the env, updated with the bindings created for this let *)
+    (instrs : instruction list) : (* the accumulator of instructions already created *)
   ((instruction list) * int * ((string * int) list)) = (* returns a list of instrs for this let, the final stack_index, and final env *)
   match values with 
   | [] -> (instrs, stack_index, env)
