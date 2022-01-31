@@ -84,14 +84,14 @@ let compile_env_tests =
   ; te "compile_env_unbound_nested" "((x))" "Unbound variable x referenced at line 0, col 2--line 0, col 3"
   ; te "compile_env_unbound_with_others_bound" "(let ((x 5)) y)" "Unbound variable y referenced at line 0, col 13--line 0, col 14"
   ; t_any "compile_env_let_in_let_expr" (compile (expr_of_sexp (parse "(let ((a 10)) (let ((b (add1 a))) (let ((c (add1 b))) (let ((d (add1 b))) (add1 c)))))")))
-  [IMov (Reg RAX, Const 10L); IMov (RegOffset (~-1, RSP), Reg RAX);
-  IMov (Reg RAX, RegOffset (~-1, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-2, RSP), Reg RAX);
-  IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-3, RSP), Reg RAX);
-  IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-4, RSP), Reg RAX);
-  IMov (Reg RAX, RegOffset (~-3, RSP)); IAdd (Reg RAX, Const 1L); 
-  ];
-  t_any "compile_env_atom" (compile (expr_of_sexp (parse "5"))) [IMov (Reg RAX, Const 5L)];
-  t_any "compile_env_wrapped_atom" (compile (expr_of_sexp (parse "(5)"))) [IMov (Reg RAX, Const 5L)];
+     [IMov (Reg RAX, Const 10L); IMov (RegOffset (~-1, RSP), Reg RAX);
+      IMov (Reg RAX, RegOffset (~-1, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-2, RSP), Reg RAX);
+      IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-3, RSP), Reg RAX);
+      IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-4, RSP), Reg RAX);
+      IMov (Reg RAX, RegOffset (~-3, RSP)); IAdd (Reg RAX, Const 1L); 
+     ];
+   t_any "compile_env_atom" (compile (expr_of_sexp (parse "5"))) [IMov (Reg RAX, Const 5L)];
+   t_any "compile_env_wrapped_atom" (compile (expr_of_sexp (parse "(5)"))) [IMov (Reg RAX, Const 5L)];
   ]
 
 let integration_tests =
@@ -109,9 +109,10 @@ let integration_tests =
    ti "test3.adder" "13";
    t "test.let.shadowing" "(let ((x 5) (y 6)) (let ((y 7)) y))" "7";
    t "test.let.rec" "(let ((x 5) (y x)) y)" "5";
+   t "test.let.rec" "(let ((x 5) (y x)) x)" "5";
    t "test.let.scope" "(let ((x 5) (y x) (x y)) x)" "5";
    ti "test1.adder" "2";
-   ]
+  ]
 
 let all_tests = expr_of_sexp_tests @ compile_env_tests @ integration_tests
 
