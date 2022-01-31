@@ -82,6 +82,10 @@ let expr_of_sexp_tests =
       "Incorrect syntax. Expected logical expression in parens, found `(Sym{let} Parens{()} Int{5} Int{5})` at line 0, col 0--line 0, col 12";
     te "expr_of_sexp_invalid_bind_args_type" "(let abcd (add1 2))"
       "Incorrect syntax. Expected logical expression in parens, found `(Sym{let} Sym{abcd} Parens{(Sym{add1}, Int{2})})` at line 0, col 0--line 0, col 19";
+   t_any "expr_of_sexp_shadowing" (expr_of_sexp (parse "(let ((x 5) (x (add1 x))) (let ((x (add1 x))) x))"))
+    (Let ([("x", Number(5L, (0, 9, 0, 10))); ("x", Prim1 (Add1, Id ("x", (0, 21, 0, 22)), (0, 15, 0, 23)))],
+      Let ([("x", Prim1 (Add1, Id ("x", (0, 41, 0, 42)), (0, 35, 0, 43)))], Id ("x", (0, 46, 0, 47)), (0, 26, 0, 48)),
+      (0, 0, 0, 49)));
   ]
 
 let compile_env_tests =
@@ -109,16 +113,16 @@ let compile_env_tests =
      [IMov (Reg RAX, Const 5L); IAdd (Reg RAX, Const 1L)];
    t_any "compile_env_let_with_empty_let" (compile (expr_of_sexp (parse "(let ((abcd (let () 5))) abcd)")))
      [IMov (Reg RAX, Const 5L); IMov (RegOffset (~-1, RSP), Reg RAX); IMov (Reg RAX, RegOffset (~-1, RSP))];
-  te "compile_env_unbound" "x" "Unbound variable `x` referenced at line 0, col 0--line 0, col 1";
-  te "compile_env_unbound_nested" "((x))" "Unbound variable `x` referenced at line 0, col 2--line 0, col 3";
-  te "compile_env_unbound_with_others_bound" "(let ((x 5)) y)" "Unbound variable `y` referenced at line 0, col 13--line 0, col 14";
-  t_any "compile_env_let_in_let_expr" (compile (expr_of_sexp (parse "(let ((a 10)) (let ((b (add1 a))) (let ((c (add1 b))) (let ((d (add1 b))) (add1 c)))))")))
-     [IMov (Reg RAX, Const 10L); IMov (RegOffset (~-1, RSP), Reg RAX);
-      IMov (Reg RAX, RegOffset (~-1, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-2, RSP), Reg RAX);
-      IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-3, RSP), Reg RAX);
-      IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-4, RSP), Reg RAX);
-      IMov (Reg RAX, RegOffset (~-3, RSP)); IAdd (Reg RAX, Const 1L); 
-     ];
+   te "compile_env_unbound" "x" "Unbound variable `x` referenced at line 0, col 0--line 0, col 1";
+   te "compile_env_unbound_nested" "((x))" "Unbound variable `x` referenced at line 0, col 2--line 0, col 3";
+   te "compile_env_unbound_with_others_bound" "(let ((x 5)) y)" "Unbound variable `y` referenced at line 0, col 13--line 0, col 14";
+   t_any "compile_env_let_in_let_expr" (compile (expr_of_sexp (parse "(let ((a 10)) (let ((b (add1 a))) (let ((c (add1 b))) (let ((d (add1 b))) (add1 c)))))")))
+      [IMov (Reg RAX, Const 10L); IMov (RegOffset (~-1, RSP), Reg RAX);
+       IMov (Reg RAX, RegOffset (~-1, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-2, RSP), Reg RAX);
+       IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-3, RSP), Reg RAX);
+       IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-4, RSP), Reg RAX);
+       IMov (Reg RAX, RegOffset (~-3, RSP)); IAdd (Reg RAX, Const 1L); 
+      ];
    t_any "compile_env_atom" (compile (expr_of_sexp (parse "5"))) [IMov (Reg RAX, Const 5L)];
    t_any "compile_env_wrapped_atom" (compile (expr_of_sexp (parse "(5)"))) [IMov (Reg RAX, Const 5L)];
    te "compile_env_add1_no_params" "(add1)" "Unbound variable `add1` referenced at line 0, col 1--line 0, col 5";
@@ -132,6 +136,18 @@ let compile_env_tests =
     "Unbound variable `y` referenced at line 0, col 37--line 0, col 38";
    te "compile_env_z_not_in_scope_after_y_let" "(let ((x (add1 5)) (y (let ((z (add1 x))) (add1 z)))) z)"
     "Unbound variable `z` referenced at line 0, col 54--line 0, col 55";
+   t_any "compile_env_shadowing" (compile (expr_of_sexp (parse "(let ((x 5) (y 6)) (let ((y 7)) y))")))
+     [IMov (Reg RAX, Const 5L); IMov (RegOffset (~-1, RSP), Reg RAX);
+     IMov (Reg RAX, Const 6L); IMov (RegOffset (~-2, RSP), Reg RAX);
+     IMov (Reg RAX, Const 7L); IMov (RegOffset (~-3, RSP), Reg RAX);
+     IMov (Reg RAX, RegOffset (~-3, RSP))
+     ];
+   t_any "compile_env_shadowing2" (compile (expr_of_sexp (parse "(let ((x 5) (x (add1 x))) (let ((x (add1 x))) x))")))
+     [IMov (Reg RAX, Const 5L); IMov (RegOffset (~-1, RSP), Reg RAX);
+     IMov (Reg RAX, RegOffset (~-1, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-2, RSP), Reg RAX);
+     IMov (Reg RAX, RegOffset (~-2, RSP)); IAdd (Reg RAX, Const 1L); IMov (RegOffset (~-3, RSP), Reg RAX);
+     IMov (Reg RAX, RegOffset (~-3, RSP))
+     ];
   ]
 
 let integration_tests =
@@ -151,7 +167,14 @@ let integration_tests =
    t "test.let.rec1" "(let ((x 5) (y x)) y)" "5";
    t "test.let.rec2" "(let ((x 5) (y x)) x)" "5";
    t "test.let.scope" "(let ((x 5) (y x) (x y)) x)" "5";
-   ti "test1.adder" "2";
+   tie "test_error1.adder"
+    "Unbound variable `y` referenced at line 0, col 37--line 0, col 38";
+   tie "test_error2.adder"
+    "Unbound variable `z` referenced at line 0, col 54--line 0, col 55";
+   tie "test_error3.adder" 
+    "Unbound variable `add1` referenced at line 0, col 1--line 0, col 5";
+   tie "test_error4.adder" 
+    "Unbound variable `sub1` referenced at line 0, col 0--line 0, col 4";
   ]
 
 let all_tests = expr_of_sexp_tests @ compile_env_tests @ integration_tests
