@@ -60,18 +60,18 @@ let expr_of_sexp_tests =
     te "expr_of_sexp_bool_f" "false" 
       "Booleans not defined in lang found at line 0, col 0--line 0, col 5"; 
     te "expr_of_sexp_bind_number" "(let ((2 5)) 5)" 
-      "Incorrect let syntax at line 0, col 6--line 0, col 11. Expected `(Sym(id) expression)`, found `(Int{2} Int{5})`"; 
+      "Incorrect let binding syntax at line 0, col 6--line 0, col 11. Expected `(Sym(id) expression)`, found `(Int{2} Int{5})`"; 
     te "expr_of_sexp_nums" "(2 5)" 
       "Incorrect syntax. Expected logical expression in parens, found `(Int{2} Int{5})` at line 0, col 0--line 0, col 5"; 
     te "expr_of_sexp_let_bad_bindings" "(let (5) 5)" 
-      "Incorrect let syntax at line 0, col 6--line 0, col 7. Expected `(Sym(id) expression)`, found `Int{5}`";
+      "Incorrect let binding syntax at line 0, col 6--line 0, col 7. Expected `(Sym(id) expression)`, found `Int{5}`";
     te "expr_of_sexp_empty_nest" "()" 
       "Incorrect syntax. Expected logical expression in parens, found `()` at line 0, col 0--line 0, col 2";
     te "expr_of_nested_nest" "((1))" "Incorrect syntax. Expected logical expression in parens, found `(Parens{(Int{1})})` at line 0, col 0--line 0, col 5"; 
     te "expr_of_sexp_empty_add1" "(add1)" "Incorrect syntax. Expected logical expression in parens, found `(Sym{add1})` at line 0, col 0--line 0, col 6";
     te "expr_of_sexp_empty_sub1" "(sub1)" "Incorrect syntax. Expected logical expression in parens, found `(Sym{sub1})` at line 0, col 0--line 0, col 6";
     te "expr_of_sexp_literal_in_let_args" "(let ((x 1) 5) x)"
-      "Incorrect let syntax at line 0, col 12--line 0, col 13. Expected `(Sym(id) expression)`, found `Int{5}`";
+      "Incorrect let binding syntax at line 0, col 12--line 0, col 13. Expected `(Sym(id) expression)`, found `Int{5}`";
     te "expr_of_sexp_add1_too_many_args" "(add1 1 2)"
       "Incorrect syntax. Expected logical expression in parens, found `(Sym{add1} Int{1} Int{2})` at line 0, col 0--line 0, col 10";
     te "expr_of_sexp_sub1_too_many_args" "(sub1 1 2)"

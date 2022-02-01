@@ -63,12 +63,12 @@ and handle_let_bindings (bindings : pos sexp list) : (string * 'a expr) list =
   (* handle a let that doesn't start with a Sym *)
   | Nest (n, nest_pos) :: _ -> 
     raise (SyntaxError 
-             (sprintf "Incorrect let syntax at %s. Expected `(Sym(id) expression)`, found `%s`" 
+             (sprintf "Incorrect let binding syntax at %s. Expected `(Sym(id) expression)`, found `%s`" 
                 (pos_to_string nest_pos true) (sexp_list_to_string n)))
   (* handle unknown let case *)
   | n :: _ -> 
     raise (SyntaxError 
-             (sprintf "Incorrect let syntax at %s. Expected `(Sym(id) expression)`, found `%s`" 
+             (sprintf "Incorrect let binding syntax at %s. Expected `(Sym(id) expression)`, found `%s`" 
                 (pos_to_string (sexp_info n) true) (sexp_to_string n)))
 
 (* Functions that implement the compiler *)
