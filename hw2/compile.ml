@@ -53,7 +53,7 @@ let rec expr_of_sexp (s : pos sexp) : pos expr =
   (* handle nest with unknown syntax *)
   | Nest (n, nest_pos) -> 
     raise (SyntaxError 
-             (sprintf "Incorrect syntax. Expected logical expression in parens, found `%s` at %s" 
+             (sprintf "Incorrect syntax. Expected logical expression in parens, found `%s` at %s (are your line endings not LF?)" 
                 (sexp_list_to_string n) (pos_to_string nest_pos true)))
 and handle_let_bindings (bindings : pos sexp list) : (string * 'a expr) list =
   match bindings with

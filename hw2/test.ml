@@ -158,18 +158,25 @@ let integration_tests =
    ti "test1.adder" "2";
    ti "test2.adder" "1008";
    ti "test3.adder" "13";
+   ti "test4.adder" "5";
+   ti "test5.adder" "3";
    t "test.let.shadowing" "(let ((x 5) (y 6)) (let ((y 7)) y))" "7";
    t "test.let.rec1" "(let ((x 5) (y x)) y)" "5";
    t "test.let.rec2" "(let ((x 5) (y x)) x)" "5";
    t "test.let.scope" "(let ((x 5) (y x) (x y)) x)" "5";
    tie "test_error1.adder"
-     "Unbound variable `y` referenced at line 0, col 37--line 0, col 38";
+     "Unbound variable `y` referenced at line 1, col 24--line 1, col 25";
    tie "test_error2.adder"
-     "Unbound variable `z` referenced at line 0, col 54--line 0, col 55";
+     "Unbound variable `z` referenced at line 3, col 5--line 3, col 6";
    tie "test_error3.adder" 
      "Incorrect syntax. Expected logical expression in parens, found `(Sym{add1})` at line 0, col 0--line 0, col 6";
    tie "test_error4.adder" 
      "Unbound variable `sub1` referenced at line 0, col 0--line 0, col 4";
+    tie "test_error5.adder"
+     "Incorrect syntax. Expected logical expression in parens, found `(Int{5})` at line 0, col 0--line 0, col 3";
+    tie "test_error6.adder"
+     ("Incorrect syntax. Expected logical expression in parens, found `(Sym{undefined-func} Int{1} Int{2})` " ^
+      "at line 0, col 0--line 0, col 20 (are your line endings not LF?)");
   ]
 
 let all_tests = expr_of_sexp_tests @ compile_env_tests @ integration_tests
