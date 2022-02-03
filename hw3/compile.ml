@@ -40,9 +40,9 @@ let rec check_scope_helper (e : (Lexing.position * Lexing.position) expr) (b: st
       | true -> ()) 
 (* Check for duplicates in a bind list *)
 and check_dupes 
-  (b : (Lexing.position * Lexing.position) bind list) 
-  (bindings : string list) 
-  (body : (Lexing.position * Lexing.position) expr) =
+    (b : (Lexing.position * Lexing.position) bind list) 
+    (bindings : string list) 
+    (body : (Lexing.position * Lexing.position) expr) =
   match b with 
   | [] -> ignore (check_scope_helper body bindings)
   | (id, b, pos)::rest -> (match (List.exists (fun (b, _, _) -> b = id) rest) with
