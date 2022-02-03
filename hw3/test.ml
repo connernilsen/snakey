@@ -47,6 +47,12 @@ let check_scope_tests = [
   t_check_scope "good_scope_1" "let x = 1 in x"
 ; t_check_scope "good_scope_2" "let x = 1 in let y = 2 in 5"
 ; t_check_scope "good_scope_3" "let x = 1 in let x = 2 in 5"
+; t_check_scope "good_scope_deep_let"
+  ("let x = (if 1: (5 * 5) else: 10), y = (let z = sub1(x) in z - x) in\n\t" ^
+  "(let z = x + y in z)")
+; t_check_scope "good_scope_deep_if"
+  ("if (if 0: sub1(1) else: 10): (if (5 * -1): let x = 10 in sub1(x) else: add1(10))\n" ^
+  "else: 4321")
 ; te_check_scope "bad_scope_1" "x" 
   (BindingError "Unbound variable x at bad_scope_1, 1:0-1:1")
 ; te_check_scope "bad_scope_2" "let x = 1 in y" 
@@ -61,11 +67,7 @@ let check_scope_tests = [
   (BindingError "Unbound variable y at bad_scope_in_binding_unbound, 1:17-1:18")
 ]
 
-(* NOTE: the t_check_tags func allows programs with invalid scopes to be tagged.
-  In practice, check-scopes will be applied, but it is not done here for testing purposes.
-*)
 let check_tag_tests = [
-  t_check_tags "tag_atom_id" "x" (EId("x", 1));
   t_check_tags "tag_atom_num" "1" (ENumber(1L, 1));
   t_check_tags "tag_simple_let" "let x = 1 in x"
     (ELet ([("x", ENumber(1L, 1), 2)], EId("x", 3), 4));
@@ -86,6 +88,39 @@ let check_tag_tests = [
       EPrim1 (Add1, ENumber (5L, 2), 3),
       ENumber (7L, 4),
       5));
+  t_check_tags "tag_let_deep" 
+    ("let x = (if 1: (5 * 5) else: 10), y = (let z = sub1(x) in z - x) in\n\t" ^
+    "(let z = x + y in z)")
+    (ELet ([
+      ("x", EIf (
+        ENumber (1L, 1),
+        EPrim2 (Times, ENumber (5L, 2), ENumber (5L, 3), 4),
+        ENumber (10L, 5), 6),
+        7);
+      ("y", ELet (
+          [("z", EPrim1 (Sub1, EId ("x", 8), 9), 10)],
+          EPrim2 (Minus, EId ("z", 11), EId ("x", 12), 13),
+          14), 15)],
+    ELet (
+      [("z", EPrim2 (Plus, EId ("x", 16), EId ("y", 17), 18), 19)],
+      EId ("z", 20),
+      21),
+    22));
+  t_check_tags "tag_if_deep"
+    ("if (if 0: sub1(1) else: 10): (if (5 * -1): let x = 10 in sub1(x) else: add1(10))\n" ^
+    "else: 4321")
+    (EIf (
+      EIf (ENumber (0L, 1), EPrim1 (Sub1, ENumber (1L, 2), 3), ENumber(10L, 4), 5),
+      EIf (
+        EPrim2 (Times, ENumber (5L, 6), ENumber (Int64.neg 1L, 7), 8),
+        ELet (
+          [("x", ENumber (10L, 9), 10)],
+          EPrim1 (Sub1, EId ("x", 11), 12),
+          13),
+        EPrim1 (Add1, ENumber (10L, 14), 15),
+        16),
+      ENumber (4321L, 17),
+      18));
 ]
 
 let anf_tests = [
