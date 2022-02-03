@@ -14,6 +14,14 @@ let ta (name : string) (program : tag expr) (expected : string) = name>::test_ru
 (* Runs a program, given as a source string, and compares its error to expected *)
 let te (name : string) (program : string) (expected_err : string) = name>::test_err program name expected_err;;
 
+(* Runs check scope. Asserts no errors *)
+let t_check_scope name (program : string) = name>::
+                                            (fun _ -> (check_scope (parse_string name program)));;
+
+(* Checks scope of a function, given as a source string, and compares its error to expected *)
+let te_check_scope name (program : string) e = name>::
+                                               (fun _ -> (assert_raises e (fun _ -> (check_scope (parse_string name program)))));;
+
 (* Transforms a program into ANF, and compares the output to expected *)
 let tanf (name : string) (program : 'a expr) (expected : unit expr) = name>::fun _ ->
     assert_equal expected (anf (tag program)) ~printer:string_of_expr;;
@@ -31,6 +39,18 @@ let teprog (filename : string) (expected : string) = filename>::test_err_input f
 let forty_one = "41";;
 
 let forty_one_a = (ENumber(41L, ()))
+
+let check_scope_tests = [
+  t_check_scope "good_scope_1" "let x = 1 in x"
+; t_check_scope "good_scope_2" "let x = 1 in let y = 2 in 5"
+; t_check_scope "good_scope_3" "let x = 1 in let x = 2 in 5"
+; te_check_scope "bad_scope_1" "x" (BindingError "invalid")
+; te_check_scope "bad_scope_2" "let x = 1 in y" (BindingError "invalid")
+; te_check_scope "bad_scope_3" "let x = 1, x = 2 in x" (BindingError "invalid")
+; te_check_scope "bad_scope_nested" "let y = 2 in let x = 1, x = 2 in x" (BindingError "invalid")
+; te_check_scope "bad_scope_in_binding_duples" "let y = (let x = 10, x = 20 in x) in y" (BindingError "invalid")
+; te_check_scope "bad_scope_in_binding_unbound" "let y = (let x = y in x) in y" (BindingError "invalid")
+]
 
 let anf_tests = [
   tanf "forty_one_anf"
@@ -51,19 +71,20 @@ let anf_tests = [
 ]
 
 let integration_tests = [
-  ta "forty_one_run_anf" (tag forty_one_a) "41";
+  (* ta "forty_one_run_anf" (tag forty_one_a) "41";
 
-  t "forty_one" forty_one "41";
+     t "forty_one" forty_one "41";
 
-  t "if1" "if 5: 4 else: 2" "4";
-  t "if2" "if 0: 4 else: 2" "2";
+     t "if1" "if 5: 4 else: 2" "4";
+     t "if2" "if 0: 4 else: 2" "2";
 
-  tprog "test1.boa" "3";
+     tprog "test1.boa" "3"; *)
 ]
 
 let suite =
   "suite">:::
-  anf_tests @ integration_tests
+  check_scope_tests
+  (* @ anf_tests @ integration_tests *)
 ;;
 
 

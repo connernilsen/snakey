@@ -21,8 +21,29 @@ and is_imm e =
 (* PROBLEM 1 *)
 (* This function should encapsulate the binding-error checking from Boa *)
 exception BindingError of string
+
+let rec check_scope_helper (e : (Lexing.position * Lexing.position) expr) (b: string list) : unit =
+  match e with
+  | ELet(binds, body, _) -> (check_dupes binds b)
+  | EPrim1(_, e, _) -> (check_scope_helper e b)
+  | EPrim2(_, e1, e2, _) -> (let _ = (check_scope_helper e1 b) and _ = (check_scope_helper e2 b) in ())
+  | EIf(cond, thn, els, _) -> (let _ = (check_scope_helper cond b) and _ = (check_scope_helper thn b) and _ = (check_scope_helper els b) in ())
+  | ENumber _ -> ()
+  | EId (id, pos) -> (match List.exists (fun b -> b == id) b with
+      | true -> raise (BindingError (sprintf "Unbound variable %s at %s" id (string_of_pos pos)))
+      | false -> ())
+(* Check for duplicates in a bind list *)
+and check_dupes (b : (Lexing.position * Lexing.position) bind list) (bindings : string list) =
+  match b with 
+  | [] -> ()
+  | (id, b, pos)::rest -> (match (List.exists (fun (b, _, _) -> b == id) rest) with
+      | true -> raise (BindingError (sprintf "Duplicate bindings in let at %s" (string_of_pos pos)))
+      (* TODO: not sure if this is the best way to do sequential code execution *)
+      | false -> (let _ = (check_scope_helper b bindings) and _ = (check_dupes rest bindings) in ()))
+
+(* Checks scope of e. Confirms: 1. Let contains no two let ids with same name 2. No unbound identifiers *)
 let rec check_scope (e : (Lexing.position * Lexing.position) expr) : unit =
-  failwith "check_scope: Implement this"
+  check_scope_helper e []
 
 type tag = int
 (* PROBLEM 2 *)
