@@ -106,14 +106,29 @@ let rec untag (e : 'a expr) : unit expr =
     EIf(untag cond, untag thn, untag els, ())
 ;;
 
+type env = (string * string) list
 (* PROBLEM 3 *)
 let rename (e : tag expr) : tag expr =
-  let rec help (env : (string * string) list) (e : tag expr) =
+  let rec help (env : env) (e : tag expr): tag expr =
     match e with
-    | EId(x, tag) -> EId(failwith "implement this", tag)
+    | EId(x, tag) -> let _, name = (List.find (fun (e, b) -> (String.equal x e)) env) in EId (name, tag)
     | ELet(binds, body, tag) ->
-      failwith "Extend env by renaming each binding in binds, then rename the expressions and body"
-    | _ -> failwith "finish the other cases recursively"
+      let (binds_renamed, new_env) = (let_helper env binds) in let body_renamed = (help new_env body) in ELet(binds_renamed, body_renamed, tag)
+    | ENumber(n, tag) -> ENumber(n, tag)
+    | EPrim1(op, e, tag) ->
+      EPrim1(op, help env e, tag)
+    | EPrim2(op, e1, e2, tag) ->
+      EPrim2(op, help env e1, help env e2, tag)
+    | EIf(cond, thn, els, tag) ->
+      EIf(help env cond, help env thn, help env els, tag)
+  (* Renames all bindings in a let string and returns them with new env *)
+  and let_helper (env : env) (binds : 'a bind list) =
+    match binds with
+    | [] -> ([], env)
+    | (first, binding, tag)::rest -> let binding_renamed = (help env binding) 
+      and (acc, env) = (let_helper env rest) 
+      and new_name = (sprintf "%s%n" first tag) in 
+      ((new_name, binding_renamed, tag)::acc, (first, new_name)::env)
   in help [] e
 ;;
 

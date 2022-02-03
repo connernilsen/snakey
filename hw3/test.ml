@@ -25,8 +25,8 @@ let te_check_scope name (program : string) e = name>::
 let t_check_tags name (program : string) (expected : tag expr) = name>::
                                                                  (fun _ -> assert_equal expected (tag (parse_string name program)) ~printer:ast_of_tag_expr);;
 
-let t_rename name (program : string) (expected : tag expr) = name>::
-                                                             (fun _ -> assert_equal expected (rename (parse_string name program)) ~printer:ast_of_tag_expr);;
+let t_rename name (program : string) (expected : unit expr) = name>::
+                                                              (fun _ -> assert_equal expected (untag (rename (tag (parse_string name program)))) ~printer:ast_of_expr);;
 
 (* Transforms a program into ANF, and compares the output to expected *)
 let tanf (name : string) (program : 'a expr) (expected : unit expr) = name>::fun _ ->
@@ -159,7 +159,36 @@ let check_tag_tests = [
 ]
 
 let rename_tests = [
-
+  t_rename "rename_atom_num" "1" (ENumber (1L, ()))
+;t_rename "rename_let" "let x = 5 in x" (ELet (
+      [("x2", ENumber (5L, ()), ())],
+      EId ("x2", ()),
+      ()))
+;t_rename "rename_let_prim" "let x = 5 in add1(x)" (ELet (
+    [("x2", ENumber (5L, ()), ())],
+    EPrim1 (Add1, EId ("x2", ()), ()),
+    ()))
+;t_rename "rename_let_shadow" "let x = 5 in (let x = x in x)" (ELet (
+    [("x2", ENumber (5L, ()), ())],
+    ELet (
+      [("x4", EId ("x2", ()), ())],
+      EId ("x4", ()),
+      ()),
+    ()))
+;t_rename "rename_let_multiple" "let x = 5, y = 6 in (let x = x in x)" (ELet (
+    [("x2", ENumber (5L, ()), ());("y4", ENumber (6L, ()), ())],
+    ELet (
+      [("x6", EId ("x2", ()), ())],
+      EId ("x6", ()),
+      ()),
+    ()))
+;t_rename "rename_let_multiple_with_if_and_prim_2" "let x = 5, y = 6 in (let x = x in (if (x - 1): x + 5 else: x * 5))" (ELet (
+    [("x2", ENumber (5L, ()), ());("y4", ENumber (6L, ()), ())],
+    ELet (
+      [("x6", EId ("x2", ()), ())],
+      EIf (EPrim2 (Minus, EId ("x6", ()), ENumber (1L, ()), ()), 
+           EPrim2 (Plus, (EId ("x6", ())), ENumber (5L, ()), ()), 
+           EPrim2 (Times, (EId ("x6", ())), ENumber (5L, ()), ()), ()), ()), ()))
 ]
 
 let anf_tests = [
@@ -195,6 +224,7 @@ let suite =
   "suite">:::
   check_scope_tests
   @ check_tag_tests
+  @ rename_tests
   (* @ anf_tests @ integration_tests *)
 ;;
 
