@@ -16,11 +16,14 @@ let te (name : string) (program : string) (expected_err : string) = name>::test_
 
 (* Runs check scope. Asserts no errors *)
 let t_check_scope name (program : string) = name>::
-                                            (fun _ -> (check_scope (parse_string name program)));;
+  (fun _ -> (check_scope (parse_string name program)));;
 
 (* Checks scope of a function, given as a source string, and compares its error to expected *)
 let te_check_scope name (program : string) e = name>::
-                                               (fun _ -> (assert_raises e (fun _ -> (check_scope (parse_string name program)))));;
+  (fun _ -> (assert_raises e (fun _ -> (check_scope (parse_string name program)))));;
+
+let t_check_tags name (program : string) (expected : tag expr) = name>::
+  (fun _ -> assert_equal expected (tag (parse_string name program)) ~printer:ast_of_tag_expr);;
 
 (* Transforms a program into ANF, and compares the output to expected *)
 let tanf (name : string) (program : 'a expr) (expected : unit expr) = name>::fun _ ->
@@ -44,12 +47,45 @@ let check_scope_tests = [
   t_check_scope "good_scope_1" "let x = 1 in x"
 ; t_check_scope "good_scope_2" "let x = 1 in let y = 2 in 5"
 ; t_check_scope "good_scope_3" "let x = 1 in let x = 2 in 5"
-; te_check_scope "bad_scope_1" "x" (BindingError "invalid")
-; te_check_scope "bad_scope_2" "let x = 1 in y" (BindingError "invalid")
-; te_check_scope "bad_scope_3" "let x = 1, x = 2 in x" (BindingError "invalid")
-; te_check_scope "bad_scope_nested" "let y = 2 in let x = 1, x = 2 in x" (BindingError "invalid")
-; te_check_scope "bad_scope_in_binding_duples" "let y = (let x = 10, x = 20 in x) in y" (BindingError "invalid")
-; te_check_scope "bad_scope_in_binding_unbound" "let y = (let x = y in x) in y" (BindingError "invalid")
+; te_check_scope "bad_scope_1" "x" 
+  (BindingError "Unbound variable x at bad_scope_1, 1:0-1:1")
+; te_check_scope "bad_scope_2" "let x = 1 in y" 
+  (BindingError "Unbound variable y at bad_scope_2, 1:13-1:14")
+; te_check_scope "bad_scope_3" "let x = 1, x = 2 in x"  
+  (BindingError "Duplicate bindings in let at bad_scope_3, 1:4-1:9")
+; te_check_scope "bad_scope_nested" "let y = 2 in let x = 1, x = 2 in x" 
+  (BindingError "Duplicate bindings in let at bad_scope_nested, 1:17-1:22")
+; te_check_scope "bad_scope_in_binding_duples" "let y = (let x = 10, x = 20 in x) in y" 
+  (BindingError "Duplicate bindings in let at bad_scope_in_binding_duples, 1:13-1:19")
+; te_check_scope "bad_scope_in_binding_unbound" "let y = (let x = y in x) in y" 
+  (BindingError "Unbound variable y at bad_scope_in_binding_unbound, 1:17-1:18")
+]
+
+(* NOTE: the t_check_tags func allows programs with invalid scopes to be tagged.
+  In practice, check-scopes will be applied, but it is not done here for testing purposes.
+*)
+let check_tag_tests = [
+  t_check_tags "tag_atom_id" "x" (EId("x", 1));
+  t_check_tags "tag_atom_num" "1" (ENumber(1L, 1));
+  t_check_tags "tag_simple_let" "let x = 1 in x"
+    (ELet ([("x", ENumber(1L, 1), 2)], EId("x", 3), 4));
+  t_check_tags "tag_prim1_simple" "add1(123)"
+    (EPrim1 (Add1, ENumber(123L, 1), 2));
+  t_check_tags "tag_prim1_in_let" "let x = add1(123) in sub1(x)"
+    (ELet ([("x", EPrim1 (Add1, ENumber (123L, 1), 2), 3)], 
+      EPrim1 (Sub1, EId ("x", 4), 5), 6));
+  t_check_tags "tag_prim2_simple" "5 * 6"
+    (EPrim2 (Times, ENumber (5L, 1), ENumber (6L, 2), 3));
+  t_check_tags "tag_prim2_nested" "(5 - 6) * (1 + 3)"
+    (EPrim2 (Times,
+      EPrim2 (Minus, ENumber (5L, 1), ENumber (6L, 2), 3),
+      EPrim2 (Plus, ENumber (1L, 4), ENumber (3L, 5), 6),
+      7));
+  t_check_tags "tag_if_simple" "if 0: add1(5) else: 7"
+    (EIf (ENumber (0L, 1),
+      EPrim1 (Add1, ENumber (5L, 2), 3),
+      ENumber (7L, 4),
+      5));
 ]
 
 let anf_tests = [
@@ -84,6 +120,7 @@ let integration_tests = [
 let suite =
   "suite">:::
   check_scope_tests
+  @ check_tag_tests
   (* @ anf_tests @ integration_tests *)
 ;;
 

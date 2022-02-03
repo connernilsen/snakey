@@ -109,4 +109,5 @@ let rec ast_of_pos_expr (e : (Lexing.position * Lexing.position) expr) : string 
   format_expr e string_of_pos
 let rec ast_of_expr (e : 'a expr) : string =
   format_expr e (fun _ -> "")
-
+let rec ast_of_tag_expr (e : int expr) : string =
+  format_expr e string_of_int

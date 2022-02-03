@@ -24,22 +24,32 @@ exception BindingError of string
 
 let rec check_scope_helper (e : (Lexing.position * Lexing.position) expr) (b: string list) : unit =
   match e with
-  | ELet(binds, body, _) -> (check_dupes binds b)
+  | ELet(binds, body, _) -> 
+    check_dupes binds b body
   | EPrim1(_, e, _) -> (check_scope_helper e b)
-  | EPrim2(_, e1, e2, _) -> (let _ = (check_scope_helper e1 b) and _ = (check_scope_helper e2 b) in ())
-  | EIf(cond, thn, els, _) -> (let _ = (check_scope_helper cond b) and _ = (check_scope_helper thn b) and _ = (check_scope_helper els b) in ())
+  | EPrim2(_, e1, e2, _) -> 
+    check_scope_helper e1 b; 
+    ignore (check_scope_helper e2 b)
+  | EIf(cond, thn, els, _) -> 
+    check_scope_helper cond b; 
+    check_scope_helper thn b; 
+    ignore (check_scope_helper els b)
   | ENumber _ -> ()
-  | EId (id, pos) -> (match List.exists (fun b -> b == id) b with
-      | true -> raise (BindingError (sprintf "Unbound variable %s at %s" id (string_of_pos pos)))
-      | false -> ())
+  | EId (id, pos) -> (match List.exists (fun b -> b = id) b with
+      | false -> raise (BindingError (sprintf "Unbound variable %s at %s" id (string_of_pos pos)))
+      | true -> ()) 
 (* Check for duplicates in a bind list *)
-and check_dupes (b : (Lexing.position * Lexing.position) bind list) (bindings : string list) =
+and check_dupes 
+  (b : (Lexing.position * Lexing.position) bind list) 
+  (bindings : string list) 
+  (body : (Lexing.position * Lexing.position) expr) =
   match b with 
-  | [] -> ()
-  | (id, b, pos)::rest -> (match (List.exists (fun (b, _, _) -> b == id) rest) with
+  | [] -> ignore (check_scope_helper body bindings)
+  | (id, b, pos)::rest -> (match (List.exists (fun (b, _, _) -> b = id) rest) with
       | true -> raise (BindingError (sprintf "Duplicate bindings in let at %s" (string_of_pos pos)))
-      (* TODO: not sure if this is the best way to do sequential code execution *)
-      | false -> (let _ = (check_scope_helper b bindings) and _ = (check_dupes rest bindings) in ()))
+      | false -> 
+        check_scope_helper b bindings; 
+        ignore (check_dupes rest (id :: bindings) body))
 
 (* Checks scope of e. Confirms: 1. Let contains no two let ids with same name 2. No unbound identifiers *)
 let rec check_scope (e : (Lexing.position * Lexing.position) expr) : unit =
@@ -49,7 +59,35 @@ type tag = int
 (* PROBLEM 2 *)
 (* This function assigns a unique tag to every subexpression and let binding *)
 let tag (e : 'a expr) : tag expr =
-  failwith "tag: Implement this"
+  let rec helper (e : 'a expr) (curr_tag : tag) : (tag expr * tag) =
+    match e with
+    | ELet (binds, e, _) -> 
+      let (bind_exprs, curr_tag) = (let_helper binds curr_tag []) in
+      let (sub_expr, curr_tag) = (helper e curr_tag) in
+      (ELet (bind_exprs, sub_expr, curr_tag), curr_tag + 1)
+    | EPrim1 (prim, e, _) -> 
+      let (sub_expr, curr_tag) = (helper e curr_tag) in
+      (EPrim1 (prim, sub_expr, curr_tag), curr_tag + 1)
+    | EPrim2 (prim, e1, e2, _) -> 
+      let (sub_expr1, curr_tag) = (helper e1 curr_tag) in
+      let (sub_expr2, curr_tag) = (helper e2 curr_tag) in
+      (EPrim2 (prim, sub_expr1, sub_expr2, curr_tag), curr_tag + 1)
+    | EIf (c, eT, eF, _) ->
+      let (c_expr, curr_tag) = (helper c curr_tag) in
+      let (t_expr, curr_tag) = (helper eT curr_tag) in
+      let (f_expr, curr_tag) = (helper eF curr_tag) in
+      (EIf (c_expr, t_expr, f_expr, curr_tag), curr_tag + 1)
+    | ENumber (num, _) -> (ENumber (num, curr_tag), curr_tag + 1)
+    | EId (id, _) -> (EId (id, curr_tag), curr_tag + 1)
+  and let_helper (e : 'a bind list) (curr_tag : tag) (acc : tag bind list) : (tag bind list * tag) =
+    match e with
+    | [] -> (List.rev acc, curr_tag)
+    | (name, first, _) :: rest -> 
+      let (tag_bind, curr_tag) = (helper first curr_tag) in
+      let_helper rest (curr_tag + 1) ((name, tag_bind, curr_tag) :: acc)
+  in
+  let (result, _) = (helper e 1) in
+  result
 ;;
 
 (* This function removes all tags, and replaces them with the unit value.
