@@ -25,6 +25,9 @@ let te_check_scope name (program : string) e = name>::
 let t_check_tags name (program : string) (expected : tag expr) = name>::
                                                                  (fun _ -> assert_equal expected (tag (parse_string name program)) ~printer:ast_of_tag_expr);;
 
+let t_rename name (program : string) (expected : tag expr) = name>::
+                                                             (fun _ -> assert_equal expected (rename (parse_string name program)) ~printer:ast_of_tag_expr);;
+
 (* Transforms a program into ANF, and compares the output to expected *)
 let tanf (name : string) (program : 'a expr) (expected : unit expr) = name>::fun _ ->
     assert_equal expected (anf (tag program)) ~printer:string_of_expr;;
@@ -153,6 +156,10 @@ let check_tag_tests = [
           16),
         ENumber (4321L, 17),
         18));
+]
+
+let rename_tests = [
+
 ]
 
 let anf_tests = [
