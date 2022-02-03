@@ -47,12 +47,25 @@ let check_scope_tests = [
   t_check_scope "good_scope_1" "let x = 1 in x"
 ; t_check_scope "good_scope_2" "let x = 1 in let y = 2 in 5"
 ; t_check_scope "good_scope_3" "let x = 1 in let x = 2 in 5"
+; t_check_scope "good_scope_4" "let x = 1, y = (x * x) in y - x"
 ; t_check_scope "good_scope_deep_let"
   ("let x = (if 1: (5 * 5) else: 10), y = (let z = sub1(x) in z - x) in\n\t" ^
   "(let z = x + y in z)")
 ; t_check_scope "good_scope_deep_if"
   ("if (if 0: sub1(1) else: 10): (if (5 * -1): let x = 10 in sub1(x) else: add1(10))\n" ^
   "else: 4321")
+; t_check_scope "good_scope_shadow_var"
+  "let x = 10 in let x = 11 in x"
+; t_check_scope "good_scope_available_deep"
+  "let x = 10, y = (let z = 11, a = x + z in a + x) in y + x"
+; t_check_scope "good_scope_let_available_in_if_1_condition"
+  "let x = 10 in if x: 1 else: 2"
+; t_check_scope "good_scope_let_available_in_if_2_thn"
+  "let x = 10 in if 0: x else: 2"
+; t_check_scope "good_scope_let_available_in_if_3_els"
+  "let x = 10 in if 1: 0 else: x"
+; t_check_scope "good_scope_use_before_shadow"
+  "let x = 10 in x + (let x = 10 in x)"
 ; te_check_scope "bad_scope_1" "x" 
   (BindingError "Unbound variable x at bad_scope_1, 1:0-1:1")
 ; te_check_scope "bad_scope_2" "let x = 1 in y" 
@@ -65,6 +78,24 @@ let check_scope_tests = [
   (BindingError "Duplicate bindings in let at bad_scope_in_binding_duples, 1:13-1:19")
 ; te_check_scope "bad_scope_in_binding_unbound" "let y = (let x = y in x) in y" 
   (BindingError "Unbound variable y at bad_scope_in_binding_unbound, 1:17-1:18")
+; te_check_scope "bad_scope_if_cond_bind_1"
+  "if (let x = 10 in x): x else: 11"
+  (BindingError "Unbound variable x at bad_scope_if_cond_bind_1, 1:22-1:23")
+; te_check_scope "bad_scope_if_cond_bind_2"
+  "if (let x = 10 in x): 1 else: x"
+  (BindingError "Unbound variable x at bad_scope_if_cond_bind_2, 1:30-1:31")
+; te_check_scope "bad_scope_if_thn_bind_1"
+  "if x: (let x = 10 in x) else: 0"
+  (BindingError "Unbound variable x at bad_scope_if_thn_bind_1, 1:3-1:4")
+; te_check_scope "bad_scope_if_thn_bind_2"
+  "if 1: (let x = 10 in x) else: x"
+  (BindingError "Unbound variable x at bad_scope_if_thn_bind_2, 1:30-1:31")
+; te_check_scope "bad_scope_if_els_bind_1"
+  "if 1: x else: (let x = 10 in x)"
+  (BindingError "Unbound variable x at bad_scope_if_els_bind_1, 1:6-1:7")
+; te_check_scope "bad_scope_if_els_bind_2"
+  "if x: 1 else: (let x = 10 in x)"
+  (BindingError "Unbound variable x at bad_scope_if_els_bind_2, 1:3-1:4")
 ]
 
 let check_tag_tests = [
