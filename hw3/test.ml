@@ -28,12 +28,20 @@ let t_check_tags name (program : string) (expected : tag expr) = name>:: fun _ -
 let t_rename name (program : string) (expected : unit expr) = name>:: fun _ -> 
     assert_equal expected (untag (rename (tag (parse_string name program)))) ~printer:ast_of_expr;;
 
+let tisanf (name : string) (program : 'a expr) = name>:: fun _ ->
+    assert_equal true (is_anf (anf (tag program)));;
+
 (* Transforms a program into ANF, and compares the output to expected *)
 let tanf (name : string) (program : 'a expr) (expected : unit expr) = name>:: fun _ ->
-    assert_equal expected (anf (tag program)) ~printer:string_of_expr;
+    assert_equal expected (anf (rename (tag program))) ~printer:string_of_expr;
     check_scope_helper (fun _-> "ignored") program [];
-    assert_equal true (is_anf program);;
+    assert_equal true (is_anf (anf (rename (tag program))));;
 
+(* Transforms a program into ANF, and compares the output to expected *)
+let tanf_improved (name : string) (program : string) (expected : string) = name>:: fun _ ->
+    assert_equal expected (string_of_expr (anf (rename (tag (parse_string name program))))) ~printer:(fun s->s);
+    check_scope_helper (fun _-> "ignored") (parse_string name program) [];
+    assert_equal true (is_anf (anf (rename (tag (parse_string name program)))));;
 
 (* Checks if two strings are equal *)
 let teq (name : string) (actual : string) (expected : string) = name>:: fun _ ->
@@ -48,6 +56,12 @@ let teprog (filename : string) (expected : string) = filename>:: test_err_input 
 let forty_one = "41";;
 
 let forty_one_a = (ENumber(41L, ()))
+
+let is_anf_tests = [
+  tisanf "isanf_let_in_prim" 
+    (EPrim1(Sub1, ELet(["x", ENumber(1L, ()), ()], EId("x", ()), ()),
+            ()))
+]
 
 let check_scope_tests = [
   t_check_scope "good_scope_1" "let x = 1 in x"
@@ -167,6 +181,11 @@ let rename_tests = [
       [("x#2", ENumber (5L, ()), ())],
       EId ("x#2", ()),
       ()))
+;t_rename "rename_let*" "let x = 5, y = x in y" (ELet (
+    [("x#2", ENumber (5L, ()), ());("y#4", EId ("x#2", ()), ())],
+    EId ("y#4", ()),
+    ()))
+
 ;t_rename "rename_let_prim" "let x = 5 in add1(x)" (ELet (
     [("x#2", ENumber (5L, ()), ())],
     EPrim1 (Add1, EId ("x#2", ()), ()),
@@ -199,54 +218,89 @@ let anf_tests = [
     (ENumber(41L, ()))
     forty_one_a;
 
-  tanf "prim1"
+  tanf "prim1" (* sub1(55) *)
     (EPrim1(Sub1, ENumber(55L, ()), ()))
-    (ELet(["sub1_2", EPrim1(Sub1, ENumber(55L, ()), ()), ()],
-          EId("sub1_2", ()),
-          ()));
+    (EPrim1(Sub1, ENumber(55L, ()), ()));
 
-  tanf "prim2"
+  tanf "prim2" (* 55 + 56 *)
     (EPrim2(Plus, ENumber(55L, ()), ENumber(56L, ()), ()))
-    (ELet(["Plus_3", EPrim2(Plus, ENumber(55L, ()), ENumber(56L, ()), ()), ()],
-          EId("Plus_3", ()),
+    (EPrim2(Plus, ENumber(55L, ()), ENumber(56L, ()), ()));
+
+  tanf "prim2_in_prim2" (* (55 + 56) + 57 *)
+    (EPrim2(Plus, EPrim2(Plus, ENumber(55L, ()), ENumber(56L, ()), ()), ENumber(57L, ()), ()))
+    (ELet(["plus_3", EPrim2(Plus, ENumber(55L, ()), ENumber(56L, ()), ()), ()],
+          EPrim2(Plus, EId("plus_3", ()), ENumber(57L, ()), ()),
           ()));
 
-  tanf "prim2_in_prim2"
-    (EPrim2(Plus, EPrim2(Plus, ENumber(55L, ()), ENumber(56L, ()), ()), ENumber(56L, ()), ()))
-    (ELet(["Plus_3", EPrim2(Plus, ENumber(55L, ()), ENumber(56L, ()), ()), ()],
-          EId("Plus_3", ()),
-          ()));
-
-  tanf "prim1_in_let"
+  tanf "prim1_in_let" (* let x = 55 in x *)
     (ELet(["x", EPrim1(Sub1, ENumber(55L, ()), ()), ()], EId("x", ()), ()))
-    (ELet(["sub1_2", EPrim1(Sub1, ENumber(55L, ()), ()), ()],
-          ELet(["x", EId("sub1_2", ()), ()], EId("x", ()), ()),
-          ()));
+    (ELet(["x#3", EPrim1(Sub1, ENumber(55L, ()), ()), ()], EId("x#3", ()), ()));
 
-  tanf "let_in_prim"
-    (EPrim1(Add1, ELet(["x", ENumber(5L, ()), ()], EId("x", ()), ()), ()))
-    (ELet(["x", ENumber(5L, ()), ()], EPrim1(Add1, EId("x", ()), ()), ()));
+  tanf_improved "let_in_prim"
+    "add1(let x = 5 in x)"
+    "(let let_4 = (let x#2 = 5 in x#2) in add1(let_4))";
 
-  (* For CS6410 students, with optimized let-bindings *)
-  (* tanf "prim1_anf_6410"
-       (EPrim1(Sub1, ENumber(55L, ()), ()))
-       (EPrim1(Sub1, ENumber(55L, ()), ())); *)
+  tanf_improved "let_in_prim_with_eval"
+    "add1(let x = 5 in add1(x))"
+    "(let let_5 = (let x#2 = 5 in add1(x#2)) in add1(let_5))";
+
+  tanf_improved "let_in_prim2_with_eval"
+    "add1(let x = 5 in (x + (let x = 2 in x)))"
+    "(let let_7 = (let x#5 = 2 in x#5), let_9 = (let x#2 = 5 in (x#2 + let_7)) in add1(let_9))";
+
+  tanf_improved "let_in_let_in_if"
+    ("if (let x = 5, y = (let x = sub1(x), y = (add1(x) - 10) in y) in (y + x)): " ^
+     "(let abcd = 10 in add1(abcd)) " ^
+     "else: (let x = 0, y = (if x: x else: 1) in sub1(y))")
+    ("(let x#2 = 5, x#5 = sub1(x#1), add1_7 = add1(x#5), y#10 = (add1_7 - 10), " ^
+     "y#11 = y#10, if_14 = (y#11 + x#1) in " ^
+     "if if_14: (let abcd#16 = 10 in add1(abcd)) " ^
+     "else: (let x#21, y#26 = (if x#21: x#21 else: 1) in sub1(y#26)))"
+    );
+
+  tanf_improved "lets_in_prim"
+    "(let x = 1 in x) + (let x = 2 in x)"
+    "(let let_4 = (let x#2 = 1 in x#2), let_8 = (let x#6 = 2 in x#6) in (let_4 + let_8))";
+
+  tanf "if_basic" (* if 0: 0 else: 1 *)
+    (EIf(ENumber(0L, ()), ENumber(0L, ()), ENumber(1L, ()), ()))
+    (EIf(ENumber(0L, ()), ENumber(0L, ()), ENumber(1L, ()), ()));
+
+  tanf "if_in_if" (* if (if 0: 0 else: 1) else: 1 *)
+    (EIf((EIf(ENumber(0L, ()), ENumber(0L, ()), ENumber(1L, ()), ())), ENumber(0L, ()), ENumber(1L, ()), ()))
+    (ELet(["if_4", (EIf(ENumber(0L, ()), ENumber(0L, ()), ENumber(1L, ()), ())), ()],
+          (EIf(EId("if_4", ()), ENumber(0L, ()), ENumber(1L, ()), ())), ()));
+
+  tanf_improved "if_in_if_in_let_in_add1"
+    "add1(let x = (if (if 0: 0 else: 1): 0 else: 1) in (if x: 0 else: 1))"
+    "(let if_4 = (if 0: 0 else: 1), let_13 = (let x#8 = (if if_4: 0 else: 1) in (if x#8: 0 else: 1)) in add1(let_13))";
+
+  tanf_improved "if_in_if_in_let_in_add1"
+    "add1(let x = (if (if 0: 0 else: 1): 0 else: 1) in (if x: 0 else: 1))"
+    "(let if_4 = (if 0: 0 else: 1), let_13 = (let x#8 = (if if_4: 0 else: 1) in (if x#8: 0 else: 1)) in add1(let_13))";
+
+  tanf "prim1_anf_6410"
+    (EPrim1(Sub1, ENumber(55L, ()), ()))
+    (EPrim1(Sub1, ENumber(55L, ()), ()));
 ]
 
 let integration_tests = [
-  (* ta "forty_one_run_anf" (tag forty_one_a) "41";
+  ta "forty_one_run_anf" (tag forty_one_a) "41";
 
-     t "forty_one" forty_one "41";
+  t "forty_one" forty_one "41";
 
-     t "if1" "if 5: 4 else: 2" "4";
-     t "if2" "if 0: 4 else: 2" "2";
+  t "if1" "if 5: 4 else: 2" "4";
+  t "if2" "if 0: 4 else: 2" "2";
 
-     tprog "test1.boa" "3"; *)
+  t "let*" "let a = 1, b = a in b" "1";
+
+  tprog "test1.boa" "3";
 ]
 
 let suite =
   "suite">:::
-  check_scope_tests
+  is_anf_tests
+  @ check_scope_tests
   @ check_tag_tests
   @ rename_tests
   @ anf_tests 

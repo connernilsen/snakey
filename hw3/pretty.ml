@@ -22,10 +22,18 @@ let string_of_op2 op =
 
 let name_of_op2 op =
   match op with 
-  | Plus -> "Plus"
-  | Minus -> "Minus"
-  | Times -> "Times"
+  | Plus -> "plus"
+  | Minus -> "minus"
+  | Times -> "times"
 
+let name_of_expr (e : 'a expr) : string =
+  match e with 
+  | EId(_, _) -> "id"
+  | ENumber(_, _) -> "num"
+  | EPrim1(op, _, _) -> string_of_op1 op 
+  | EPrim2(op, _, _, _) -> name_of_op2 op 
+  | ELet(_, _, _) -> "let"
+  | EIf(_, _, _, _) -> "if"
 
 let rec string_of_expr (e : 'a expr) : string =
   match e with

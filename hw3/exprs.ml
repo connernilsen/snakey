@@ -2,7 +2,7 @@
 open Int64
 let word_size = 8
 ;;
-       
+
 
 type reg =
   | RAX
@@ -43,3 +43,12 @@ and 'a expr =
   | EIf of 'a expr * 'a expr * 'a expr * 'a
   | ENumber of int64 * 'a
   | EId of string * 'a
+
+let expr_info (e : 'a expr) : 'a =
+  match e with 
+  | ELet(_, _, a) -> a 
+  | EPrim1(_, _, a) -> a 
+  | EPrim2(_, _, _, a) -> a
+  | EIf(_, _, _, a) -> a
+  | ENumber(_, a) -> a
+  | EId(_, a) -> a

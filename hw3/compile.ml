@@ -133,10 +133,10 @@ let rename (e : tag expr) : tag expr =
   and let_helper (env : env) (binds : 'a bind list) =
     match binds with
     | [] -> ([], env)
-    | (first, binding, tag)::rest -> let binding_renamed = (help env binding) 
-      and (acc, env) = (let_helper env rest) 
+    | (first, binding, tag)::rest -> let binding_renamed = (help env binding)
       and new_name = (sprintf "%s#%n" first tag) in 
-      ((new_name, binding_renamed, tag)::acc, (first, new_name)::env)
+      let (acc, env) = (let_helper ((first, new_name)::env) rest) in
+      ((new_name, binding_renamed, tag)::acc, env)
   in help [] e
 ;;
 
@@ -152,35 +152,44 @@ let collapse (anfd, context: unit expr * context) : unit expr =
         (name, e, ()) :: curr) context []) in 
     ELet(res, anfd, ())
 
+(* let collapse (anfd, context: unit expr * context) : unit expr = 
+   List.fold_right (fun (name, e) acc ->
+      ELet([(name, e, ())], acc, ())) context anfd *)
+
 let anf (e : tag expr) : unit expr =
-  let rec h1 (e : tag expr) : (unit expr * context) =
+  let rec anf_helper (e : tag expr) : (unit expr * context) =
     match e with
     | EId(x, tag) -> (EId(x, ()), [])
-    | ELet(binds, body, tag) -> (* ELet([], (let e, _ = (h1 body) in untag e), ()), [] *)
-      let res, ctx = 
-        (List.fold_left (fun (prev, ctx) (t_name, t_expr, t_tag) -> 
-             let this_expr, this_ctx = (h1 t_expr) in 
-             ((t_name, this_expr, ()) :: prev), ctx @ this_ctx)
-            ([], []) binds) in
-      let body_res, body_ctx = (h1 body) in
-      ELet(List.rev res, body_res, ()), ctx @ body_ctx
     | ENumber(n, tag) -> (ENumber(n, ()), [])
     | EPrim1(op, e, tag) -> 
-      let op_ref, op_ctx = h1 e in 
-      let temp = (sprintf "%s_%d" (string_of_op1 op) tag) in 
-      (EId(temp, ())), 
-      op_ctx @ [(temp, EPrim1(op, op_ref, ()))]
+      let op_ref, op_ctx = imm_helper e in 
+      EPrim1(op, op_ref, ()), op_ctx 
     | EPrim2(op, e1, e2, tag) -> 
-      let op_ref1, op_ctx1 = h1 e1 in 
-      let op_ref2, op_ctx2 = h1 e2 in 
-      let temp = (sprintf "%s_%d" (name_of_op2 op) tag) in 
-      (EId(temp, ())), 
-      op_ctx1 @ op_ctx2 @ [(temp, EPrim2(op, op_ref1, op_ref2, ()))]
-    | EIf(cond, thn, els, tag) -> (untag e, [])
-    (* and imm_helper (e : tag expr) : unit expr * context) =
-       match e with 
-       |  *)
-  in (collapse (h1 e))
+      let op_ref1, op_ctx1 = imm_helper e1 in 
+      let op_ref2, op_ctx2 = imm_helper e2 in 
+      EPrim2(op, op_ref1, op_ref2, ()), op_ctx1 @ op_ctx2
+    | ELet(binds, body, tag) -> 
+      let res, ctx = 
+        (List.fold_left (fun (processed, ctx) (t_name, t_expr, t_tag) -> 
+             let this_expr, this_ctx = (anf_helper t_expr) in 
+             ((t_name, this_expr, ()) :: processed), ctx @ this_ctx)
+            ([], []) binds) in
+      let body_res, body_ctx = (anf_helper body) in
+      ELet(List.rev res, body_res, ()), ctx @ body_ctx
+    | EIf(cond, thn, els, tag) -> 
+      let thn_ref, thn_ctx = anf_helper thn in 
+      let els_ref, els_ctx = anf_helper els in 
+      let cond_ref, cond_ctx = imm_helper cond in
+      (EIf(cond_ref, thn_ref, els_ref, ()), 
+       cond_ctx @ thn_ctx @ els_ctx)
+  and imm_helper (e : tag expr) : (unit expr * context) =
+    match e with 
+    | ENumber(_, _) | EId(_, _) -> anf_helper e 
+    | _ -> 
+      let value, ctx = anf_helper e in 
+      let temp = (sprintf "%s_%d" (name_of_expr e) (expr_info e)) in
+      (EId(temp, ())), ctx @ [(temp, value)]
+  in (collapse (anf_helper e))
 ;;
 
 
