@@ -6,41 +6,44 @@ open Pretty
 open Exprs
 
 (* Runs a program, given as a source string, and compares its output to expected *)
-let t (name : string) (program : string) (expected : string) = name>::test_run program name expected;;
+let t (name : string) (program : string) (expected : string) = name>:: test_run program name expected;;
 
 (* Runs a program, given as an ANFed expr, and compares its output to expected *)
-let ta (name : string) (program : tag expr) (expected : string) = name>::test_run_anf program name expected;;
+let ta (name : string) (program : tag expr) (expected : string) = name>:: test_run_anf program name expected;;
 
 (* Runs a program, given as a source string, and compares its error to expected *)
-let te (name : string) (program : string) (expected_err : string) = name>::test_err program name expected_err;;
+let te (name : string) (program : string) (expected_err : string) = name>:: test_err program name expected_err;;
 
 (* Runs check scope. Asserts no errors *)
-let t_check_scope name (program : string) = name>::
-                                            (fun _ -> (check_scope (parse_string name program)));;
+let t_check_scope name (program : string) = name>:: fun _ -> 
+    (check_scope (parse_string name program));;
 
 (* Checks scope of a function, given as a source string, and compares its error to expected *)
-let te_check_scope name (program : string) e = name>::
-                                               (fun _ -> (assert_raises e (fun _ -> (check_scope (parse_string name program)))));;
+let te_check_scope name (program : string) e = name>:: fun _ -> 
+    (assert_raises e (fun _ -> (check_scope (parse_string name program))));;
 
-let t_check_tags name (program : string) (expected : tag expr) = name>::
-                                                                 (fun _ -> assert_equal expected (tag (parse_string name program)) ~printer:ast_of_tag_expr);;
+let t_check_tags name (program : string) (expected : tag expr) = name>:: fun _ -> 
+    assert_equal expected (tag (parse_string name program)) ~printer:ast_of_tag_expr;;
 
-let t_rename name (program : string) (expected : unit expr) = name>::
-                                                              (fun _ -> assert_equal expected (untag (rename (tag (parse_string name program)))) ~printer:ast_of_expr);;
+let t_rename name (program : string) (expected : unit expr) = name>:: fun _ -> 
+    assert_equal expected (untag (rename (tag (parse_string name program)))) ~printer:ast_of_expr;;
 
 (* Transforms a program into ANF, and compares the output to expected *)
-let tanf (name : string) (program : 'a expr) (expected : unit expr) = name>::fun _ ->
-    assert_equal expected (anf (tag program)) ~printer:string_of_expr;;
+let tanf (name : string) (program : 'a expr) (expected : unit expr) = name>:: fun _ ->
+    assert_equal expected (anf (tag program)) ~printer:string_of_expr;
+    check_scope_helper (fun _-> "ignored") program [];
+    assert_equal true (is_anf program);;
+
 
 (* Checks if two strings are equal *)
-let teq (name : string) (actual : string) (expected : string) = name>::fun _ ->
+let teq (name : string) (actual : string) (expected : string) = name>:: fun _ ->
     assert_equal expected actual ~printer:(fun s -> s);;
 
 (* Runs a program, given as the name of a file in the input/ directory, and compares its output to expected *)
-let tprog (filename : string) (expected : string) = filename>::test_run_input filename expected;;
+let tprog (filename : string) (expected : string) = filename>:: test_run_input filename expected;;
 
 (* Runs a program, given as the name of a file in the input/ directory, and compares its error to expected *)
-let teprog (filename : string) (expected : string) = filename>::test_err_input filename expected;;
+let teprog (filename : string) (expected : string) = filename>:: test_err_input filename expected;;
 
 let forty_one = "41";;
 
@@ -161,34 +164,34 @@ let check_tag_tests = [
 let rename_tests = [
   t_rename "rename_atom_num" "1" (ENumber (1L, ()))
 ;t_rename "rename_let" "let x = 5 in x" (ELet (
-      [("x2", ENumber (5L, ()), ())],
-      EId ("x2", ()),
+      [("x#2", ENumber (5L, ()), ())],
+      EId ("x#2", ()),
       ()))
 ;t_rename "rename_let_prim" "let x = 5 in add1(x)" (ELet (
-    [("x2", ENumber (5L, ()), ())],
-    EPrim1 (Add1, EId ("x2", ()), ()),
+    [("x#2", ENumber (5L, ()), ())],
+    EPrim1 (Add1, EId ("x#2", ()), ()),
     ()))
 ;t_rename "rename_let_shadow" "let x = 5 in (let x = x in x)" (ELet (
-    [("x2", ENumber (5L, ()), ())],
+    [("x#2", ENumber (5L, ()), ())],
     ELet (
-      [("x4", EId ("x2", ()), ())],
-      EId ("x4", ()),
+      [("x#4", EId ("x#2", ()), ())],
+      EId ("x#4", ()),
       ()),
     ()))
 ;t_rename "rename_let_multiple" "let x = 5, y = 6 in (let x = x in x)" (ELet (
-    [("x2", ENumber (5L, ()), ());("y4", ENumber (6L, ()), ())],
+    [("x#2", ENumber (5L, ()), ());("y#4", ENumber (6L, ()), ())],
     ELet (
-      [("x6", EId ("x2", ()), ())],
-      EId ("x6", ()),
+      [("x#6", EId ("x#2", ()), ())],
+      EId ("x#6", ()),
       ()),
     ()))
 ;t_rename "rename_let_multiple_with_if_and_prim_2" "let x = 5, y = 6 in (let x = x in (if (x - 1): x + 5 else: x * 5))" (ELet (
-    [("x2", ENumber (5L, ()), ());("y4", ENumber (6L, ()), ())],
+    [("x#2", ENumber (5L, ()), ());("y#4", ENumber (6L, ()), ())],
     ELet (
-      [("x6", EId ("x2", ()), ())],
-      EIf (EPrim2 (Minus, EId ("x6", ()), ENumber (1L, ()), ()), 
-           EPrim2 (Plus, (EId ("x6", ())), ENumber (5L, ()), ()), 
-           EPrim2 (Times, (EId ("x6", ())), ENumber (5L, ()), ()), ()), ()), ()))
+      [("x#6", EId ("x#2", ()), ())],
+      EIf (EPrim2 (Minus, EId ("x#6", ()), ENumber (1L, ()), ()), 
+           EPrim2 (Plus, (EId ("x#6", ())), ENumber (5L, ()), ()), 
+           EPrim2 (Times, (EId ("x#6", ())), ENumber (5L, ()), ()), ()), ()), ()))
 ]
 
 let anf_tests = [
@@ -196,12 +199,33 @@ let anf_tests = [
     (ENumber(41L, ()))
     forty_one_a;
 
-  (* For CS4410 students, with unnecessary let-bindings *)
-  tanf "prim1_anf_4410"
+  tanf "prim1"
     (EPrim1(Sub1, ENumber(55L, ()), ()))
-    (ELet(["unary_1", EPrim1(Sub1, ENumber(55L, ()), ()), ()],
-          EId("unary_1", ()),
+    (ELet(["sub1_2", EPrim1(Sub1, ENumber(55L, ()), ()), ()],
+          EId("sub1_2", ()),
           ()));
+
+  tanf "prim2"
+    (EPrim2(Plus, ENumber(55L, ()), ENumber(56L, ()), ()))
+    (ELet(["Plus_3", EPrim2(Plus, ENumber(55L, ()), ENumber(56L, ()), ()), ()],
+          EId("Plus_3", ()),
+          ()));
+
+  tanf "prim2_in_prim2"
+    (EPrim2(Plus, EPrim2(Plus, ENumber(55L, ()), ENumber(56L, ()), ()), ENumber(56L, ()), ()))
+    (ELet(["Plus_3", EPrim2(Plus, ENumber(55L, ()), ENumber(56L, ()), ()), ()],
+          EId("Plus_3", ()),
+          ()));
+
+  tanf "prim1_in_let"
+    (ELet(["x", EPrim1(Sub1, ENumber(55L, ()), ()), ()], EId("x", ()), ()))
+    (ELet(["sub1_2", EPrim1(Sub1, ENumber(55L, ()), ()), ()],
+          ELet(["x", EId("sub1_2", ()), ()], EId("x", ()), ()),
+          ()));
+
+  tanf "let_in_prim"
+    (EPrim1(Add1, ELet(["x", ENumber(5L, ()), ()], EId("x", ()), ()), ()))
+    (ELet(["x", ENumber(5L, ()), ()], EPrim1(Add1, EId("x", ()), ()), ()));
 
   (* For CS6410 students, with optimized let-bindings *)
   (* tanf "prim1_anf_6410"
@@ -225,7 +249,8 @@ let suite =
   check_scope_tests
   @ check_tag_tests
   @ rename_tests
-  (* @ anf_tests @ integration_tests *)
+  @ anf_tests 
+  (* @ integration_tests *)
 ;;
 
 

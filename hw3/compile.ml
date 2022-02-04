@@ -22,38 +22,42 @@ and is_imm e =
 (* This function should encapsulate the binding-error checking from Boa *)
 exception BindingError of string
 
-let rec check_scope_helper (e : (Lexing.position * Lexing.position) expr) (b: string list) : unit =
+let rec check_scope_helper 
+    (expr_printer : ('a -> string))
+    (e : 'a expr) 
+    (b: string list) : unit =
   match e with
   | ELet(binds, body, _) -> 
-    check_dupes binds b body
-  | EPrim1(_, e, _) -> (check_scope_helper e b)
+    check_dupes expr_printer binds b body
+  | EPrim1(_, e, _) -> (check_scope_helper expr_printer e b)
   | EPrim2(_, e1, e2, _) -> 
-    check_scope_helper e1 b; 
-    ignore (check_scope_helper e2 b)
+    check_scope_helper expr_printer e1 b; 
+    ignore (check_scope_helper expr_printer e2 b)
   | EIf(cond, thn, els, _) -> 
-    check_scope_helper cond b; 
-    check_scope_helper thn b; 
-    ignore (check_scope_helper els b)
+    check_scope_helper expr_printer cond b; 
+    check_scope_helper expr_printer thn b; 
+    ignore (check_scope_helper expr_printer els b)
   | ENumber _ -> ()
-  | EId (id, pos) -> (match List.exists (fun b -> b = id) b with
-      | false -> raise (BindingError (sprintf "Unbound variable %s at %s" id (string_of_pos pos)))
+  | EId (id, a) -> (match List.exists (fun b -> b = id) b with
+      | false -> raise (BindingError (sprintf "Unbound variable %s at %s" id (expr_printer a)))
       | true -> ()) 
 (* Check for duplicates in a bind list *)
 and check_dupes 
-    (b : (Lexing.position * Lexing.position) bind list) 
+    (expr_printer : ('a -> string))
+    (b : 'a bind list) 
     (bindings : string list) 
-    (body : (Lexing.position * Lexing.position) expr) =
+    (body : 'a expr) =
   match b with 
-  | [] -> ignore (check_scope_helper body bindings)
-  | (id, b, pos)::rest -> (match (List.exists (fun (b, _, _) -> b = id) rest) with
-      | true -> raise (BindingError (sprintf "Duplicate bindings in let at %s" (string_of_pos pos)))
+  | [] -> ignore (check_scope_helper expr_printer body bindings)
+  | (id, b, a)::rest -> (match (List.exists (fun (b, _, _) -> b = id) rest) with
+      | true -> raise (BindingError (sprintf "Duplicate bindings in let at %s" (expr_printer a)))
       | false -> 
-        check_scope_helper b bindings; 
-        ignore (check_dupes rest (id :: bindings) body))
+        check_scope_helper expr_printer b bindings; 
+        ignore (check_dupes expr_printer rest (id :: bindings) body))
 
 (* Checks scope of e. Confirms: 1. Let contains no two let ids with same name 2. No unbound identifiers *)
 let rec check_scope (e : (Lexing.position * Lexing.position) expr) : unit =
-  check_scope_helper e []
+  check_scope_helper string_of_pos e []
 
 type tag = int
 (* PROBLEM 2 *)
@@ -111,9 +115,13 @@ type env = (string * string) list
 let rename (e : tag expr) : tag expr =
   let rec help (env : env) (e : tag expr): tag expr =
     match e with
-    | EId(x, tag) -> let _, name = (List.find (fun (e, b) -> (String.equal x e)) env) in EId (name, tag)
+    | EId(x, tag) -> 
+      let _, name = (List.find (fun (e, b) -> (String.equal x e)) env) in 
+      EId (name, tag)
     | ELet(binds, body, tag) ->
-      let (binds_renamed, new_env) = (let_helper env binds) in let body_renamed = (help new_env body) in ELet(binds_renamed, body_renamed, tag)
+      let (binds_renamed, new_env) = (let_helper env binds) in 
+      let body_renamed = (help new_env body) in 
+      ELet(binds_renamed, body_renamed, tag)
     | ENumber(n, tag) -> ENumber(n, tag)
     | EPrim1(op, e, tag) ->
       EPrim1(op, help env e, tag)
@@ -127,15 +135,52 @@ let rename (e : tag expr) : tag expr =
     | [] -> ([], env)
     | (first, binding, tag)::rest -> let binding_renamed = (help env binding) 
       and (acc, env) = (let_helper env rest) 
-      and new_name = (sprintf "%s%n" first tag) in 
+      and new_name = (sprintf "%s#%n" first tag) in 
       ((new_name, binding_renamed, tag)::acc, (first, new_name)::env)
   in help [] e
 ;;
 
+type context = (string * unit expr) list
 (* PROBLEM 4 & 5 *)
 (* This function converts a tagged expression into an untagged expression in A-normal form *)
+
+let collapse (anfd, context: unit expr * context) : unit expr = 
+  match context with
+  | [] -> anfd
+  | _ -> 
+    let res = (List.fold_right (fun (name, e) curr ->
+        (name, e, ()) :: curr) context []) in 
+    ELet(res, anfd, ())
+
 let anf (e : tag expr) : unit expr =
-  failwith "anf: Implement this"
+  let rec h1 (e : tag expr) : (unit expr * context) =
+    match e with
+    | EId(x, tag) -> (EId(x, ()), [])
+    | ELet(binds, body, tag) -> (* ELet([], (let e, _ = (h1 body) in untag e), ()), [] *)
+      let res, ctx = 
+        (List.fold_left (fun (prev, ctx) (t_name, t_expr, t_tag) -> 
+             let this_expr, this_ctx = (h1 t_expr) in 
+             ((t_name, this_expr, ()) :: prev), ctx @ this_ctx)
+            ([], []) binds) in
+      let body_res, body_ctx = (h1 body) in
+      ELet(List.rev res, body_res, ()), ctx @ body_ctx
+    | ENumber(n, tag) -> (ENumber(n, ()), [])
+    | EPrim1(op, e, tag) -> 
+      let op_ref, op_ctx = h1 e in 
+      let temp = (sprintf "%s_%d" (string_of_op1 op) tag) in 
+      (EId(temp, ())), 
+      op_ctx @ [(temp, EPrim1(op, op_ref, ()))]
+    | EPrim2(op, e1, e2, tag) -> 
+      let op_ref1, op_ctx1 = h1 e1 in 
+      let op_ref2, op_ctx2 = h1 e2 in 
+      let temp = (sprintf "%s_%d" (name_of_op2 op) tag) in 
+      (EId(temp, ())), 
+      op_ctx1 @ op_ctx2 @ [(temp, EPrim2(op, op_ref1, op_ref2, ()))]
+    | EIf(cond, thn, els, tag) -> (untag e, [])
+    (* and imm_helper (e : tag expr) : unit expr * context) =
+       match e with 
+       |  *)
+  in (collapse (h1 e))
 ;;
 
 
