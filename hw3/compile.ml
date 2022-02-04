@@ -249,9 +249,38 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
         ]
     end
   | EPrim2(op, left, right, _) ->
-    failwith "compile_expr:eprim2: Implement this"
+    let left_reg = compile_imm left env and 
+    right_reg = compile_imm right env in
+    begin match op with
+      | Plus -> [
+          IMov(Reg(RAX), left_reg);
+          IAdd(Reg(RAX), right_reg)
+        ]
+      | Minus -> [
+          IMov(Reg(RAX), left_reg);
+          IAdd(Reg(RAX), right_reg)
+        ]
+      | Times -> [
+          IMov(Reg(RAX), left_reg);
+          IMul(Reg(RAX), right_reg)
+        ]
+    end
   | EIf(cond, thn, els, tag) ->
-    failwith "compile_expr:eif: Implement this"
+    let if_t = (sprintf "if_true_%n" tag) and
+    if_f = (sprintf "if_false_%n" tag) and
+    done_txt = (sprintf "done_%n" tag) and
+    thn_reg = compile_imm thn env and
+    els_reg = compile_imm els env in
+    [
+      ICmp(Const(0L), Reg(RAX));
+      IJe("0");
+      ILabel(if_t);
+      IMov(Reg(RAX), thn_reg);
+      IJmp(done_txt);
+      ILabel(if_f);
+      IMov(Reg(RAX), els_reg);
+      ILabel(done_txt);
+    ]
   | ELet([id, e, _], body, _) ->
     failwith "compile_expr:elet: Implement this"
   | _ -> failwith "Impossible: Not in ANF"
