@@ -251,7 +251,7 @@ let anf_tests = [
 
   tanf_improved "let_in_prim2_with_eval"
     "add1(let x = 5 in (x + (let x = 2 in x)))"
-    "(let let_7 = (let x#5 = 2 in x#5), let_9 = (let x#2 = 5 in (x#2 + let_7)) in add1(let_9))";
+    "(let let_9 = (let x#2 = 5, let_7 = (let x#5 = 2 in x#5) in (x#2 + let_7)) in add1(let_9))";
 
   tanf_improved "let_in_let_in_if"
     ("if (let x = 5, y = (let x = sub1(x), y = (add1(x) - 10) in y) in (y + x)): " ^
@@ -278,8 +278,8 @@ let anf_tests = [
           (EIf(EId("if_4", ()), ENumber(0L, ()), ENumber(1L, ()), ())), ()));
 
   tanf_improved "if_in_if_in_let_in_add1"
-    "add1(let x = (if (if 0: 0 else: 1): 0 else: 1) in (if x: 0 else: 1))"
-    "(let if_4 = (if 0: 0 else: 1), let_13 = (let x#8 = (if if_4: 0 else: 1) in (if x#8: 0 else: 1)) in add1(let_13))";
+    "add1(let x = (if (if 0: 0 else: 1): 2 else: 3) in (if x: 4 else: 5))"
+    "(let let_13 = (let if_4 = (if 0: 0 else: 1), x#8 = (if if_4: 2 else: 3) in (if x#8: 4 else: 5)) in add1(let_13))";
 
   tanf_improved "if_in_if_in_let_in_add1"
     "add1(let x = (if (if 0: 0 else: 1): 0 else: 1) in (if x: 0 else: 1))"
