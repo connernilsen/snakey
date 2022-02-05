@@ -169,13 +169,15 @@ let anf (e : tag expr) : unit expr =
       let op_ref2, op_ctx2 = imm_helper e2 in 
       EPrim2(op, op_ref1, op_ref2, ()), op_ctx1 @ op_ctx2
     | ELet(binds, body, tag) -> 
-      let res, ctx = 
-        (List.fold_left (fun (processed, ctx) (t_name, t_expr, t_tag) -> 
+      let ctx_to_bind = List.map (fun (name, value) -> (name, value, ())) in
+      let new_binds = 
+        (List.fold_left (fun processed (t_name, t_expr, t_tag) -> 
              let this_expr, this_ctx = (anf_helper t_expr) in 
-             ((t_name, this_expr, ()) :: processed), ctx @ this_ctx)
-            ([], []) binds) in
+             let bind_ctx = (ctx_to_bind this_ctx) in
+             (processed @ bind_ctx @ [(t_name, this_expr, ())]))
+            [] binds) in
       let body_res, body_ctx = (anf_helper body) in
-      ELet(List.rev res, body_res, ()), ctx @ body_ctx
+      ELet(new_binds @ (ctx_to_bind body_ctx), body_res, ()), []
     | EIf(cond, thn, els, tag) -> 
       let thn_ref, thn_ctx = anf_helper thn in 
       let els_ref, els_ctx = anf_helper els in 

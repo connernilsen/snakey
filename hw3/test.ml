@@ -29,7 +29,7 @@ let t_rename name (program : string) (expected : unit expr) = name>:: fun _ ->
     assert_equal expected (untag (rename (tag (parse_string name program)))) ~printer:ast_of_expr;;
 
 let tisanf (name : string) (program : 'a expr) = name>:: fun _ ->
-    assert_equal true (is_anf (anf (tag program)));;
+    assert_equal true (is_anf (anf (rename (tag program))));;
 
 (* Transforms a program into ANF, and compares the output to expected *)
 let tanf (name : string) (program : 'a expr) (expected : unit expr) = name>:: fun _ ->
@@ -60,7 +60,12 @@ let forty_one_a = (ENumber(41L, ()))
 let is_anf_tests = [
   tisanf "isanf_let_in_prim" 
     (EPrim1(Sub1, ELet(["x", ENumber(1L, ()), ()], EId("x", ()), ()),
-            ()))
+            ()));
+  tisanf "isanf_let_in_let_in_if"
+    (parse_string "isanf_let_in_let_in_if" 
+      ("if (let x = 5, y = (let x = sub1(x), y = (add1(x) - 10) in y) in (y + x)): " ^
+      "(let abcd = 10 in add1(abcd)) " ^
+      "else: (let x = 0, y = sub1(if x: x else: 1) in y)"))
 ]
 
 let check_scope_tests = [
@@ -251,11 +256,12 @@ let anf_tests = [
   tanf_improved "let_in_let_in_if"
     ("if (let x = 5, y = (let x = sub1(x), y = (add1(x) - 10) in y) in (y + x)): " ^
      "(let abcd = 10 in add1(abcd)) " ^
-     "else: (let x = 0, y = (if x: x else: 1) in sub1(y))")
-    ("(let x#2 = 5, x#5 = sub1(x#1), add1_7 = add1(x#5), y#10 = (add1_7 - 10), " ^
-     "y#11 = y#10, if_14 = (y#11 + x#1) in " ^
-     "if if_14: (let abcd#16 = 10 in add1(abcd)) " ^
-     "else: (let x#21, y#26 = (if x#21: x#21 else: 1) in sub1(y#26)))"
+     "else: (let x = 0, y = sub1(if x: x else: 1) in y)")
+    ("(let let_17 = (let x#2 = 5, y#13 = " ^
+     "(let x#5 = sub1(x#2), add1_7 = add1(x#5), y#10 = (add1_7 - 10) in y#10) in " ^
+     "(y#13 + x#2)) in " ^
+     "(if let_17: (let abcd#19 = 10 in add1(abcd#19)) else: " ^
+     "(let x#24 = 0, if_28 = (if x#24: x#24 else: 1), y#30 = sub1(if_28) in y#30)))"
     );
 
   tanf_improved "lets_in_prim"
