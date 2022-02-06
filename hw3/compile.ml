@@ -230,11 +230,12 @@ let rec find ls x =
   | (y,v)::rest ->
     if y = x then v else find rest x
 
+type lex_env = (string * int) list
 (* PROBLEM 5 *)
 (* This function actually compiles the tagged ANF expression into assembly *)
 (* The si parameter should be used to indicate the next available stack index for use by Lets *)
 (* The env parameter associates identifier names to stack indices *)
-let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : instruction list =
+let rec compile_expr (e : tag expr) (si : int) (env : lex_env) : instruction list =
   match e with
   | ENumber(n, _) -> [ IMov(Reg(RAX), compile_imm e env) ]
   | EId(x, _) -> [ IMov(Reg(RAX), compile_imm e env) ]
@@ -260,7 +261,7 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
         ]
       | Minus -> [
           IMov(Reg(RAX), left_reg);
-          IAdd(Reg(RAX), right_reg)
+          ISub(Reg(RAX), right_reg)
         ]
       | Times -> [
           IMov(Reg(RAX), left_reg);
@@ -283,14 +284,22 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
       IMov(Reg(RAX), els_reg);
       ILabel(done_txt);
     ]
-  | ELet([id, e, _], body, _) ->
-    failwith "compile_expr:elet: Implement this"
-  | _ -> failwith "Impossible: Not in ANF"
+  | ELet(bindings, body, _) ->
+    let (instrs, new_si, new_env) = compile_let bindings si env [] in 
+    instrs
+    @ compile_expr body new_si new_env
 and compile_imm e env =
   match e with
   | ENumber(n, _) -> Const(n)
   | EId(x, _) -> RegOffset(~-(find env x), RSP)
   | _ -> failwith "Impossible: not an immediate"
+and compile_let (b : tag Exprs.bind list) (si : int) (env : lex_env) (acc : instruction list) =
+  match b with
+  | [] -> (acc, si, env)
+  | (id, e, _)::rest -> compile_let rest (si + 1) ((id, si)::env) 
+                          (acc
+                           @ (compile_expr e si env)
+                           @ [IMov (RegOffset (~-1 * si, RSP), Reg RAX)])
 
 
 let compile_anf_to_string anfed =
