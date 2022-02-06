@@ -294,16 +294,15 @@ let rec compile_expr (e : tag expr) (si : int) (env : lex_env) : instruction lis
     let if_t = (sprintf "if_true_%n" tag) and
     if_f = (sprintf "if_false_%n" tag) and
     done_txt = (sprintf "done_%n" tag) and
-    thn_reg = compile_imm thn env and
-    els_reg = compile_imm els env in
+    thn = compile_expr thn si env and
+    els = compile_expr els si env in
     [
       ICmp(Reg(RAX), Const(0L));
       IJe(if_f);
       ILabel(if_t);
-      IMov(Reg(RAX), thn_reg);
+    ] @ thn @ [
       IJmp(done_txt);
-      ILabel(if_f);
-      IMov(Reg(RAX), els_reg);
+      ILabel(if_f); ] @ els @ [
       ILabel(done_txt);
     ]
   | ELet(bindings, body, _) ->

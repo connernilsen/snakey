@@ -316,7 +316,7 @@ let integration_tests = [
   t "let*" "let a = 1, b = a in b" "1";
 
   (* This doesn't work since runner.ml relies on  *)
-  (* tprog "test1.boa" "3"; *)
+  tprog "test1.boa" "3";
 ]
 
 let suite =
