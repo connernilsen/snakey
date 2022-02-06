@@ -281,9 +281,24 @@ let anf_tests = [
     "add1(let x = (if (if 0: 0 else: 1): 2 else: 3) in (if x: 4 else: 5))"
     "(let let_13 = (let if_4 = (if 0: 0 else: 1), x#8 = (if if_4: 2 else: 3) in (if x#8: 4 else: 5)) in add1(let_13))";
 
-  tanf_improved "if_in_if_in_let_in_add1"
-    "add1(let x = (if (if 0: 0 else: 1): 0 else: 1) in (if x: 0 else: 1))"
-    "(let if_4 = (if 0: 0 else: 1), let_13 = (let x#8 = (if if_4: 0 else: 1) in (if x#8: 0 else: 1)) in add1(let_13))";
+  tanf_improved "simple_conditional"
+    "(let x = (if 1: 5 + 5 else: 6 * 2) in (let y = (if 0: x * 3 else: x + 5) in x + y))"
+    ("(let x#9 = (if 1: (5 + 5) else: (6 * 2)) in " ^
+      "(let y#18 = (if 0: (x#9 * 3) else: (x#9 + 5)) in (x#9 + y#18)))"
+    );
+
+  tanf_improved "complex_conditional"
+    ("(let x = (if (5 - 10): add1(5 + 5) else: sub1(6 * 2)) in " ^
+    "(let y = sub1(if (x * 0): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))"
+    )
+    ("(let minus_3 = (5 - 10), x#13 = (if minus_3: " ^
+    "(let plus_6 = (5 + 5) in add1(plus_6)) else: " ^
+    "(let times_10 = (6 * 2) in sub1(times_10))) in " ^
+    "(let times_16 = (x#13 * 0), if_25 = " ^
+    "(if times_16: (let sub1_19 = sub1(3) in (x#13 * sub1_19)) else: " ^
+    "(let add1_22 = add1(x#13) in (add1_22 + 5))), y#27 = sub1(if_25), " ^
+    "plus_30 = (x#13 + y#27) in sub1(plus_30)))"
+    );
 
   tanf "prim1_anf_6410"
     (EPrim1(Sub1, ENumber(55L, ()), ()))
