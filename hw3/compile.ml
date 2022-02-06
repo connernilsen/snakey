@@ -141,8 +141,8 @@ let rename (e : tag expr) : tag expr =
 ;;
 
 (* PROBLEM 4 & 5 *)
-(* This function converts a tagged expression into an untagged expression in A-normal form *)
 
+(* Converts an ANF expression and corresponding context to an ELet IF context is present *)
 let bind_in_let_or_value (anfd, context: unit expr * unit bind list) : unit expr = 
   match context with
   | [] -> anfd
@@ -152,36 +152,58 @@ let bind_in_let_or_value (anfd, context: unit expr * unit bind list) : unit expr
    List.fold_right (fun (name, e) acc ->
       ELet([(name, e, ())], acc, ())) context anfd *)
 
+(* This function converts a tagged expression into an untagged expression in A-normal form *)
 let anf (e : tag expr) : unit expr =
+  (* ensures the given tag expr is in ANF, but does not necessarily ensure it's an immediate value *)
   let rec anf_helper (e : tag expr) : (unit expr * unit bind list) =
     match e with
     | EId(x, tag) -> (EId(x, ()), [])
     | ENumber(n, tag) -> (ENumber(n, ()), [])
+    (* force the sub-expr to an immediate value *)
     | EPrim1(op, e, tag) -> 
       let op_ref, op_ctx = imm_helper e in 
       EPrim1(op, op_ref, ()), op_ctx 
+    (* force the sub-exprs to immediate values *)
     | EPrim2(op, e1, e2, tag) -> 
       let op_ref1, op_ctx1 = imm_helper e1 in 
       let op_ref2, op_ctx2 = imm_helper e2 in 
       EPrim2(op, op_ref1, op_ref2, ()), op_ctx1 @ op_ctx2
+    (* convert the binds and body to ANF. any context required by either
+      the bindings or the body is added as a new list of bindings before
+      the binding it's required by *)
     | ELet(binds, body, tag) -> 
       let new_binds = 
+        (* convert the bindings into a list of ANF'd binds, such that any
+          bindings produced by ANF'ing a bind are added as bindings
+          before the bind in question is processed *)
         (List.fold_left (fun processed (t_name, t_expr, t_tag) -> 
              let this_expr, this_ctx = (anf_helper t_expr) in 
+             (* append the context needed for this bind at the end of
+                the already-processed binds, followed by this bind *)
              (processed @ this_ctx @ [(t_name, this_expr, ())]))
             [] binds) in
       let body_res, body_ctx = (anf_helper body) in
+      (* return a new ELet with the context required by and including the bindings and the
+        context required by the body. Both the bindings and body are in ANF *)
       ELet(new_binds @ body_ctx, body_res, ()), []
+    (* convert thn and els to ANF and optionally wrap them in a let to provide their
+      context IF context is generated for them, then force the condition into an immediate value.
+      only the context of the condition is passed along, since thn/els should be computed lazily *)
     | EIf(cond, thn, els, tag) -> 
       let thn_let = bind_in_let_or_value (anf_helper thn) in
       let els_let = bind_in_let_or_value (anf_helper els) in
       let cond_ref, cond_ctx = imm_helper cond in
-      (EIf(cond_ref, thn_let, els_let, ()), cond_ctx)
+      EIf(cond_ref, thn_let, els_let, ()), cond_ctx
+  (* ensures the given tag expr is an immediate value. If it's not already a Num or ID,
+    then convert it to one by forcing the value to ANF and binding it to an ID *)
   and imm_helper (e : tag expr) : (unit expr * unit bind list) =
     match e with 
+    (* ENumber and EId are already immediate values *)
     | ENumber(_, _) | EId(_, _) -> anf_helper e 
+    (* everything else needs to be converted to ANF and bound to an ID *)
     | _ -> 
       let value, ctx = anf_helper e in 
+      (* create a temp ID for it *)
       let temp = (sprintf "%s_%d" (name_of_expr e) (expr_info e)) in
       (EId(temp, ())), ctx @ [(temp, value, ())]
   in (bind_in_let_or_value (anf_helper e))
