@@ -169,13 +169,13 @@ let anf (e : tag expr) : unit expr =
       let op_ref2, op_ctx2 = imm_helper e2 in 
       EPrim2(op, op_ref1, op_ref2, ()), op_ctx1 @ op_ctx2
     (* convert the binds and body to ANF. any context required by either
-      the bindings or the body is added as a new list of bindings before
-      the binding it's required by *)
+       the bindings or the body is added as a new list of bindings before
+       the binding it's required by *)
     | ELet(binds, body, tag) -> 
       let new_binds = 
         (* convert the bindings into a list of ANF'd binds, such that any
-          bindings produced by ANF'ing a bind are added as bindings
-          before the bind in question is processed *)
+           bindings produced by ANF'ing a bind are added as bindings
+           before the bind in question is processed *)
         (List.fold_left (fun processed (t_name, t_expr, t_tag) -> 
              let this_expr, this_ctx = (anf_helper t_expr) in 
              (* append the context needed for this bind at the end of
@@ -184,18 +184,18 @@ let anf (e : tag expr) : unit expr =
             [] binds) in
       let body_res, body_ctx = (anf_helper body) in
       (* return a new ELet with the context required by and including the bindings and the
-        context required by the body. Both the bindings and body are in ANF *)
+         context required by the body. Both the bindings and body are in ANF *)
       ELet(new_binds @ body_ctx, body_res, ()), []
     (* convert thn and els to ANF and optionally wrap them in a let to provide their
-      context IF context is generated for them, then force the condition into an immediate value.
-      only the context of the condition is passed along, since thn/els should be computed lazily *)
+       context IF context is generated for them, then force the condition into an immediate value.
+       only the context of the condition is passed along, since thn/els should be computed lazily *)
     | EIf(cond, thn, els, tag) -> 
       let thn_let = bind_in_let_or_value (anf_helper thn) in
       let els_let = bind_in_let_or_value (anf_helper els) in
       let cond_ref, cond_ctx = imm_helper cond in
       EIf(cond_ref, thn_let, els_let, ()), cond_ctx
   (* ensures the given tag expr is an immediate value. If it's not already a Num or ID,
-    then convert it to one by forcing the value to ANF and binding it to an ID *)
+     then convert it to one by forcing the value to ANF and binding it to an ID *)
   and imm_helper (e : tag expr) : (unit expr * unit bind list) =
     match e with 
     (* ENumber and EId are already immediate values *)
@@ -232,9 +232,16 @@ let i_to_asm (i : instruction) : string =
     sprintf "  mov %s, %s" (arg_to_asm dest) (arg_to_asm value)
   | IAdd(dest, to_add) ->
     sprintf "  add %s, %s" (arg_to_asm dest) (arg_to_asm to_add)
+  | ISub(dest, to_sub) ->
+    sprintf "  sub %s, %s" (arg_to_asm dest) (arg_to_asm to_sub)
+  | IMul(dest, to_mul) -> sprintf "  mul %s, %s" (arg_to_asm dest) (arg_to_asm to_mul)
+  | ILabel(str) -> sprintf "  %s:" str
+  | ICmp(dest, to_cmp) -> sprintf "  cmp %s, %s" (arg_to_asm dest) (arg_to_asm to_cmp)
+  | IJne(dest) -> sprintf "  jne %s" dest
+  | IJe(dest) -> sprintf "  je %s" dest
+  | IJmp(dest) -> sprintf "  jmp %s" dest
   | IRet ->
     "  ret"
-  | _ -> failwith "i_to_asm: Implement this"
 
 let to_asm (is : instruction list) : string =
   List.fold_left (fun s i -> sprintf "%s\n%s" s (i_to_asm i)) "" is
@@ -290,8 +297,8 @@ let rec compile_expr (e : tag expr) (si : int) (env : lex_env) : instruction lis
     thn_reg = compile_imm thn env and
     els_reg = compile_imm els env in
     [
-      ICmp(Const(0L), Reg(RAX));
-      IJe("0");
+      ICmp(Reg(RAX), Const(0L));
+      IJe(if_f);
       ILabel(if_t);
       IMov(Reg(RAX), thn_reg);
       IJmp(done_txt);

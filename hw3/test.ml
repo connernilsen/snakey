@@ -53,8 +53,6 @@ let tprog (filename : string) (expected : string) = filename>:: test_run_input f
 (* Runs a program, given as the name of a file in the input/ directory, and compares its error to expected *)
 let teprog (filename : string) (expected : string) = filename>:: test_err_input filename expected;;
 
-let forty_one = "41";;
-
 let forty_one_a = (ENumber(41L, ()))
 
 let is_anf_tests = [
@@ -63,9 +61,9 @@ let is_anf_tests = [
             ()));
   tisanf "isanf_let_in_let_in_if"
     (parse_string "isanf_let_in_let_in_if" 
-      ("if (let x = 5, y = (let x = sub1(x), y = (add1(x) - 10) in y) in (y + x)): " ^
-      "(let abcd = 10 in add1(abcd)) " ^
-      "else: (let x = 0, y = sub1(if x: x else: 1) in y)"))
+       ("if (let x = 5, y = (let x = sub1(x), y = (add1(x) - 10) in y) in (y + x)): " ^
+        "(let abcd = 10 in add1(abcd)) " ^
+        "else: (let x = 0, y = sub1(if x: x else: 1) in y)"))
 ]
 
 let check_scope_tests = [
@@ -284,21 +282,24 @@ let anf_tests = [
   tanf_improved "simple_conditional"
     "(let x = (if 1: 5 + 5 else: 6 * 2) in (let y = (if 0: x * 3 else: x + 5) in x + y))"
     ("(let x#9 = (if 1: (5 + 5) else: (6 * 2)) in " ^
-      "(let y#18 = (if 0: (x#9 * 3) else: (x#9 + 5)) in (x#9 + y#18)))"
+     "(let y#18 = (if 0: (x#9 * 3) else: (x#9 + 5)) in (x#9 + y#18)))"
     );
 
   tanf_improved "complex_conditional"
     ("(let x = (if (5 - 10): add1(5 + 5) else: sub1(6 * 2)) in " ^
-    "(let y = sub1(if (x * 0): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))"
+     "(let y = sub1(if (x * 0): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))"
     )
     ("(let minus_3 = (5 - 10), x#13 = (if minus_3: " ^
-    "(let plus_6 = (5 + 5) in add1(plus_6)) else: " ^
-    "(let times_10 = (6 * 2) in sub1(times_10))) in " ^
-    "(let times_16 = (x#13 * 0), if_25 = " ^
-    "(if times_16: (let sub1_19 = sub1(3) in (x#13 * sub1_19)) else: " ^
-    "(let add1_22 = add1(x#13) in (add1_22 + 5))), y#27 = sub1(if_25), " ^
-    "plus_30 = (x#13 + y#27) in sub1(plus_30)))"
+     "(let plus_6 = (5 + 5) in add1(plus_6)) else: " ^
+     "(let times_10 = (6 * 2) in sub1(times_10))) in " ^
+     "(let times_16 = (x#13 * 0), if_25 = " ^
+     "(if times_16: (let sub1_19 = sub1(3) in (x#13 * sub1_19)) else: " ^
+     "(let add1_22 = add1(x#13) in (add1_22 + 5))), y#27 = sub1(if_25), " ^
+     "plus_30 = (x#13 + y#27) in sub1(plus_30)))"
     );
+
+  tanf_improved "test1.boa" "let x = if sub1(55): (if 1: add1(2) else: add1(3)) else: (if 0: sub1(4) else: sub1(5)) in x" 
+    "(let sub1_2 = sub1(55), x#16 = (if sub1_2: (if 1: add1(2) else: add1(3)) else: (if 0: sub1(4) else: sub1(5))) in x#16)";
 
   tanf "prim1_anf_6410"
     (EPrim1(Sub1, ENumber(55L, ()), ()))
@@ -306,16 +307,16 @@ let anf_tests = [
 ]
 
 let integration_tests = [
-  ta "forty_one_run_anf" (tag forty_one_a) "41";
-
-  t "forty_one" forty_one "41";
+  t "forty_one" "41" "41";
+  t "basic_let" "let a = 1 in a" "1";
 
   t "if1" "if 5: 4 else: 2" "4";
   t "if2" "if 0: 4 else: 2" "2";
 
   t "let*" "let a = 1, b = a in b" "1";
 
-  tprog "test1.boa" "3";
+  (* This doesn't work since runner.ml relies on  *)
+  (* tprog "test1.boa" "3"; *)
 ]
 
 let suite =
@@ -325,7 +326,7 @@ let suite =
   @ check_tag_tests
   @ rename_tests
   @ anf_tests 
-  (* @ integration_tests *)
+  @ integration_tests
 ;;
 
 
