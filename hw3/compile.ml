@@ -140,24 +140,20 @@ let rename (e : tag expr) : tag expr =
   in help [] e
 ;;
 
-type context = (string * unit expr) list
 (* PROBLEM 4 & 5 *)
 (* This function converts a tagged expression into an untagged expression in A-normal form *)
 
-let collapse (anfd, context: unit expr * context) : unit expr = 
+let bind_in_let_or_value (anfd, context: unit expr * unit bind list) : unit expr = 
   match context with
   | [] -> anfd
-  | _ -> 
-    let res = (List.fold_right (fun (name, e) curr ->
-        (name, e, ()) :: curr) context []) in 
-    ELet(res, anfd, ())
+  | _ -> ELet(context, anfd, ())
 
 (* let collapse (anfd, context: unit expr * context) : unit expr = 
    List.fold_right (fun (name, e) acc ->
       ELet([(name, e, ())], acc, ())) context anfd *)
 
 let anf (e : tag expr) : unit expr =
-  let rec anf_helper (e : tag expr) : (unit expr * context) =
+  let rec anf_helper (e : tag expr) : (unit expr * unit bind list) =
     match e with
     | EId(x, tag) -> (EId(x, ()), [])
     | ENumber(n, tag) -> (ENumber(n, ()), [])
@@ -169,29 +165,26 @@ let anf (e : tag expr) : unit expr =
       let op_ref2, op_ctx2 = imm_helper e2 in 
       EPrim2(op, op_ref1, op_ref2, ()), op_ctx1 @ op_ctx2
     | ELet(binds, body, tag) -> 
-      let ctx_to_bind = List.map (fun (name, value) -> (name, value, ())) in
       let new_binds = 
         (List.fold_left (fun processed (t_name, t_expr, t_tag) -> 
              let this_expr, this_ctx = (anf_helper t_expr) in 
-             let bind_ctx = (ctx_to_bind this_ctx) in
-             (processed @ bind_ctx @ [(t_name, this_expr, ())]))
+             (processed @ this_ctx @ [(t_name, this_expr, ())]))
             [] binds) in
       let body_res, body_ctx = (anf_helper body) in
-      ELet(new_binds @ (ctx_to_bind body_ctx), body_res, ()), []
+      ELet(new_binds @ body_ctx, body_res, ()), []
     | EIf(cond, thn, els, tag) -> 
-      let thn_ref, thn_ctx = anf_helper thn in 
-      let els_ref, els_ctx = anf_helper els in 
+      let thn_let = bind_in_let_or_value (anf_helper thn) in
+      let els_let = bind_in_let_or_value (anf_helper els) in
       let cond_ref, cond_ctx = imm_helper cond in
-      (EIf(cond_ref, thn_ref, els_ref, ()), 
-       cond_ctx @ thn_ctx @ els_ctx)
-  and imm_helper (e : tag expr) : (unit expr * context) =
+      (EIf(cond_ref, thn_let, els_let, ()), cond_ctx)
+  and imm_helper (e : tag expr) : (unit expr * unit bind list) =
     match e with 
     | ENumber(_, _) | EId(_, _) -> anf_helper e 
     | _ -> 
       let value, ctx = anf_helper e in 
       let temp = (sprintf "%s_%d" (name_of_expr e) (expr_info e)) in
-      (EId(temp, ())), ctx @ [(temp, value)]
-  in (collapse (anf_helper e))
+      (EId(temp, ())), ctx @ [(temp, value, ())]
+  in (bind_in_let_or_value (anf_helper e))
 ;;
 
 
