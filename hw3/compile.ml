@@ -234,7 +234,7 @@ let i_to_asm (i : instruction) : string =
     sprintf "  add %s, %s" (arg_to_asm dest) (arg_to_asm to_add)
   | ISub(dest, to_sub) ->
     sprintf "  sub %s, %s" (arg_to_asm dest) (arg_to_asm to_sub)
-  | IMul(dest, to_mul) -> sprintf "  mul %s, %s" (arg_to_asm dest) (arg_to_asm to_mul)
+  | IMul(dest, to_mul) -> sprintf "  imul %s, %s" (arg_to_asm dest) (arg_to_asm to_mul)
   | ILabel(str) -> sprintf "%s:" str
   | ICmp(dest, to_cmp) -> sprintf "  cmp %s, %s" (arg_to_asm dest) (arg_to_asm to_cmp)
   | IJne(dest) -> sprintf "  jne %s" dest

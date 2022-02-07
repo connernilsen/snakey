@@ -319,7 +319,7 @@ let integration_tests = [
     ("if (let x = 5, y = (let x = sub1(x), y = (add1(x) - 10) in y) in (y + x)): " ^
      "(let abcd = 10 in add1(abcd)) " ^
      "else: (let x = 0, y = sub1(if x: x else: 1) in y)")
-    "-1";
+    "0";
 
   t "let_in_let_in_if_it_2"
     ("if (let x = 4, y = (let x = sub1(x), y = (add1(x) - 10) in y) in (y + x)): " ^
@@ -343,17 +343,17 @@ let integration_tests = [
   t "complex_conditional_it_1" 
     ("(let x = (if (5 - 10): sub1(5 + 5) else: sub1(6 * 2)) in " ^
        "(let y = sub1(if (x * 0): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
-    "13";
+    "22";
 
   t "complex_conditional_it_2" 
     ("(let x = (if (5 - 5): sub1(5 + 5) else: sub1(6 * 2)) in " ^
        "(let y = sub1(if (x * 0): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
-    "15";
+    "26";
 
   t "complex_conditional_it_3" 
     ("(let x = (if (5 - 10): sub1(5 + 5) else: sub1(6 * 2)) in " ^
        "(let y = sub1(if (x * 1): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
-    "24";
+    "25";
 
   t "complex_conditional_it_4" 
     ("(let x = (if (5 - 5): sub1(5 + 5) else: sub1(6 * 2)) in " ^
