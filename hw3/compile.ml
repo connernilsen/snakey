@@ -235,13 +235,12 @@ let i_to_asm (i : instruction) : string =
   | ISub(dest, to_sub) ->
     sprintf "  sub %s, %s" (arg_to_asm dest) (arg_to_asm to_sub)
   | IMul(dest, to_mul) -> sprintf "  mul %s, %s" (arg_to_asm dest) (arg_to_asm to_mul)
-  | ILabel(str) -> sprintf "  %s:" str
+  | ILabel(str) -> sprintf "%s:" str
   | ICmp(dest, to_cmp) -> sprintf "  cmp %s, %s" (arg_to_asm dest) (arg_to_asm to_cmp)
   | IJne(dest) -> sprintf "  jne %s" dest
   | IJe(dest) -> sprintf "  je %s" dest
   | IJmp(dest) -> sprintf "  jmp %s" dest
-  | IRet ->
-    "  ret"
+  | IRet -> "  ret"
 
 let to_asm (is : instruction list) : string =
   List.fold_left (fun s i -> sprintf "%s\n%s" s (i_to_asm i)) "" is
