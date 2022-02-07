@@ -331,7 +331,7 @@ let integration_tests = [
     ("if (let x = 5, y = (let x = sub1(x), y = (add1(x) - 10) in y) in (y + x)): " ^
      "(let abcd = 10 in add1(abcd)) " ^
      "else: (let x = 1, y = sub1(if x: x else: 2) in y)")
-    "1";
+    "0";
 
   t "let_in_let_in_if_it_4"
     ("if (let x = 4, y = (let x = sub1(x), y = (add1(x) - 10) in y) in (y + x)): " ^
