@@ -295,14 +295,17 @@ let rec compile_expr (e : tag expr) (si : int) (env : lex_env) : instruction lis
     if_f = (sprintf "if_false_%n" tag) and
     done_txt = (sprintf "done_%n" tag) and
     thn = compile_expr thn si env and
-    els = compile_expr els si env in
+    els = compile_expr els si env and
+    cond_value = compile_imm cond env in
     [
+      IMov(Reg RAX, cond_value);
       ICmp(Reg(RAX), Const(0L));
       IJe(if_f);
       ILabel(if_t);
     ] @ thn @ [
       IJmp(done_txt);
-      ILabel(if_f); ] @ els @ [
+      ILabel(if_f); 
+    ] @ els @ [
       ILabel(done_txt);
     ]
   | ELet(bindings, body, _) ->
@@ -317,10 +320,12 @@ and compile_imm e env =
 and compile_let (b : tag Exprs.bind list) (si : int) (env : lex_env) (acc : instruction list) =
   match b with
   | [] -> (acc, si, env)
-  | (id, e, _)::rest -> compile_let rest (si + 1) ((id, si)::env) 
-                          (acc
-                           @ (compile_expr e si env)
-                           @ [IMov (RegOffset (~-1 * si, RSP), Reg RAX)])
+  | (id, e, _)::rest -> 
+    compile_let 
+      rest 
+      (si + 1) 
+      ((id, si)::env) 
+      (acc @ (compile_expr e si env) @ [IMov (RegOffset (~-1 * si, RSP), Reg RAX)])
 
 
 let compile_anf_to_string anfed =

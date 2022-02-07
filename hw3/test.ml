@@ -313,7 +313,7 @@ let integration_tests = [
   t "if1" "if 5: 4 else: 2" "4";
   t "if2" "if 0: 4 else: 2" "2";
 
-  t "let*" "let a = 1, b = a in b" "1";
+  t "multi_let" "let a = 1, b = a in b" "1";
 
   (* This doesn't work since runner.ml relies on  *)
   tprog "test1.boa" "3";
