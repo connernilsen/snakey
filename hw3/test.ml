@@ -43,6 +43,9 @@ let tanf_improved (name : string) (program : string) (expected : string) = name>
     check_scope_helper (fun _-> "ignored") (parse_string name program) [];
     assert_equal true (is_anf (anf (rename (tag (parse_string name program)))));;
 
+let tcompile (name : string) (program : string) (expected : string) = name>:: fun _ ->
+    assert_equal expected (compile_to_string (parse_string name program)) ~printer:(fun s->s);;
+
 (* Checks if two strings are equal *)
 let teq (name : string) (actual : string) (expected : string) = name>:: fun _ ->
     assert_equal expected actual ~printer:(fun s -> s);;
@@ -306,6 +309,29 @@ let anf_tests = [
     (EPrim1(Sub1, ENumber(55L, ()), ()));
 ]
 
+let compile_tests = [
+  tcompile "forty_one" "41" "section .text
+global our_code_starts_here
+our_code_starts_here:
+  mov rax, QWORD 41
+  ret
+";
+  tcompile "if" "if 5: 4 else: 2" "section .text
+global our_code_starts_here
+our_code_starts_here:
+  mov rax, QWORD 5
+  cmp rax, QWORD 0
+  je if_false_4
+if_true_4:
+  mov rax, QWORD 4
+  jmp done_4
+if_false_4:
+  mov rax, QWORD 2
+done_4:
+  ret
+";
+]
+
 let integration_tests = [
   t "forty_one" "41" "41";
   t "basic_let" "let a = 1 in a" "1";
@@ -342,22 +368,22 @@ let integration_tests = [
 
   t "complex_conditional_it_1" 
     ("(let x = (if (5 - 10): sub1(5 + 5) else: sub1(6 * 2)) in " ^
-       "(let y = sub1(if (x * 0): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
+     "(let y = sub1(if (x * 0): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
     "22";
 
   t "complex_conditional_it_2" 
     ("(let x = (if (5 - 5): sub1(5 + 5) else: sub1(6 * 2)) in " ^
-       "(let y = sub1(if (x * 0): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
+     "(let y = sub1(if (x * 0): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
     "26";
 
   t "complex_conditional_it_3" 
     ("(let x = (if (5 - 10): sub1(5 + 5) else: sub1(6 * 2)) in " ^
-       "(let y = sub1(if (x * 1): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
+     "(let y = sub1(if (x * 1): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
     "25";
 
   t "complex_conditional_it_4" 
     ("(let x = (if (5 - 5): sub1(5 + 5) else: sub1(6 * 2)) in " ^
-       "(let y = sub1(if (x * 1): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
+     "(let y = sub1(if (x * 1): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
     "31";
 
   (* This doesn't work since runner.ml relies on  *)
@@ -371,6 +397,7 @@ let suite =
   @ check_tag_tests
   @ rename_tests
   @ anf_tests 
+  @ compile_tests
   @ integration_tests
 ;;
 
