@@ -16,3 +16,4 @@ test
 **/output/*.s
 **/output/*.o
 main
+main.o

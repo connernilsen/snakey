@@ -386,7 +386,6 @@ let integration_tests = [
      "(let y = sub1(if (x * 1): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
     "31";
 
-  (* This doesn't work since runner.ml relies on  *)
   tprog "test1.boa" "3";
 ]
 

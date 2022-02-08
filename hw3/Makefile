@@ -23,7 +23,7 @@ test: *.ml parser.mly lexer.mll
 output/%.run: output/%.o main.o
 	clang $(CLANG_FLAGS) -o $@ main.o $<
 	
-.INTERMEDIATE: main.o
+# .INTERMEDIATE: main.o
 main.o: main.c
 	clang $(CLANG_FLAGS) -c main.c
 
