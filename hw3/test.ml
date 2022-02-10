@@ -386,6 +386,11 @@ let integration_tests = [
      "(let y = sub1(if (x * 1): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
     "31";
 
+  t "wrapped_let_and_if"
+    ("((let x = 10, z = (let x = (x + 1), y = (x * 2) in x - y), " ^
+     "y = (if z: 1 else: z) in (if sub1(y): z else: (z - y))) - " ^
+     "(if (let abcd = 25 in abcd): 11 else: -11))") "-23";
+
   tprog "test1.boa" "3";
 ]
 

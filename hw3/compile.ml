@@ -22,6 +22,10 @@ and is_imm e =
 (* This function should encapsulate the binding-error checking from Boa *)
 exception BindingError of string
 
+(* Checks the scope of the bindings in the given expression to ensure they're valid. 
+   Scope is invalid if an EId is encountered without a name set by prior bindings,
+   or if two identifiers with the same name are created in the same let block.
+*)
 let rec check_scope_helper 
     (expr_printer : ('a -> string))
     (e : 'a expr) 
@@ -38,6 +42,7 @@ let rec check_scope_helper
     check_scope_helper expr_printer thn b; 
     ignore (check_scope_helper expr_printer els b)
   | ENumber _ -> ()
+  (* raise an exception if the id is unbound *)
   | EId (id, a) -> (match List.exists (fun b -> b = id) b with
       | false -> raise (BindingError (sprintf "Unbound variable %s at %s" id (expr_printer a)))
       | true -> ()) 
@@ -50,6 +55,7 @@ and check_dupes
   match b with 
   | [] -> ignore (check_scope_helper expr_printer body bindings)
   | (id, b, a)::rest -> (match (List.exists (fun (b, _, _) -> b = id) rest) with
+      (* raise an exception if the same name is used twice in this let binding *)
       | true -> raise (BindingError (sprintf "Duplicate bindings in let at %s" (expr_printer a)))
       | false -> 
         check_scope_helper expr_printer b bindings; 
@@ -61,13 +67,23 @@ let rec check_scope (e : (Lexing.position * Lexing.position) expr) : unit =
 
 type tag = int
 (* PROBLEM 2 *)
-(* This function assigns a unique tag to every subexpression and let binding *)
+(* This function assigns a unique tag to every subexpression and let binding.
+   Expressions are tagged depth first, so subexpressions will have a lower
+   tag than top-level expressions
+*)
 let tag (e : 'a expr) : tag expr =
+  (* Tag the current expression and all sub expressions except for let bindings 
+     (which are handled by let_helper).
+     Returns a tuple of the tag expression and the next tag to be used.
+  *)
   let rec helper (e : 'a expr) (curr_tag : tag) : (tag expr * tag) =
     match e with
     | ELet (binds, e, _) -> 
+      (* tag let bindings using another helper function *)
       let (bind_exprs, curr_tag) = (let_helper binds curr_tag []) in
+      (* then tag the body sub-expression *)
       let (sub_expr, curr_tag) = (helper e curr_tag) in
+      (* then tag this let *)
       (ELet (bind_exprs, sub_expr, curr_tag), curr_tag + 1)
     | EPrim1 (prim, e, _) -> 
       let (sub_expr, curr_tag) = (helper e curr_tag) in
@@ -77,12 +93,17 @@ let tag (e : 'a expr) : tag expr =
       let (sub_expr2, curr_tag) = (helper e2 curr_tag) in
       (EPrim2 (prim, sub_expr1, sub_expr2, curr_tag), curr_tag + 1)
     | EIf (c, eT, eF, _) ->
+      (* tag the conditions, then the true expression, then the false expression, then EIf *)
       let (c_expr, curr_tag) = (helper c curr_tag) in
       let (t_expr, curr_tag) = (helper eT curr_tag) in
       let (f_expr, curr_tag) = (helper eF curr_tag) in
       (EIf (c_expr, t_expr, f_expr, curr_tag), curr_tag + 1)
     | ENumber (num, _) -> (ENumber (num, curr_tag), curr_tag + 1)
     | EId (id, _) -> (EId (id, curr_tag), curr_tag + 1)
+  (* Tags the binding of a let expression by iterating through each bind in order 
+     and returning an accumulated list of tag binds.
+     Returns a tuple of the tag expression and the next tag to be used.
+  *)
   and let_helper (e : 'a bind list) (curr_tag : tag) (acc : tag bind list) : (tag bind list * tag) =
     match e with
     | [] -> (List.rev acc, curr_tag)
@@ -112,6 +133,9 @@ let rec untag (e : 'a expr) : unit expr =
 
 type env = (string * string) list
 (* PROBLEM 3 *)
+(* Renames the given expression by applying the tags to the identifier of any 
+   bindings and references in the scope they refer to.
+*)
 let rename (e : tag expr) : tag expr =
   let rec help (env : env) (e : tag expr): tag expr =
     match e with
