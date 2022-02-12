@@ -304,6 +304,11 @@ and compile_imm (e : tag expr) (env : (string * int) list) : arg =
   | _ -> raise (InternalCompilerError "Impossible: not an immediate")
 ;;
 
+let rec repeat (v : 'a) (n : int) : 'a list = 
+  match n with
+  | 0 -> []
+  | _ -> v::(repeat v (n - 1))
+
 let compile_prog (anfed : tag expr) : string =
   let prelude =
     "section .text
@@ -311,12 +316,17 @@ extern error
 extern print
 global our_code_starts_here" in
   let stack_setup = [
-    (* FILL: insert instructions for setting up stack here *)
-  ] in
+    (* Save old RBP on the stack *)
+    IPush(Reg(RBP));IMov(Reg(RBP),Reg(RSP))] 
+    (* Push 0 on stack count_var times *)
+    @ (repeat IPush(Const(0)) (count_vars anfed)) in
   let postlude = [
+    (* Move RSP down count_var times *)
+    IMov(RegOffset((count_vars anfed), RSP), Reg(RSP));
+    (* Undo save old RBP onto stack *)
+    IMov(Reg(RSP),Reg(RBP));IPop(Reg(RBP));
     IRet
-    (* FILL: insert instructions for cleaning up stack, and maybe
-       some labels for jumping to errors, here *) ] in
+    (* Todo: Add labels for jumping to errors... *) ] in
   let body = (compile_expr anfed 1 []) in
   let as_assembly_string = (to_asm (stack_setup @ body @ postlude)) in
   sprintf "%s%s\n" prelude as_assembly_string
