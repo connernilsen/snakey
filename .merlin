@@ -2,6 +2,7 @@ S hw0/*
 S hw1/*
 S hw2/*
 S hw3/*
+S hw4/*
 
 PKG extlib
 PKG oUnit

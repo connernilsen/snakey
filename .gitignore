@@ -11,9 +11,9 @@ test
 *~
 
 **/_build/
-**/output/*.run
-**/output/*.dSYM
-**/output/*.s
-**/output/*.o
+**/output/**/*.run
+**/output/**/*.dSYM
+**/output/**/*.s
+**/output/**/*.o
 main
 main.o
