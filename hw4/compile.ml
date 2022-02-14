@@ -277,7 +277,9 @@ let rec replicate (x : 'a) (i : int) : 'a list =
 
 let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : instruction list =
   match e with
+  (* TODO: Do we want to change this to handle multi-lets? *)
   | ELet([id, e, _], body, _) ->
+    (* TODO: Why does the prelude need an extra si position *)
     let prelude = compile_expr e (si + 1) env in
     let body = compile_expr body (si + 1) ((id, si)::env) in
     prelude
