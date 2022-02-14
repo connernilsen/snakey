@@ -35,6 +35,11 @@ let err_ARITH_NOT_NUM  = 2L
 let err_LOGIC_NOT_BOOL = 3L
 let err_IF_NOT_BOOL    = 4L
 let err_OVERFLOW       = 5L
+let label_COMP_NOT_NUM   = "error_comp_not_num"
+let label_ARITH_NOT_NUM  = "error_arith_not_num"
+let label_LOGIC_NOT_BOOL = "error_logic_not_bool"
+let label_IF_NOT_BOOL    = "error_if_not_bool"
+let label_OVERFLOW       = "error_overflow"
 
 let first_six_args_registers = [RDI; RSI; RDX; RCX; R8; R9]
 
@@ -301,6 +306,13 @@ let rec replicate (x : 'a) (i : int) : 'a list =
   else x :: (replicate x (i - 1))
 
 let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : instruction list =
+  let create_type_check (mask : long) (err_label : string) (is_num : bool) body =
+    let jump_instr = if is_num then IJnz(err_label) else IJz(err_label) in
+    let overflow_check = if is_num then [IJo(label_OVERFLOW)] else [] in
+    [ITest(Reg(RAX), mask); jump_instr] 
+    @ body 
+    @ overflow_check
+  in
   match e with
   (* TODO: Do we want to change this to handle multi-lets? *)
   | ELet([id, e, _], body, _) ->
@@ -312,19 +324,25 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
   | EPrim1 (op, e, _) -> 
     let e_reg = compile_imm e env in
     begin match op with
-      | Add1 -> [
-          IMov(Reg(RAX), e_reg);
-          IAdd(Reg(RAX), Const(1L))
-        ]
-      | Sub1 -> [
-          IMov(Reg(RAX), e_reg);
-          IAdd(Reg(RAX), Const(Int64.minus_one))
-        ]
+      | Add1 -> 
+        (create_type_check num_tag_mask label_ARITH_NOT_NUM true
+          [IMov(Reg(RAX), e_reg); IAdd(Reg(RAX), Const(1L))])
+      | Sub1 -> 
+        (create_type_check num_tag_mask label_ARITH_NOT_NUM true
+          [IMov(Reg(RAX), e_reg); IAdd(Reg(RAX), Const(Int64.minus_one))])
       | Print -> raise (NotYetImplemented "Fill in here")
       | IsBool -> raise (NotYetImplemented "Fill in here")
       | IsNum -> raise (NotYetImplemented "Fill in here")
-      | Not -> raise (NotYetImplemented "Fill in here")
-      | PrintStack -> []  
+      | Not -> 
+        (* TODO: might be wrong *)
+        (create_type_check bool_tag_mask label_LOGIC_NOT_BOOL false
+           [
+             (* use first si offset but don't save it, it acts as a temp var *)
+             (* we need to do this because (maybe?) we aren't supposed to be able to just XOR using registers *)
+             IMov(RegOffset(~-si, RSP), Const(bool_tag_mask));
+             IXor(Reg(RAX), RegOffset(~-si, RSP));
+           ])
+      | PrintStack -> (NotYetImplemented "Fill in here")
     end
   | EPrim2 _ -> raise (NotYetImplemented "Fill in here")
   | EIf _ -> raise (NotYetImplemented "Fill in here")
@@ -358,19 +376,22 @@ let compile_prog (anfed : tag expr) : string =
 extern error
 extern print
 global our_code_starts_here" in
+  let variable_allocation_space = (count_vars anfed) in
   let stack_setup = [
     (* Save old RBP on the stack *)
     IPush(Reg(RBP));
-    IMov(Reg(RBP),Reg(RSP))
+    IMov(Reg(RBP), Reg(RSP))
   ] 
-    (* Push 0 on stack count_var times *)
-  (* TODO: don't we also need to set a register to count_vars value? *)
-  @ (repeat IPush(Const(0)) (count_vars anfed)) in 
+  (* Push 0 on stack count_var times *)
+  (* TODO: do we want to push 0 or just move RSP? *)
+  @ (repeat IPush(Const(0)) variable_allocation_space) in 
   let postlude = [
     (* Move RSP down count_var times *)
-    IMov(RegOffset((count_vars anfed), RSP), Reg(RSP));
+    (* ISub(Reg(RSP), Const(variable_allocation_space)) *)
+    IMov(RegOffset(variable_allocation_space, RSP), Reg(RSP)); (* TODO: wouldn't it be ISub instead? also I don't think we need to do this since we're not calling here *)
     (* Undo save old RBP onto stack *)
-    IMov(Reg(RSP),Reg(RBP));IPop(Reg(RBP));
+    IMov(Reg(RSP),Reg(RBP));
+    IPop(Reg(RBP));
     IRet
     (* Todo: Add labels for jumping to errors... *) ] in
   let body = (compile_expr anfed 1 []) in
