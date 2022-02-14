@@ -67,8 +67,33 @@ let check_scope (e : sourcespan expr) : sourcespan expr =
   in help e []; e
 
 let rename (e : tag expr) : tag expr =
-  raise (NotYetImplemented "Copy this from your Boa implementation")
+  let rec help (env : env) (e : tag expr): tag expr =
+    match e with
+    | EId(x, tag) -> 
+      let _, name = (List.find (fun (e, b) -> (String.equal x e)) env) in 
+      EId (name, tag)
+    | ELet(binds, body, tag) ->
+      let (binds_renamed, new_env) = (let_helper env binds) in 
+      let body_renamed = (help new_env body) in 
+      ELet(binds_renamed, body_renamed, tag)
+    | ENumber(n, tag) -> ENumber(n, tag)
+    | EPrim1(op, e, tag) ->
+      EPrim1(op, help env e, tag)
+    | EPrim2(op, e1, e2, tag) ->
+      EPrim2(op, help env e1, help env e2, tag)
+    | EIf(cond, thn, els, tag) ->
+      EIf(help env cond, help env thn, help env els, tag)
+  (* Renames all bindings in a let string and returns them with new env *)
+  and let_helper (env : env) (binds : 'a bind list) =
+    match binds with
+    | [] -> ([], env)
+    | (first, binding, tag)::rest -> let binding_renamed = (help env binding)
+      and new_name = (sprintf "%s#%n" first tag) in 
+      let (acc, env) = (let_helper ((first, new_name)::env) rest) in
+      ((new_name, binding_renamed, tag)::acc, env)
+  in help [] e
 ;;
+
 
 let tag (e : 'a expr) : tag expr =
   let rec help (e : 'a expr) (num : int) : (tag expr * tag) =
@@ -279,7 +304,6 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
   match e with
   (* TODO: Do we want to change this to handle multi-lets? *)
   | ELet([id, e, _], body, _) ->
-    (* TODO: Why does the prelude need an extra si position *)
     let prelude = compile_expr e (si + 1) env in
     let body = compile_expr body (si + 1) ((id, si)::env) in
     prelude
@@ -296,10 +320,10 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
           IMov(Reg(RAX), e_reg);
           IAdd(Reg(RAX), Const(Int64.minus_one))
         ]
-      | Print -> []
-      | IsBool -> []
-      | IsNum -> []
-      | Not -> []
+      | Print -> raise (NotYetImplemented "Fill in here")
+      | IsBool -> raise (NotYetImplemented "Fill in here")
+      | IsNum -> raise (NotYetImplemented "Fill in here")
+      | Not -> raise (NotYetImplemented "Fill in here")
       | PrintStack -> []  
     end
   | EPrim2 _ -> raise (NotYetImplemented "Fill in here")
@@ -322,6 +346,7 @@ and compile_imm (e : tag expr) (env : (string * int) list) : arg =
   | _ -> raise (InternalCompilerError "Impossible: not an immediate")
 ;;
 
+(* TODO: keep this or replicate? *)
 let rec repeat (v : 'a) (n : int) : 'a list = 
   match n with
   | 0 -> []
@@ -335,9 +360,12 @@ extern print
 global our_code_starts_here" in
   let stack_setup = [
     (* Save old RBP on the stack *)
-    IPush(Reg(RBP));IMov(Reg(RBP),Reg(RSP))] 
+    IPush(Reg(RBP));
+    IMov(Reg(RBP),Reg(RSP))
+  ] 
     (* Push 0 on stack count_var times *)
-    @ (repeat IPush(Const(0)) (count_vars anfed)) in
+  (* TODO: don't we also need to set a register to count_vars value? *)
+  @ (repeat IPush(Const(0)) (count_vars anfed)) in 
   let postlude = [
     (* Move RSP down count_var times *)
     IMov(RegOffset((count_vars anfed), RSP), Reg(RSP));

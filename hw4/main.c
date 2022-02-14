@@ -12,6 +12,7 @@ const uint64_t FALSE = 0x7FFFFFFFFFFFFFFFL;
 
 uint64_t print(uint64_t val)
 {
+  // TODO: handle errors too
   // Number
   if (((NUM_TAG_MASK ^ val) & 1) == 1)
   {
