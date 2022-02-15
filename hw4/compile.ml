@@ -72,7 +72,7 @@ let check_scope (e : sourcespan expr) : sourcespan expr =
   in help e []; e
 
 let rename (e : tag expr) : tag expr =
-  let rec help (env : env) (e : tag expr): tag expr =
+  let rec help (env : (string * string) list) (e : tag expr) : tag expr =
     match e with
     | EId(x, tag) -> 
       let _, name = (List.find (fun (e, b) -> (String.equal x e)) env) in 
@@ -88,11 +88,13 @@ let rename (e : tag expr) : tag expr =
       EPrim2(op, help env e1, help env e2, tag)
     | EIf(cond, thn, els, tag) ->
       EIf(help env cond, help env thn, help env els, tag)
+    | EBool(b, tag) -> EBool(b, tag)
   (* Renames all bindings in a let string and returns them with new env *)
-  and let_helper (env : env) (binds : 'a bind list) =
+  and let_helper (env : (string * string) list) (binds : tag bind list) : (tag bind list * (string * string) list) =
     match binds with
     | [] -> ([], env)
-    | (first, binding, tag)::rest -> let binding_renamed = (help env binding)
+    | (first, binding, tag)::rest -> 
+      let binding_renamed = (help env binding)
       and new_name = (sprintf "%s#%n" first tag) in 
       let (acc, env) = (let_helper ((first, new_name)::env) rest) in
       ((new_name, binding_renamed, tag)::acc, env)
@@ -306,10 +308,10 @@ let rec replicate (x : 'a) (i : int) : 'a list =
   else x :: (replicate x (i - 1))
 
 let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : instruction list =
-  let create_type_check (mask : long) (err_label : string) (is_num : bool) body =
+  let create_type_check (mask : int64) (err_label : string) (is_num : bool) body =
     let jump_instr = if is_num then IJnz(err_label) else IJz(err_label) in
     let overflow_check = if is_num then [IJo(label_OVERFLOW)] else [] in
-    [ITest(Reg(RAX), mask); jump_instr] 
+    [ITest(Reg(RAX), HexConst(mask)); jump_instr] 
     @ body 
     @ overflow_check
   in
@@ -325,15 +327,18 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
     let e_reg = compile_imm e env in
     begin match op with
       | Add1 -> 
+        IMov(Reg(RAX), e_reg) ::
         (create_type_check num_tag_mask label_ARITH_NOT_NUM true
-          [IMov(Reg(RAX), e_reg); IAdd(Reg(RAX), Const(1L))])
+          [IAdd(Reg(RAX), Const(2L))])
       | Sub1 -> 
+        IMov(Reg(RAX), e_reg) ::
         (create_type_check num_tag_mask label_ARITH_NOT_NUM true
-          [IMov(Reg(RAX), e_reg); IAdd(Reg(RAX), Const(Int64.minus_one))])
+          [IAdd(Reg(RAX), Const(Int64.neg 2L))])
       | Print -> raise (NotYetImplemented "Fill in here")
       | IsBool -> raise (NotYetImplemented "Fill in here")
       | IsNum -> raise (NotYetImplemented "Fill in here")
       | Not -> 
+        IMov(Reg(RAX), e_reg) ::
         (* TODO: might be wrong *)
         (create_type_check bool_tag_mask label_LOGIC_NOT_BOOL false
            [
@@ -342,7 +347,7 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
              IMov(RegOffset(~-si, RSP), Const(bool_tag_mask));
              IXor(Reg(RAX), RegOffset(~-si, RSP));
            ])
-      | PrintStack -> (NotYetImplemented "Fill in here")
+      | PrintStack -> raise (NotYetImplemented "Fill in here")
     end
   | EPrim2 _ -> raise (NotYetImplemented "Fill in here")
   | EIf _ -> raise (NotYetImplemented "Fill in here")
@@ -357,9 +362,9 @@ and compile_imm (e : tag expr) (env : (string * int) list) : arg =
       (* TODO: raise a better error of your choosing here *)
       failwith ("Integer overflow: " ^ (Int64.to_string n))
     else
-      raise (NotYetImplemented "Fill in here")
-  | EBool(true, _) -> raise (NotYetImplemented "Fill in here")
-  | EBool(false, _) -> raise (NotYetImplemented "Fill in here")
+      Const(Int64.mul n 2L)
+  | EBool(true, _) -> const_true
+  | EBool(false, _) -> const_false
   | EId(x, _) -> RegOffset(~-(find env x), RBP)
   | _ -> raise (InternalCompilerError "Impossible: not an immediate")
 ;;
@@ -370,30 +375,52 @@ let rec repeat (v : 'a) (n : int) : 'a list =
   | 0 -> []
   | _ -> v::(repeat v (n - 1))
 
+let setup_func_call (args : arg list) (label : string) : (instruction list) =
+  let rec setup_args (args : arg list) (registers : reg list) : (instruction list) =
+    match args with 
+    | [] -> []
+    | next_arg::rest_args ->
+      begin match registers with 
+        | [] -> IPush(next_arg) :: (setup_args rest_args registers)
+        | next_reg::rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
+      end
+  in 
+  (setup_args (List.rev args) first_six_args_registers) @ [ICall(label)]
+
+let setup_err_call (err_name : string) (args : arg list) : (instruction list) =
+  ILabel(err_name) :: (setup_func_call args "error")
+
 let compile_prog (anfed : tag expr) : string =
   let prelude =
     "section .text
 extern error
 extern print
-global our_code_starts_here" in
-  let variable_allocation_space = (count_vars anfed) in
+global our_code_starts_here
+our_code_starts_here:" in
+  (* get max allocation needed as an even value, possibly rounded up *)
+  let variable_allocation_space = (((count_vars anfed) + 1) / 2) * 2 in
   let stack_setup = [
     (* Save old RBP on the stack *)
     IPush(Reg(RBP));
     IMov(Reg(RBP), Reg(RSP))
   ] 
-  (* Push 0 on stack count_var times *)
-  (* TODO: do we want to push 0 or just move RSP? *)
-  @ (repeat IPush(Const(0)) variable_allocation_space) in 
+    (* Push 0 on stack count_var times *)
+    @ (repeat (IPush(Const(0L))) variable_allocation_space) in 
   let postlude = [
     (* Move RSP down count_var times *)
     (* ISub(Reg(RSP), Const(variable_allocation_space)) *)
-    IMov(RegOffset(variable_allocation_space, RSP), Reg(RSP)); (* TODO: wouldn't it be ISub instead? also I don't think we need to do this since we're not calling here *)
+    (* IMov(RegOffset(variable_allocation_space, RSP), Reg(RSP)); (1* TODO: wouldn't it be ISub instead? also I don't think we need to do this since we're not calling after here/we move RBP to RSP right after *1) *)
     (* Undo save old RBP onto stack *)
     IMov(Reg(RSP),Reg(RBP));
     IPop(Reg(RBP));
     IRet
-    (* Todo: Add labels for jumping to errors... *) ] in
+  ]
+    @ (setup_err_call label_COMP_NOT_NUM [Reg(RAX); Const(err_COMP_NOT_NUM)])
+    @ (setup_err_call label_ARITH_NOT_NUM [Reg(RAX); Const(err_ARITH_NOT_NUM)])
+    @ (setup_err_call label_LOGIC_NOT_BOOL [Reg(RAX); Const(err_LOGIC_NOT_BOOL)])
+    @ (setup_err_call label_IF_NOT_BOOL [Reg(RAX); Const(err_IF_NOT_BOOL)])
+    @ (setup_err_call label_OVERFLOW [Reg(RAX); Const(err_OVERFLOW)])
+  in
   let body = (compile_expr anfed 1 []) in
   let as_assembly_string = (to_asm (stack_setup @ body @ postlude)) in
   sprintf "%s%s\n" prelude as_assembly_string

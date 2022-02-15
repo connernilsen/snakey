@@ -39,8 +39,8 @@ let suite =
   t "forty" forty "40";
   t "fals" fals "false";
   t "tru" tru "true";
- 
- 
+  tprog "do_pass/test1.cobra" "6"; (* TODO: for some reason this value isn't getting read? *)
+  teprog "do_err/test1.cobra" "Error 2: Expected number type for arithmetic op, got 0x7FFFFFFFFFFFFFFF";
  ]
 ;;
 
