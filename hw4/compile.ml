@@ -40,6 +40,9 @@ let label_ARITH_NOT_NUM  = "error_arith_not_num"
 let label_LOGIC_NOT_BOOL = "error_logic_not_bool"
 let label_IF_NOT_BOOL    = "error_if_not_bool"
 let label_OVERFLOW       = "error_overflow"
+let label_IS_NOT_BOOL       = "is_not_bool"
+let label_IS_NOT_NUM       = "is_not_num"
+let label_DONE       = "done"
 
 let first_six_args_registers = [RDI; RSI; RDX; RCX; R8; R9]
 
@@ -323,6 +326,7 @@ let setup_err_call (err_name : string) (args : arg list) : (instruction list) =
   ILabel(err_name) :: (setup_func_call args "error")
 
 let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : instruction list =
+  (* Jumps to err_label if not type *)
   let create_type_check (mask : int64) (err_label : string) (is_num : bool) body =
     let jump_instr = if is_num then IJnz(err_label) else IJz(err_label) in
     let overflow_check = if is_num then [IJo(label_OVERFLOW)] else [] in
@@ -338,7 +342,7 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
     prelude
     @ [ IMov(RegOffset(~-si, RBP), Reg(RAX)) ]
     @ body
-  | EPrim1 (op, e, _) -> 
+  | EPrim1 (op, e, tag) -> 
     let e_reg = compile_imm e env in
     begin match op with
       | Add1 -> 
@@ -350,8 +354,28 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
         (create_type_check num_tag_mask label_ARITH_NOT_NUM true
           [IAdd(Reg(RAX), Const(Int64.neg 2L))])
       | Print -> compile_expr e (si + 1) env @ (setup_func_call [Reg(RAX)] "print")
-      | IsBool -> raise (NotYetImplemented "Fill in here")
-      | IsNum -> raise (NotYetImplemented "Fill in here")
+      | IsBool -> 
+        let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
+        let label_done = (sprintf "%s%n" label_DONE tag) in
+        (create_type_check bool_tag_mask label_not_bool false 
+        [
+          IMov(Reg(RAX), const_true);
+          IJmp(label_done);
+          ILabel(label_not_bool);
+          IMov(Reg(RAX), const_false);
+          ILabel(label_done);
+          ])
+      | IsNum ->
+        let label_not_num = (sprintf "%s%n" label_IS_NOT_NUM tag) in 
+        let label_done = (sprintf "%s%n" label_DONE tag) in
+        (create_type_check bool_tag_mask label_not_num true 
+        [
+          IMov(Reg(RAX), const_true);
+          IJmp(label_done);
+          ILabel(label_not_num);
+          IMov(Reg(RAX), const_false);
+          ILabel(label_done);
+          ])
       | Not -> 
         IMov(Reg(RAX), e_reg) ::
         (* TODO: might be wrong *)

@@ -41,11 +41,11 @@ let suite =
   t "tru" tru "true";
   t "print" "print(40)" "40\n40";
   t "print2" "let _ = print(40) in 40" "40\n40";
-  (* t "isbool" "isbool(40)" "false";
+  t "isbool" "isbool(40)" "false";
   t "isboolT" "isbool(true)" "true";
   t "isnumT" "isnum(40)" "true";
   t "isnum" "isnum(false)" "false";
-
+(*
   te "bool_instead_of_num" "add1(true)" "Error 2: Expected number type for arithmetic op, got 0xffffffffffffffff";
   te "bool_instead_of_num2" "sub1(true)" "Error 2: Expected number type for arithmetic op, got 0xffffffffffffffff";
   te "bool_instead_of_num3" "1 < true" "Error 2: Expected number type for arithmetic op, got ";
