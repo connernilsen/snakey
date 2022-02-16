@@ -6,6 +6,7 @@
 extern uint64_t our_code_starts_here() asm("our_code_starts_here");
 extern uint64_t print(uint64_t val) asm("print");
 extern void error(uint64_t errCode, uint64_t val) asm("error");
+
 const uint64_t NUM_TAG_MASK = 0x0000000000000001L;
 const uint64_t BOOL_TAG_MASK = 0x0000000000000007L;
 const uint64_t TRUE = 0xFFFFFFFFFFFFFFFFL;
@@ -24,7 +25,7 @@ int getValueType(uint64_t val) {
   if (((NUM_TAG_MASK ^ val) & 1) == 1) {
     return NUM_TYPE;
   }
-  else if (((BOOL_TAG_MASK ^ val) & 1) == 1) {
+  else if ((BOOL_TAG_MASK & val) == BOOL_TAG_MASK) {
     return BOOL_TYPE;
   }
   else {
@@ -49,23 +50,23 @@ char* convertTypeToStr(int type) {
 // NOTE: caller needs to free returned value
 char* convertValueToStr(uint64_t val, char debug) {
   int valType = getValueType(val);
-  char* valueStr;
+  char valueStr[20];
   switch (valType) {
     case NUM_TYPE:
-      valueStr = sprintf("%lu\n", val >> 1);
+      sprintf(valueStr, "%lu", val >> 1);
       break;
     case BOOL_TYPE:
       if (val == TRUE) {
-        valueStr = "true";
+        strcpy(valueStr, "true");
       }
       else if (val == FALSE) {
-        valueStr = "false";
+        strcpy(valueStr, "false");
       } else {
-        valueStr = sprintf("%#018lx\n", val);
+        sprintf(valueStr, "%#018lx", val);
       }
       break;
     default:
-      valueStr = sprintf("%#018lx\n", val);
+      sprintf(valueStr, "%#018lx", val);
   }
 
   if (!debug) {
@@ -73,7 +74,8 @@ char* convertValueToStr(uint64_t val, char debug) {
   }
 
   char* typeStr = convertTypeToStr(valType);
-  char* result = sprintf("%s(%s)", typeStr, valueStr);
+  char result[50];
+  sprintf(result, "%s(%s)", typeStr, valueStr);
 
   free(typeStr);
   return strdup(result);
@@ -99,7 +101,7 @@ void error(uint64_t errCode, uint64_t val) {
       "Overflow occurred for arithmetic operation, got %s\n", valueStr);
   } else {
     fprintf(stderr, 
-      "Unknown error code provided (%#018lx\n) for value %s\n", 
+      "Unknown error code provided (%#018lx) for value %s\n", 
       errCode, valueStr);
   }
 
@@ -109,7 +111,7 @@ void error(uint64_t errCode, uint64_t val) {
 
 uint64_t print(uint64_t val) {
   char* valueStr = convertValueToStr(val, 0);
-  printf(valueStr);
+  printf("%s\n", valueStr);
   free(valueStr);
 }
 

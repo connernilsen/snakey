@@ -56,8 +56,8 @@ let suite =
   te "num_instead_of_bool2" "if (1): 1 else: 0" "Error 2: Expected bool type for arithmetic op, got "; *)
   
 
-  tprog "do_pass/test1.cobra" "6"; (* TODO: for some reason this value isn't getting read? *)
-  teprog "do_err/test1.cobra" "Error 2: Expected number type for arithmetic op, got 0x7fffffffffffffff";
+  tprog "do_pass/test1.cobra" "6"; 
+  teprog "do_err/test1.cobra" "Error 2: Expected number type for arithmetic op, got bool(false)";
  ]
 ;;
 
