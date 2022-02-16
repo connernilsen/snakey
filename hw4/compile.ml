@@ -353,7 +353,7 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
         IMov(Reg(RAX), e_reg) ::
         (create_type_check num_tag_mask label_ARITH_NOT_NUM true
           [IAdd(Reg(RAX), Const(Int64.neg 2L))])
-      | Print -> compile_expr e (si + 1) env @ (setup_func_call [Reg(RAX)] "print")
+      | Print -> IMov(Reg(RAX), e_reg) :: (setup_func_call [e_reg] "print")
       | IsBool -> 
         let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
         let label_done = (sprintf "%s%n" label_DONE tag) in
@@ -383,8 +383,8 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
            [
              (* use first si offset but don't save it, it acts as a temp var *)
              (* we need to do this because (maybe?) we aren't supposed to be able to just XOR using registers *)
-             IMov(RegOffset(~-si, RSP), Const(bool_tag_mask));
-             IXor(Reg(RAX), RegOffset(~-si, RSP));
+             IMov(RegOffset(~-si, RSP),  HexConst(bool_tag_mask));
+             IXor(Reg(RAX), bool_mask);
            ])
       | PrintStack -> raise (NotYetImplemented "Fill in here")
     end
