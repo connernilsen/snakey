@@ -40,8 +40,10 @@ let suite =
   t "fals" fals "false";
   t "tru" tru "true";
   t "add1" "add1(0)" "1";
-  t "add1" "let x = add1(0) in x" "1";
+  t "add1_let" "let x = add1(0) in x" "1";
+  t "true" "true" "true";
   t "not_true" "!(true)" "false";
+  t "not_false" "!(false)" "true";
   t "print" "print(40)" "40\n40";
   t "print2" "let _ = print(40) in 40" "40\n40";
   t "isbool" "isbool(40)" "false";
