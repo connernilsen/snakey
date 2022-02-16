@@ -39,6 +39,20 @@ let suite =
   t "forty" forty "40";
   t "fals" fals "false";
   t "tru" tru "true";
+  t "print" "print(40)" "40\n40";
+  t "print2" "let _ = print(40) in 40" "40\n40";
+  (* t "isbool" "isbool(40)" "false";
+  t "isboolT" "isbool(true)" "true";
+  t "isnumT" "isnum(40)" "true";
+  t "isnum" "isnum(false)" "false";
+
+  te "bool_instead_of_num" "add1(true)" "Error 2: Expected number type for arithmetic op, got 0xffffffffffffffff";
+  te "bool_instead_of_num2" "sub1(true)" "Error 2: Expected number type for arithmetic op, got 0xffffffffffffffff";
+  te "bool_instead_of_num3" "1 < true" "Error 2: Expected number type for arithmetic op, got ";
+  te "num_instead_of_bool" "!(1)" "Error 2: Expected bool type for arithmetic op, got ";
+  te "num_instead_of_bool2" "if (1): 1 else: 0" "Error 2: Expected bool type for arithmetic op, got "; *)
+  
+
   tprog "do_pass/test1.cobra" "6"; (* TODO: for some reason this value isn't getting read? *)
   teprog "do_err/test1.cobra" "Error 2: Expected number type for arithmetic op, got 0x7fffffffffffffff";
  ]

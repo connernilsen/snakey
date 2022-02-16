@@ -306,6 +306,21 @@ let rec count_vars (e : 'a expr) =
 let rec replicate (x : 'a) (i : int) : 'a list =
   if i = 0 then []
   else x :: (replicate x (i - 1))
+  
+let setup_func_call (args : arg list) (label : string) : (instruction list) =
+  let rec setup_args (args : arg list) (registers : reg list) : (instruction list) =
+    match args with 
+    | [] -> []
+    | next_arg::rest_args ->
+      begin match registers with 
+        | [] -> IPush(next_arg) :: (setup_args rest_args registers)
+        | next_reg::rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
+      end
+  in 
+  (setup_args (List.rev args) first_six_args_registers) @ [ICall(label)]
+
+let setup_err_call (err_name : string) (args : arg list) : (instruction list) =
+  ILabel(err_name) :: (setup_func_call args "error")
 
 let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : instruction list =
   let create_type_check (mask : int64) (err_label : string) (is_num : bool) body =
@@ -334,7 +349,7 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
         IMov(Reg(RAX), e_reg) ::
         (create_type_check num_tag_mask label_ARITH_NOT_NUM true
           [IAdd(Reg(RAX), Const(Int64.neg 2L))])
-      | Print -> raise (NotYetImplemented "Fill in here")
+      | Print -> compile_expr e (si + 1) env @ (setup_func_call [Reg(RAX)] "print")
       | IsBool -> raise (NotYetImplemented "Fill in here")
       | IsNum -> raise (NotYetImplemented "Fill in here")
       | Not -> 
@@ -374,21 +389,6 @@ let rec repeat (v : 'a) (n : int) : 'a list =
   match n with
   | 0 -> []
   | _ -> v::(repeat v (n - 1))
-
-let setup_func_call (args : arg list) (label : string) : (instruction list) =
-  let rec setup_args (args : arg list) (registers : reg list) : (instruction list) =
-    match args with 
-    | [] -> []
-    | next_arg::rest_args ->
-      begin match registers with 
-        | [] -> IPush(next_arg) :: (setup_args rest_args registers)
-        | next_reg::rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
-      end
-  in 
-  (setup_args (List.rev args) first_six_args_registers) @ [ICall(label)]
-
-let setup_err_call (err_name : string) (args : arg list) : (instruction list) =
-  ILabel(err_name) :: (setup_func_call args "error")
 
 let compile_prog (anfed : tag expr) : string =
   let prelude =
