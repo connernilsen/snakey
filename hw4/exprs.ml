@@ -17,6 +17,7 @@ type reg =
   | RCX
   | R8
   | R9
+  | R11
 
 type size =
   | QWORD_PTR
