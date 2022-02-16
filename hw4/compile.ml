@@ -212,6 +212,7 @@ let r_to_asm (r : reg) : string =
   | RBP -> "RBP"
   | R8  -> "R8"
   | R9  -> "R9"
+  | R11  -> "R11"
 
 let rec arg_to_asm (a : arg) : string =
   match a with
@@ -305,10 +306,6 @@ let rec count_vars (e : 'a expr) =
   | ELet([_, b, _], body, _) ->
     1 + (max (count_vars b) (count_vars body))
   | _ -> 0
-
-let rec replicate (x : 'a) (i : int) : 'a list =
-  if i = 0 then []
-  else x :: (replicate x (i - 1))
   
 let setup_func_call (args : arg list) (label : string) : (instruction list) =
   let align_stack (remaining_args : arg list) : (instruction list) =
@@ -326,7 +323,9 @@ let setup_func_call (args : arg list) (label : string) : (instruction list) =
         | next_reg :: rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
       end
   in 
-  (setup_args (List.rev args) first_six_args_registers) @ [ICall(label)]
+  (setup_args (List.rev args) first_six_args_registers) 
+  @ [ICall(label)]
+  @ [IAdd(Reg(RSP), Const(Int64.of_int ((((List.length args) - 5) / 2) * 16)))]
 
 let setup_err_call (err_name : string) (args : arg list) : (instruction list) =
   ILabel(err_name) :: (setup_func_call args "error")
@@ -374,7 +373,7 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
       | IsNum ->
         let label_not_num = (sprintf "%s%n" label_IS_NOT_NUM tag) in 
         let label_done = (sprintf "%s%n" label_DONE tag) in
-        (create_type_check bool_tag_mask label_not_num true 
+        (create_type_check num_tag_mask label_not_num true 
         [
           IMov(Reg(RAX), const_true);
           IJmp(label_done);
@@ -389,8 +388,9 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
            [
              (* use first si offset but don't save it, it acts as a temp var *)
              (* we need to do this because (maybe?) we aren't supposed to be able to just XOR using registers *)
-             IMov(RegOffset(~-si, RSP),  HexConst(bool_tag_mask));
-             IXor(Reg(RAX), bool_mask);
+             IMov(Reg(R11), bool_mask);
+             IXor(Reg(R11), Reg(RAX));
+             IMov(Reg(RAX),  Reg(R11));
            ])
       | PrintStack -> raise (NotYetImplemented "Fill in here")
     end
@@ -437,9 +437,6 @@ our_code_starts_here:" in
     (* Push 0 on stack count_var times *)
     @ (repeat (IPush(Const(0L))) variable_allocation_space) in 
   let postlude = [
-    (* Move RSP down count_var times *)
-    (* ISub(Reg(RSP), Const(variable_allocation_space)) *)
-    (* IMov(RegOffset(variable_allocation_space, RSP), Reg(RSP)); (1* TODO: wouldn't it be ISub instead? also I don't think we need to do this since we're not calling after here/we move RBP to RSP right after *1) *)
     (* Undo save old RBP onto stack *)
     IMov(Reg(RSP),Reg(RBP));
     IPop(Reg(RBP));
