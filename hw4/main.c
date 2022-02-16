@@ -40,15 +40,15 @@ uint64_t print(uint64_t val)
   // Number
   if (((NUM_TAG_MASK ^ val) & 1) == 1)
   {
-    printf("%lu", val >> 1); // maybe llu/lld/ld?
+    printf("%lu\n", val >> 1); // maybe llu/lld/ld?
   }
   else if (val == TRUE)
   {
-    printf("true");
+    printf("true\n");
   }
   else if (val == FALSE)
   {
-    printf("false");
+    printf("false\n");
   }
   else if (((BOOL_TAG_MASK ^ val) & 1) == 1)
   {
