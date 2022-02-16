@@ -16,50 +16,101 @@ const uint64_t LOGIC_NOT_BOOL = 3L;
 const uint64_t IF_NOT_BOOL = 4L;
 const uint64_t OVERFLOW = 5L;
 
-void error(uint64_t errCode, uint64_t val) {
-  if (errCode == COMP_NOT_NUM) {
-    fprintf(stderr, "Expected number type for comparison op, got %#018lx\n", val);
-  } else if (errCode == ARITH_NOT_NUM) {
-    fprintf(stderr, "Expected number type for arithmetic op, got %#018lx\n", val);
-  } else if (errCode == LOGIC_NOT_BOOL) {
-    fprintf(stderr, "Expected bool type for logical op, got %#018lx\n", val);
-  } else if (errCode == IF_NOT_BOOL) {
-    fprintf(stderr, "Expected bool type for if stmt, got %#018lx\n", val);
-  } else if (errCode == OVERFLOW) {
-    fprintf(stderr, "Overflow occurred for arithmetic operation, got %#018lx\n", val);
-  } else {
-    fprintf(stderr, "Unknown error code provided (%#018lx\n) for value %#018lx\n", 
-        errCode, val);
+const int UNKNOWN_TYPE = 0;
+const int NUM_TYPE = 1;
+const int BOOL_TYPE = 2;
+
+int getValueType(uint64_t val) {
+  if (((NUM_TAG_MASK ^ val) & 1) == 1) {
+    return NUM_TYPE;
+  }
+  else if (((BOOL_TAG_MASK ^ val) & 1) == 1) {
+    return BOOL_TYPE;
+  }
+  else {
+    return UNKNOWN_TYPE;
+  }
+}
+
+// NOTE: caller needs to free returned value
+char* convertTypeToStr(int type) {
+  switch (type) {
+    case NUM_TYPE:
+      return strdup("num");
+      break;
+    case BOOL_TYPE:
+      return strdup("bool");
+      break;
+    default:
+      return strdup("unknown");
+  }
+}
+
+// NOTE: caller needs to free returned value
+char* convertValueToStr(uint64_t val, char debug) {
+  int valType = getValueType(val);
+  char* valueStr;
+  switch (valType) {
+    case NUM_TYPE:
+      valueStr = sprintf("%lu\n", val >> 1);
+      break;
+    case BOOL_TYPE:
+      if (val == TRUE) {
+        valueStr = "true";
+      }
+      else if (val == FALSE) {
+        valueStr = "false";
+      } else {
+        valueStr = sprintf("%#018lx\n", val);
+      }
+      break;
+    default:
+      valueStr = sprintf("%#018lx\n", val);
   }
 
+  if (!debug) {
+    return strdup(valueStr);
+  }
+
+  char* typeStr = convertTypeToStr(valType);
+  char* result = sprintf("%s(%s)", typeStr, valueStr);
+
+  free(typeStr);
+  return strdup(result);
+}
+
+void error(uint64_t errCode, uint64_t val) {
+  char* valueStr = convertValueToStr(val, 1);
+
+  if (errCode == COMP_NOT_NUM) {
+    fprintf(stderr, 
+      "Expected number type for comparison op, got %s\n", valueStr);
+  } else if (errCode == ARITH_NOT_NUM) {
+    fprintf(stderr, 
+      "Expected number type for arithmetic op, got %s\n", valueStr);
+  } else if (errCode == LOGIC_NOT_BOOL) {
+    fprintf(stderr, 
+      "Expected bool type for logical op, got %s\n", valueStr);
+  } else if (errCode == IF_NOT_BOOL) {
+    fprintf(stderr, 
+      "Expected bool type for if stmt, got %s\n", valueStr);
+  } else if (errCode == OVERFLOW) {
+    fprintf(stderr, 
+      "Overflow occurred for arithmetic operation, got %s\n", valueStr);
+  } else {
+    fprintf(stderr, 
+      "Unknown error code provided (%#018lx\n) for value %s\n", 
+      errCode, valueStr);
+  }
+
+  free(valueStr);
   exit(errCode);
 }
 
-uint64_t print(uint64_t val)
-{
-  // Number
-  if (((NUM_TAG_MASK ^ val) & 1) == 1)
-  {
-    printf("%lu\n", val >> 1); // maybe llu/lld/ld?
-  }
-  else if (val == TRUE)
-  {
-    printf("true\n");
-  }
-  else if (val == FALSE)
-  {
-    printf("false\n");
-  }
-  else if (((BOOL_TAG_MASK ^ val) & 1) == 1)
-  {
-    printf("Bool tag provided with hex value: %#018lx\n", val);
-  }
-  else
-  {
-    printf("Unknown value and type: %#018lx\n", val);
-  }
-
-  return val;
+uint64_t print(uint64_t val) {
+  char* valueStr = convertValueToStr(val, 0);
+  printf(valueStr);
+  free(valueStr);
 }
 
 int main(int argc, char **argv)
