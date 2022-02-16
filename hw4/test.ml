@@ -50,12 +50,12 @@ let suite =
   t "isboolT" "isbool(true)" "true";
   t "isnumT" "isnum(40)" "true";
   t "isnum" "isnum(false)" "false";
-(*
-  te "bool_instead_of_num" "add1(true)" "Error 2: Expected number type for arithmetic op, got 0xffffffffffffffff";
-  te "bool_instead_of_num2" "sub1(true)" "Error 2: Expected number type for arithmetic op, got 0xffffffffffffffff";
-  te "bool_instead_of_num3" "1 < true" "Error 2: Expected number type for arithmetic op, got ";
-  te "num_instead_of_bool" "!(1)" "Error 2: Expected bool type for arithmetic op, got ";
-  te "num_instead_of_bool2" "if (1): 1 else: 0" "Error 2: Expected bool type for arithmetic op, got "; *)
+
+  (* te "bool_instead_of_num" "add1(true)" "Error 2: Expected number type for arithmetic op, got bool(true)";
+  te "bool_instead_of_num2" "sub1(false)" "Error 2: Expected number type for arithmetic op, got bool(false)";
+  te "bool_instead_of_num3" "1 < true" "Error 2: Expected number type for arithmetic op, got bool(true)";
+  te "num_instead_of_bool" "!(1)" "Error 2: Expected bool type for arithmetic op, got num(1)";
+  te "num_instead_of_bool2" "if (1): 1 else: 0" "Error 2: Expected bool type for arithmetic op, got num(1)"; *)
   
 
   tprog "do_pass/test1.cobra" "6"; 

@@ -358,6 +358,7 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
         IMov(Reg(RAX), e_reg) ::
         (create_type_check num_tag_mask label_ARITH_NOT_NUM true
           [IAdd(Reg(RAX), Const(Int64.neg 2L))])
+      (* TODO: this doesn't save RAX before calling into print *)
       | Print -> (IMov(Reg(RAX), e_reg) :: (setup_func_call [e_reg] "print"))
       | IsBool -> 
         let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
