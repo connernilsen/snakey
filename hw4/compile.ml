@@ -311,13 +311,19 @@ let rec replicate (x : 'a) (i : int) : 'a list =
   else x :: (replicate x (i - 1))
   
 let setup_func_call (args : arg list) (label : string) : (instruction list) =
+  let align_stack (remaining_args : arg list) : (instruction list) =
+    if (List.length remaining_args) mod 2 != 0 
+    then []
+    else [IPush(Const(0L))] in
   let rec setup_args (args : arg list) (registers : reg list) : (instruction list) =
     match args with 
     | [] -> []
-    | next_arg::rest_args ->
+    | next_arg :: rest_args ->
       begin match registers with 
         | [] -> IPush(next_arg) :: (setup_args rest_args registers)
-        | next_reg::rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
+        | last_reg :: [] -> 
+          IMov(Reg(last_reg), next_arg) :: (align_stack rest_args) @ (setup_args rest_args [])
+        | next_reg :: rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
       end
   in 
   (setup_args (List.rev args) first_six_args_registers) @ [ICall(label)]
@@ -353,6 +359,7 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
         IMov(Reg(RAX), e_reg) ::
         (create_type_check num_tag_mask label_ARITH_NOT_NUM true
           [IAdd(Reg(RAX), Const(Int64.neg 2L))])
+        (* TODO: is e already available in e_reg? *)
       | Print -> compile_expr e (si + 1) env @ (setup_func_call [Reg(RAX)] "print")
       | IsBool -> 
         let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
