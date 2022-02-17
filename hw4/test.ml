@@ -50,6 +50,9 @@ let suite =
   t "isboolT" "isbool(true)" "true";
   t "isnumT" "isnum(40)" "true";
   t "isnum" "isnum(false)" "false";
+  t "plus" "1 + 1" "2";
+  t "minus" "1 - 1" "0";
+  t "times" "2 * 5" "10";
 
   (* te "bool_instead_of_num" "add1(true)" "Error 2: Expected number type for arithmetic op, got bool(true)";
   te "bool_instead_of_num2" "sub1(false)" "Error 2: Expected number type for arithmetic op, got bool(false)";

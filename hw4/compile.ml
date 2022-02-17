@@ -391,7 +391,31 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
            ])
       | PrintStack -> raise (NotYetImplemented "Fill in here")
     end
-  | EPrim2 _ -> raise (NotYetImplemented "Fill in here")
+  | EPrim2 (op, e1, e2, tag) ->
+    let e1_reg = compile_imm e1 env in
+    let e2_reg = compile_imm e2 env in
+    begin match op with
+      | Plus -> IMov(Reg(RAX), e1_reg) ::
+        (create_type_check num_tag_mask label_ARITH_NOT_NUM true
+          (IMov(Reg(RAX), e2_reg) ::
+          (create_type_check num_tag_mask label_ARITH_NOT_NUM true
+          [IAdd(Reg(RAX), e1_reg)])))
+      | Minus -> IMov(Reg(RAX), e1_reg) :: (create_type_check num_tag_mask label_ARITH_NOT_NUM true
+          (IMov(Reg(RAX), e2_reg) ::
+          (create_type_check num_tag_mask label_ARITH_NOT_NUM true
+          [ISub(Reg(RAX), e1_reg)])))
+      | Times -> IMov(Reg(RAX), e1_reg) :: (create_type_check num_tag_mask label_ARITH_NOT_NUM true
+          (IMov(Reg(RAX), e2_reg) ::
+          (create_type_check num_tag_mask label_ARITH_NOT_NUM true
+          [IMul(Reg(RAX), e1_reg)])))
+      | And -> raise (NotYetImplemented "Fill in here")
+      | Or -> raise (NotYetImplemented "Fill in here")
+      | Greater -> raise (NotYetImplemented "Fill in here")
+      | GreaterEq -> raise (NotYetImplemented "Fill in here")
+      | Less -> raise (NotYetImplemented "Fill in here")
+      | LessEq -> raise (NotYetImplemented "Fill in here")
+      | Eq -> raise (NotYetImplemented "Fill in here")
+    end
   | EIf _ -> raise (NotYetImplemented "Fill in here")
   | ENumber(n, _) -> [ IMov(Reg(RAX), compile_imm e env) ]
   | EBool(n, _) -> [ IMov(Reg(RAX), compile_imm e env) ]
