@@ -350,11 +350,11 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
   in
   let generate_cmp_func (e1_reg : arg) (e2_reg : arg) (jmp_instr_constructor : (string -> instruction)) tag : instruction list =
     let label_done = (sprintf "%s%n" label_DONE tag) in
-    IMov(Reg(RAX), e1_reg) ::
+    IMov(Reg(RAX), e2_reg) ::
     (num_tag_check label_COMP_NOT_NUM 
-       (IMov(Reg(RAX), e2_reg) ::
+       (IMov(Reg(RAX), e1_reg) ::
         (num_tag_check label_COMP_NOT_NUM 
-           [IMov(Reg(R11), e1_reg); ICmp(Reg(R11), Reg(RAX));
+           [IMov(Reg(R11), e2_reg); ICmp(Reg(RAX), Reg(R11));
             IMov(Reg(RAX), const_true); (jmp_instr_constructor label_done);
             IMov(Reg(RAX), const_false); ILabel(label_done)])))
   in
@@ -371,11 +371,11 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
       | Add1 -> 
         IMov(Reg(RAX), e_reg) ::
         (num_tag_check label_ARITH_NOT_NUM 
-          [IAdd(Reg(RAX), Const(2L))])
+          [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(2L)))])
       | Sub1 -> 
         IMov(Reg(RAX), e_reg) ::
         (num_tag_check label_ARITH_NOT_NUM 
-          [IAdd(Reg(RAX), Const(Int64.neg 2L))])
+          [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(Int64.neg 2L)))])
       | Print -> (setup_func_call [e_reg] "print") 
       | IsBool -> 
         let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
@@ -413,23 +413,23 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
     let e2_reg = compile_imm e2 env in
     begin match op with
       | Plus -> 
-        IMov(Reg(RAX), e1_reg) ::
+        IMov(Reg(RAX), e2_reg) ::
         (num_tag_check label_ARITH_NOT_NUM 
-          (IMov(Reg(RAX), e2_reg) ::
+          (IMov(Reg(RAX), e1_reg) ::
           (num_tag_check label_ARITH_NOT_NUM 
-          [IAdd(Reg(RAX), e1_reg)])))
+          [IAdd(Reg(RAX), e2_reg)])))
       | Minus -> 
-        IMov(Reg(RAX), e1_reg) :: 
+        IMov(Reg(RAX), e2_reg) :: 
         (num_tag_check label_ARITH_NOT_NUM 
-          (IMov(Reg(RAX), e2_reg) ::
+          (IMov(Reg(RAX), e1_reg) ::
           (num_tag_check label_ARITH_NOT_NUM 
-          [ISub(Reg(RAX), e1_reg)])))
+          [ISub(Reg(RAX), e2_reg)])))
       | Times -> 
-        IMov(Reg(RAX), e1_reg) :: 
+        IMov(Reg(RAX), e2_reg) :: 
         (num_tag_check label_ARITH_NOT_NUM 
-          (IMov(Reg(RAX), e2_reg) ::
+          (IMov(Reg(RAX), e1_reg) ::
           (num_tag_check label_ARITH_NOT_NUM 
-          [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), e1_reg)])))
+          [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), e2_reg)])))
       | And -> 
         let label_done = (sprintf "%s%n" label_DONE tag) in
         IMov(Reg(RAX), e1_reg) ::
@@ -475,11 +475,11 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
     thn = compile_expr thn si env and
     els = compile_expr els si env and
     cond_value = compile_imm cond env in
+    IMov(Reg(RAX), cond_value) ::
     (bool_tag_check cond_value label_IF_NOT_BOOL)
     @ [
-      IMov(Reg RAX, cond_value);
-      ICmp(Reg(RAX), Const(0L));
-      IJe(if_f);
+      IMov(Reg(R11), bool_mask); ITest(Reg(RAX), Reg(R11));
+      IJz(if_f);
       ILabel(if_t);
     ] @ thn @ [
       IJmp(done_txt);
@@ -498,7 +498,7 @@ and compile_imm (e : tag expr) (env : (string * int) list) : arg =
       (* TODO: raise a better error of your choosing here *)
       failwith ("Integer overflow: " ^ (Int64.to_string n))
     else
-      Const(Int64.mul n 2L)
+      Sized(QWORD_PTR, Const(Int64.mul n 2L))
   | EBool(true, _) -> const_true
   | EBool(false, _) -> const_false
   | EId(x, _) -> RegOffset(~-(find env x), RBP)
