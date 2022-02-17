@@ -362,7 +362,7 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
       | IsBool -> 
         let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
         let label_done = (sprintf "%s%n" label_DONE tag) in
-        (create_type_check bool_tag_mask label_not_bool false 
+        IMov(Reg(RAX), e_reg) :: (create_type_check bool_tag_mask label_not_bool false 
         [
           IMov(Reg(RAX), const_true);
           IJmp(label_done);
@@ -373,7 +373,7 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
       | IsNum ->
         let label_not_num = (sprintf "%s%n" label_IS_NOT_NUM tag) in 
         let label_done = (sprintf "%s%n" label_DONE tag) in
-        (create_type_check num_tag_mask label_not_num true 
+        IMov(Reg(RAX), e_reg) :: (create_type_check num_tag_mask label_not_num true 
         [
           IMov(Reg(RAX), const_true);
           IJmp(label_done);
