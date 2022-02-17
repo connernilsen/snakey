@@ -331,6 +331,7 @@ let setup_err_call (err_name : string) (args : arg list) : (instruction list) =
   ILabel(err_name) :: (setup_func_call args "error")
 
 let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : instruction list =
+  (* TODO: probably refactor these helpers better later *)
   let create_test_jump_instrs (mask : int64) (to_instr : instruction) : instruction list =
     [IMov(Reg(R11), HexConst(mask)); ITest(Reg(RAX), Reg(R11)); to_instr] 
   in
@@ -339,6 +340,8 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
     (create_test_jump_instrs num_tag_mask (IJnz(to_label)))
     @ body @ [IJo(label_OVERFLOW)]
   in
+  (* Jumps to to_label if not type and puts final_rax_value in RAX on exiting *)
+  (* TODO: is this the best way to do this? *)
   let bool_tag_check (final_rax_value : arg) (to_label : string) : instruction list = [
     IMov(Reg(R11), HexConst(bool_tag_mask)); 
     IAnd(Reg(RAX), Reg(R11)); ICmp(Reg(RAX), Reg(R11)); IJnz(to_label);
@@ -413,7 +416,6 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
         (num_tag_check label_ARITH_NOT_NUM 
           (IMov(Reg(RAX), e2_reg) ::
           (num_tag_check label_ARITH_NOT_NUM 
-          (* TODO: check if SAR works as expected *)
           [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), e1_reg)])))
       | And -> 
         let label_done = (sprintf "%s%n" label_DONE tag) in
