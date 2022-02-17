@@ -30,19 +30,19 @@ let bool_tag_mask = 0x0000000000000007L
 let num_tag       = 0x0000000000000000L
 let num_tag_mask  = 0x0000000000000001L
 
-let err_COMP_NOT_NUM   = 1L
-let err_ARITH_NOT_NUM  = 2L
-let err_LOGIC_NOT_BOOL = 3L
-let err_IF_NOT_BOOL    = 4L
-let err_OVERFLOW       = 5L
+let err_COMP_NOT_NUM     = 1L
+let err_ARITH_NOT_NUM    = 2L
+let err_LOGIC_NOT_BOOL   = 3L
+let err_IF_NOT_BOOL      = 4L
+let err_OVERFLOW         = 5L
 let label_COMP_NOT_NUM   = "error_comp_not_num"
 let label_ARITH_NOT_NUM  = "error_arith_not_num"
 let label_LOGIC_NOT_BOOL = "error_logic_not_bool"
 let label_IF_NOT_BOOL    = "error_if_not_bool"
 let label_OVERFLOW       = "error_overflow"
-let label_IS_NOT_BOOL       = "is_not_bool"
-let label_IS_NOT_NUM       = "is_not_num"
-let label_DONE       = "done"
+let label_IS_NOT_BOOL    = "is_not_bool"
+let label_IS_NOT_NUM     = "is_not_num"
+let label_DONE           = "done"
 
 let first_six_args_registers = [RDI; RSI; RDX; RCX; R8; R9]
 
@@ -331,12 +331,14 @@ let setup_err_call (err_name : string) (args : arg list) : (instruction list) =
   ILabel(err_name) :: (setup_func_call args "error")
 
 let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : instruction list =
-  (* Jumps to err_label if not type *)
-  let create_type_check (mask : int64) (err_label : string) (is_num : bool) body =
-    let jump_instr = if is_num then IJnz(err_label) else IJz(err_label) in
+  let create_jump_instrs (mask : int64) (to_instr: instruction) (body : instruction list) : instruction list =
+    [ITest(Reg(RAX), HexConst(mask)); to_instr] 
+    @ body in
+  (* Jumps to to_label if not type *)
+  let create_type_check (mask : int64) (to_label : string) (is_num : bool) (body : instruction list) : instruction list =
+    let jump_instr = if is_num then IJnz(to_label) else IJz(to_label) in
     let overflow_check = if is_num then [IJo(label_OVERFLOW)] else [] in
-    [ITest(Reg(RAX), HexConst(mask)); jump_instr] 
-    @ body 
+    (create_jump_instrs mask jump_instr body)
     @ overflow_check
   in
   match e with
@@ -384,7 +386,7 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
       | Not -> 
         IMov(Reg(RAX), e_reg) ::
         (create_type_check bool_tag_mask label_LOGIC_NOT_BOOL false
-           [
+           [ (* TODO: see if we can get this working without r11 *)
              IMov(Reg(R11), bool_mask);
              IXor(Reg(R11), Reg(RAX));
              IMov(Reg(RAX),  Reg(R11));
@@ -400,16 +402,37 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
           (IMov(Reg(RAX), e2_reg) ::
           (create_type_check num_tag_mask label_ARITH_NOT_NUM true
           [IAdd(Reg(RAX), e1_reg)])))
-      | Minus -> IMov(Reg(RAX), e1_reg) :: (create_type_check num_tag_mask label_ARITH_NOT_NUM true
+      | Minus -> IMov(Reg(RAX), e1_reg) :: 
+        (create_type_check num_tag_mask label_ARITH_NOT_NUM true
           (IMov(Reg(RAX), e2_reg) ::
           (create_type_check num_tag_mask label_ARITH_NOT_NUM true
           [ISub(Reg(RAX), e1_reg)])))
-      | Times -> IMov(Reg(RAX), e1_reg) :: (create_type_check num_tag_mask label_ARITH_NOT_NUM true
+      | Times -> IMov(Reg(RAX), e1_reg) :: 
+        (create_type_check num_tag_mask label_ARITH_NOT_NUM true
           (IMov(Reg(RAX), e2_reg) ::
           (create_type_check num_tag_mask label_ARITH_NOT_NUM true
-          [IMul(Reg(RAX), e1_reg)])))
-      | And -> raise (NotYetImplemented "Fill in here")
-      | Or -> raise (NotYetImplemented "Fill in here")
+          (* TODO: check if SAR works as expected *)
+          [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), e1_reg)])))
+      | And -> 
+        let label_done = (sprintf "%s%n" label_DONE tag) in
+        IMov(Reg(RAX), e1_reg) ::
+        (create_type_check bool_tag_mask label_LOGIC_NOT_BOOL false 
+           [ITest(Reg(RAX), bool_mask); IMov(Reg(RAX), const_false); IJz(label_done); 
+            IMov(Reg(RAX), e2_reg)])
+        @ (create_type_check bool_tag_mask label_LOGIC_NOT_BOOL false 
+             [ITest(Reg(RAX), bool_mask); IMov(Reg(RAX), const_false); IJz(label_done);
+              IMov(Reg(RAX), const_true)])
+        @ [ILabel(label_done)]
+      | Or -> 
+        let label_done = (sprintf "%s%n" label_DONE tag) in
+        IMov(Reg(RAX), e1_reg) ::
+        (create_type_check bool_tag_mask label_LOGIC_NOT_BOOL false 
+           [ITest(Reg(RAX), bool_mask); IMov(Reg(RAX), const_true); IJnz(label_done); 
+            IMov(Reg(RAX), e2_reg)])
+        @ (create_type_check bool_tag_mask label_LOGIC_NOT_BOOL false 
+             [ITest(Reg(RAX), bool_mask); IMov(Reg(RAX), const_true); IJnz(label_done);
+              IMov(Reg(RAX), const_false)])
+        @ [ILabel(label_done)]
       | Greater -> raise (NotYetImplemented "Fill in here")
       | GreaterEq -> raise (NotYetImplemented "Fill in here")
       | Less -> raise (NotYetImplemented "Fill in here")
@@ -435,7 +458,6 @@ and compile_imm (e : tag expr) (env : (string * int) list) : arg =
   | _ -> raise (InternalCompilerError "Impossible: not an immediate")
 ;;
 
-(* TODO: keep this or replicate? *)
 let rec repeat (v : 'a) (n : int) : 'a list = 
   match n with
   | 0 -> []

@@ -53,6 +53,14 @@ let suite =
   t "plus" "1 + 1" "2";
   t "minus" "1 - 1" "0";
   t "times" "2 * 5" "10";
+  t "and0" "false && false" "false";
+  t "and1" "true && false" "false";
+  t "and2" "false && true" "false";
+  t "and3" "true && true" "true";
+  t "or0" "false || false" "false";
+  t "or1" "true || false" "true";
+  t "or2" "false || true" "true";
+  t "or3" "true || true" "true";
 
   (* te "bool_instead_of_num" "add1(true)" "Error 2: Expected number type for arithmetic op, got bool(true)";
   te "bool_instead_of_num2" "sub1(false)" "Error 2: Expected number type for arithmetic op, got bool(false)";
@@ -62,7 +70,7 @@ let suite =
   
 
   tprog "do_pass/test1.cobra" "6"; 
-  teprog "do_err/test1.cobra" "Error 2: Expected number type for arithmetic op, got bool(false)";
+  teprog "do_err/test1.cobra" "Error 2: arithmetic expected a number, got bool(false)";
  ]
 ;;
 

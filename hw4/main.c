@@ -22,7 +22,8 @@ const int NUM_TYPE = 1;
 const int BOOL_TYPE = 2;
 
 int getValueType(uint64_t val) {
-  if (((NUM_TAG_MASK ^ val) & 1) == 1) {
+  /* if (((NUM_TAG_MASK ^ val) & 1) == 1) { */
+  if ((NUM_TAG_MASK & val) == 0L) {
     return NUM_TYPE;
   }
   else if ((BOOL_TAG_MASK & val) == BOOL_TAG_MASK) {
@@ -86,22 +87,22 @@ void error(uint64_t errCode, uint64_t val) {
 
   if (errCode == COMP_NOT_NUM) {
     fprintf(stderr, 
-      "Expected number type for comparison op, got %s\n", valueStr);
+      "comparison expected a number, got %s\n", valueStr);
   } else if (errCode == ARITH_NOT_NUM) {
     fprintf(stderr, 
-      "Expected number type for arithmetic op, got %s\n", valueStr);
+      "arithmetic expected a number, got %s\n", valueStr);
   } else if (errCode == LOGIC_NOT_BOOL) {
     fprintf(stderr, 
-      "Expected bool type for logical op, got %s\n", valueStr);
+      "logic expected a boolean, got %s\n", valueStr);
   } else if (errCode == IF_NOT_BOOL) {
     fprintf(stderr, 
-      "Expected bool type for if stmt, got %s\n", valueStr);
+      "if expected a boolean, got %s\n", valueStr);
   } else if (errCode == OVERFLOW) {
     fprintf(stderr, 
-      "Overflow occurred for arithmetic operation, got %s\n", valueStr);
+      "overflow occurred for arithmetic operation, got %s\n", valueStr);
   } else {
     fprintf(stderr, 
-      "Unknown error code provided (%#018lx) for value %s\n", 
+      "unknown error code provided (%#018lx) for value %s\n", 
       errCode, valueStr);
   }
 
