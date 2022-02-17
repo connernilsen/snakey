@@ -342,7 +342,6 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
     @ overflow_check
   in
   match e with
-  (* TODO: Do we want to change this to handle multi-lets? *)
   | ELet([id, e, _], body, _) ->
     let prelude = compile_expr e (si + 1) env in
     let body = compile_expr body (si + 1) ((id, si)::env) in
@@ -360,7 +359,7 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
         IMov(Reg(RAX), e_reg) ::
         (create_type_check num_tag_mask label_ARITH_NOT_NUM true
           [IAdd(Reg(RAX), Const(Int64.neg 2L))])
-      | Print -> (setup_func_call [e_reg] "print") @ [(IMov(Reg(RAX), e_reg))]
+      | Print -> (setup_func_call [e_reg] "print") 
       | IsBool -> 
         let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
         let label_done = (sprintf "%s%n" label_DONE tag) in
@@ -386,7 +385,7 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
       | Not -> 
         IMov(Reg(RAX), e_reg) ::
         (create_type_check bool_tag_mask label_LOGIC_NOT_BOOL false
-           [ (* TODO: see if we can get this working without r11 *)
+           [ 
              IMov(Reg(R11), bool_mask);
              IXor(Reg(R11), Reg(RAX));
              IMov(Reg(RAX),  Reg(R11));
@@ -417,20 +416,20 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
         let label_done = (sprintf "%s%n" label_DONE tag) in
         IMov(Reg(RAX), e1_reg) ::
         (create_type_check bool_tag_mask label_LOGIC_NOT_BOOL false 
-           [ITest(Reg(RAX), bool_mask); IMov(Reg(RAX), const_false); IJz(label_done); 
+           [IMov(Reg(R11), bool_mask); ITest(Reg(RAX), Reg(R11)); IMov(Reg(RAX), const_false); IJz(label_done); 
             IMov(Reg(RAX), e2_reg)])
         @ (create_type_check bool_tag_mask label_LOGIC_NOT_BOOL false 
-             [ITest(Reg(RAX), bool_mask); IMov(Reg(RAX), const_false); IJz(label_done);
+             [IMov(Reg(R11), bool_mask); ITest(Reg(RAX), Reg(R11)); IMov(Reg(RAX), const_false); IJz(label_done);
               IMov(Reg(RAX), const_true)])
         @ [ILabel(label_done)]
       | Or -> 
         let label_done = (sprintf "%s%n" label_DONE tag) in
         IMov(Reg(RAX), e1_reg) ::
         (create_type_check bool_tag_mask label_LOGIC_NOT_BOOL false 
-           [ITest(Reg(RAX), bool_mask); IMov(Reg(RAX), const_true); IJnz(label_done); 
+           [IMov(Reg(R11), bool_mask); ITest(Reg(RAX), Reg(R11)); IMov(Reg(RAX), const_true); IJnz(label_done); 
             IMov(Reg(RAX), e2_reg)])
         @ (create_type_check bool_tag_mask label_LOGIC_NOT_BOOL false 
-             [ITest(Reg(RAX), bool_mask); IMov(Reg(RAX), const_true); IJnz(label_done);
+             [IMov(Reg(R11), bool_mask); ITest(Reg(RAX), Reg(R11)); IMov(Reg(RAX), const_true); IJnz(label_done);
               IMov(Reg(RAX), const_false)])
         @ [ILabel(label_done)]
       | Greater -> raise (NotYetImplemented "Fill in here")
