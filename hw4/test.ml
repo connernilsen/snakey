@@ -76,7 +76,35 @@ let suite =
   te "num_instead_of_bool" "!(1)" "Error 3: logic expected a boolean, got num(1)";
   (* te "bool_instead_of_num3" "1 < true" "Error 2: Expected number type for arithmetic op, got bool(true)"; *)
   (* te "num_instead_of_bool2" "if (1): 1 else: 0" "Error 2: Expected bool type for arithmetic op, got num(1)"; *)
-  
+  t "greater1" "1 > 1" "false";
+  t "greater2" "2 > 1" "true";
+  t "greater3" "1 > 2" "false";
+  t "greaterEqual1" "1 >= 1" "true";
+  t "greaterEqual2" "2 >= 1" "true";
+  t "greaterEqual3" "1 >= 2" "false";
+  t "less1" "1 < 1" "false";
+  t "less2" "2 < 1" "false";
+  t "less3" "1 < 2" "true";
+  t "lessEqual1" "1 <= 1" "true";
+  t "lessEqual2" "2 <= 1" "false";
+  t "lessEqual3" "1 <= 2" "true";
+  t "equal1" "1 == 1" "true";
+  t "equal2" "2 == 1" "false";
+  t "equal3" "2 == 1" "false";
+  t "equal4" "true == true" "true";
+  t "equal5" "false == false" "true";
+  t "equal6" "false == true" "false";
+  t "equal7" "true == false" "false";
+  t "equal8" "8 == true" "false";
+  t "equal9" "false == 100" "false";
+  te "greaterE1" "1 > true" "Error 1: comparison expected a number, got bool(true)";
+  te "greaterE2" "false > 1" "Error 1: comparison expected a number, got bool(false)";
+  te "greaterEqE1" "1 >= false" "Error 1: comparison expected a number, got bool(false)";
+  te "greaterEqE2" "true >= 1" "Error 1: comparison expected a number, got bool(true)";
+  te "lessE1" "1 < true" "Error 1: comparison expected a number, got bool(true)";
+  te "lessE2" "false < 1" "Error 1: comparison expected a number, got bool(false)";
+  te "lessEqE1" "1 <= false" "Error 1: comparison expected a number, got bool(false)";
+  te "lessEqE2" "true <= 1" "Error 1: comparison expected a number, got bool(true)";
 
   tprog "do_pass/test1.cobra" "6"; 
   teprog "do_err/test1.cobra" "Error 2: arithmetic expected a number, got bool(false)";

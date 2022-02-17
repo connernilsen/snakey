@@ -344,9 +344,19 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
   (* TODO: is this the best way to do this? *)
   let bool_tag_check (final_rax_value : arg) (to_label : string) : instruction list = [
     IMov(Reg(R11), HexConst(bool_tag_mask)); 
-    IAnd(Reg(RAX), Reg(R11)); ICmp(Reg(RAX), Reg(R11)); IJnz(to_label);
-    IMov(Reg(RAX), final_rax_value)
+    IAnd(Reg(RAX), Reg(R11)); ICmp(Reg(RAX), Reg(R11));
+    IMov(Reg(RAX), final_rax_value); IJnz(to_label);
   ] 
+  in
+  let generate_cmp_func (e1_reg : arg) (e2_reg : arg) (jmp_instr_constructor : (string -> instruction)) tag : instruction list =
+    let label_done = (sprintf "%s%n" label_DONE tag) in
+    IMov(Reg(RAX), e1_reg) ::
+    (num_tag_check label_COMP_NOT_NUM 
+       (IMov(Reg(RAX), e2_reg) ::
+        (num_tag_check label_COMP_NOT_NUM 
+           [IMov(Reg(R11), e1_reg); ICmp(Reg(R11), Reg(RAX));
+            IMov(Reg(RAX), const_true); (jmp_instr_constructor label_done);
+            IMov(Reg(RAX), const_false); ILabel(label_done)])))
   in
   match e with
   | ELet([id, e, _], body, _) ->
@@ -402,17 +412,20 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
     let e1_reg = compile_imm e1 env in
     let e2_reg = compile_imm e2 env in
     begin match op with
-      | Plus -> IMov(Reg(RAX), e1_reg) ::
+      | Plus -> 
+        IMov(Reg(RAX), e1_reg) ::
         (num_tag_check label_ARITH_NOT_NUM 
           (IMov(Reg(RAX), e2_reg) ::
           (num_tag_check label_ARITH_NOT_NUM 
           [IAdd(Reg(RAX), e1_reg)])))
-      | Minus -> IMov(Reg(RAX), e1_reg) :: 
+      | Minus -> 
+        IMov(Reg(RAX), e1_reg) :: 
         (num_tag_check label_ARITH_NOT_NUM 
           (IMov(Reg(RAX), e2_reg) ::
           (num_tag_check label_ARITH_NOT_NUM 
           [ISub(Reg(RAX), e1_reg)])))
-      | Times -> IMov(Reg(RAX), e1_reg) :: 
+      | Times -> 
+        IMov(Reg(RAX), e1_reg) :: 
         (num_tag_check label_ARITH_NOT_NUM 
           (IMov(Reg(RAX), e2_reg) ::
           (num_tag_check label_ARITH_NOT_NUM 
@@ -441,11 +454,20 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
           IMov(Reg(R11), bool_mask); ITest(Reg(RAX), Reg(R11)); IMov(Reg(RAX), const_true); IJnz(label_done);
           IMov(Reg(RAX), const_false)]
         @ [ILabel(label_done)]
-      | Greater -> raise (NotYetImplemented "Fill in here")
-      | GreaterEq -> raise (NotYetImplemented "Fill in here")
-      | Less -> raise (NotYetImplemented "Fill in here")
-      | LessEq -> raise (NotYetImplemented "Fill in here")
-      | Eq -> raise (NotYetImplemented "Fill in here")
+      | Greater -> 
+        (generate_cmp_func e1_reg e2_reg (fun l -> IJg(l)) tag)
+      | GreaterEq -> 
+        (generate_cmp_func e1_reg e2_reg (fun l -> IJge(l)) tag)
+      | Less -> 
+        (generate_cmp_func e1_reg e2_reg (fun l -> IJl(l)) tag)
+      | LessEq ->
+        (generate_cmp_func e1_reg e2_reg (fun l -> IJle(l)) tag)
+      | Eq ->
+        let label_done = (sprintf "%s%n" label_DONE tag) in
+        [IMov(Reg(RAX), e1_reg); IMov(Reg(R11), e2_reg); 
+         ICmp(Reg(RAX), Reg(R11)); IMov(Reg(RAX), const_true);
+         IJe(label_done); IMov(Reg(RAX), const_false);
+         ILabel(label_done)]
     end
   | EIf _ -> raise (NotYetImplemented "Fill in here")
   | ENumber(n, _) -> [ IMov(Reg(RAX), compile_imm e env) ]
