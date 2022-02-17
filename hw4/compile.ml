@@ -469,7 +469,24 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
          IJe(label_done); IMov(Reg(RAX), const_false);
          ILabel(label_done)]
     end
-  | EIf _ -> raise (NotYetImplemented "Fill in here")
+  | EIf(cond, thn, els, tag) -> let if_t = (sprintf "if_true_%n" tag) and
+    if_f = (sprintf "if_false_%n" tag) and
+    done_txt = (sprintf "done_%n" tag) and
+    thn = compile_expr thn si env and
+    els = compile_expr els si env and
+    cond_value = compile_imm cond env in
+    (bool_tag_check cond_value label_IF_NOT_BOOL)
+    @ [
+      IMov(Reg RAX, cond_value);
+      ICmp(Reg(RAX), Const(0L));
+      IJe(if_f);
+      ILabel(if_t);
+    ] @ thn @ [
+      IJmp(done_txt);
+      ILabel(if_f); 
+    ] @ els @ [
+      ILabel(done_txt);
+    ]
   | ENumber(n, _) -> [ IMov(Reg(RAX), compile_imm e env) ]
   | EBool(n, _) -> [ IMov(Reg(RAX), compile_imm e env) ]
   | EId(x, _) -> [ IMov(Reg(RAX), compile_imm e env) ]

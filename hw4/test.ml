@@ -74,8 +74,8 @@ let suite =
   te "bool_instead_of_num" "add1(true)" "Error 2: arithmetic expected a number, got bool(true)";
   te "bool_instead_of_num2" "sub1(false)" "Error 2: arithmetic expected a number, got bool(false)";
   te "num_instead_of_bool" "!(1)" "Error 3: logic expected a boolean, got num(1)";
-  (* te "bool_instead_of_num3" "1 < true" "Error 2: Expected number type for arithmetic op, got bool(true)"; *)
-  (* te "num_instead_of_bool2" "if (1): 1 else: 0" "Error 2: Expected bool type for arithmetic op, got num(1)"; *)
+  te "bool_instead_of_num3" "1 < true" "Error 1: comparison expected a number, got bool(true)";
+  te "num_instead_of_bool2" "if (1): 1 else: 0" "Error 4: if expected a boolean, got num(1)";
   t "greater1" "1 > 1" "false";
   t "greater2" "2 > 1" "true";
   t "greater3" "1 > 2" "false";
