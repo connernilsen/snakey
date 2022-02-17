@@ -61,6 +61,12 @@ let suite =
   t "or1" "true || false" "true";
   t "or2" "false || true" "true";
   t "or3" "true || true" "true";
+  t "andSS" "false && 1" "false";
+  t "orSS" "true || 1" "true";
+  te "andE1" "1 && true" "Error 3: logic expected a boolean, got num(1)";
+  te "andE2" "true && 1" "Error 3: logic expected a boolean, got num(1)";
+  te "orE1" "1 || true" "Error 3: logic expected a boolean, got num(1)";
+  te "orE2" "false || 1" "Error 3: logic expected a boolean, got num(1)";
 
   (* te "bool_instead_of_num" "add1(true)" "Error 2: Expected number type for arithmetic op, got bool(true)";
   te "bool_instead_of_num2" "sub1(false)" "Error 2: Expected number type for arithmetic op, got bool(false)";
