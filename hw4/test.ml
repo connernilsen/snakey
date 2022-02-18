@@ -46,10 +46,13 @@ let suite =
   t "not_false" "!(false)" "true";
   t "print" "print(40)" "40\n40";
   t "print2" "let _ = print(40) in 40" "40\n40";
+  t "print3" "let x = print(40) in x" "40\n40";
   t "isbool" "isbool(40)" "false";
   t "isboolT" "isbool(true)" "true";
   t "isnumT" "isnum(40)" "true";
   t "isnum" "isnum(false)" "false";
+  t "isnum_highest" "isnum(4611686018427387903)" "true";
+  t "isnum_lowest" "isnum(-4611686018427387904)" "true";
   t "plus" "1 + 1" "2";
   t "minus" "1 - 1" "0";
   t "times" "2 * 5" "10";
@@ -72,8 +75,10 @@ let suite =
   t "notIsnumT" "!(isnum(40))" "false";
   t "notIsnum" "!(isnum(false))" "true";
   te "bool_instead_of_num" "add1(true)" "Error 2: arithmetic expected a number, got bool(true)";
+  te "bool_instead_of_num_in_if" "add1(if true: false else: 5)" "Error 2: arithmetic expected a number, got bool(false)";
   te "bool_instead_of_num2" "sub1(false)" "Error 2: arithmetic expected a number, got bool(false)";
   te "num_instead_of_bool" "!(1)" "Error 3: logic expected a boolean, got num(1)";
+  te "num_instead_of_bool_in_if" "!(if false: false else: 5)" "Error 3: logic expected a boolean, got num(5)";
   te "bool_instead_of_num3" "1 < true" "Error 1: comparison expected a number, got bool(true)";
   te "num_instead_of_bool2" "if (1): 1 else: 0" "Error 4: if expected a boolean, got num(1)";
   t "greater1" "1 > 1" "false";
@@ -105,6 +110,7 @@ let suite =
   te "lessE2" "false < 1" "Error 1: comparison expected a number, got bool(false)";
   te "lessEqE1" "1 <= false" "Error 1: comparison expected a number, got bool(false)";
   te "lessEqE2" "true <= 1" "Error 1: comparison expected a number, got bool(true)";
+  te "lessEqE2_in_if" "1 <= (if true: false else: 5)" "Error 1: comparison expected a number, got bool(false)";
 
   te "overflow_2^62_base"
     "4611686018427387904" "Failure(\"Unexpected compile error: Errors.InternalCompilerError(\\\"Integer overflow: 4611686018427387904\\\")\")";
