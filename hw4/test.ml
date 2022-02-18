@@ -106,6 +106,23 @@ let suite =
   te "lessEqE1" "1 <= false" "Error 1: comparison expected a number, got bool(false)";
   te "lessEqE2" "true <= 1" "Error 1: comparison expected a number, got bool(true)";
 
+  te "overflow_2^62_base"
+    "4611686018427387904" "Failure(\"Unexpected compile error: Errors.InternalCompilerError(\\\"Integer overflow: 4611686018427387904\\\")\")";
+  te "overflow_-2^62_base"
+    "-4611686018427387905" "Failure(\"Unexpected compile error: Errors.InternalCompilerError(\\\"Integer overflow: -4611686018427387905\\\")\")";
+
+  te "overflow_2^62"
+    "4611686018427387903 + 1" "Error 5: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
+
+  te "overflow_2^62_add1"
+    "add1(4611686018427387903)" "Error 5: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
+
+  te "overflow_-2^62"
+    "-4611686018427387904 - 1" "Error 5: overflow occurred for arithmetic operation, got num(4611686018427387903)";
+
+  te "overflow_-2^62_sub1"
+    "sub1(-4611686018427387904)" "Error 5: overflow occurred for arithmetic operation, got num(4611686018427387903)";
+
   tprog "do_pass/test1.cobra" "6"; 
   teprog "do_err/test1.cobra" "Error 2: arithmetic expected a number, got bool(false)";
 
@@ -140,13 +157,6 @@ let suite =
       "(let abcd = 10 in add1(abcd)) " ^
       "else: (let x = 0, y = sub1(if (x == 0): x else: 1) in y)")
     "-1";
-
-  te "overflow"
-    "9223372000000000000 + 1" "Compile error: Integer overflow: 9223372000000000000";
-
-  (* This should overflow, right? *)
-  te "overflow_2"
-    "4611686000000000000 + 1" "Compile error: Integer overflow: 4611686000000000000";
 
   t "negative"
     "-1" "-1";
@@ -183,5 +193,8 @@ let suite =
 
 (* input_file_test_suite () will run all the tests in the subdirectories of input/ *)
 let () =
-  run_test_tt_main ("all_tests">:::[suite; input_file_test_suite ()])
+  run_test_tt_main ("all_tests">:::[
+    suite; 
+    input_file_test_suite ()
+  ])
 ;;

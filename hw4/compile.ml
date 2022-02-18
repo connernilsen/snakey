@@ -495,8 +495,7 @@ and compile_imm (e : tag expr) (env : (string * int) list) : arg =
   match e with
   | ENumber(n, _) ->
     if n > (Int64.div Int64.max_int 2L) || n < (Int64.div Int64.min_int 2L) then
-      (* TODO: raise a better error of your choosing here *)
-      failwith ("Integer overflow: " ^ (Int64.to_string n))
+      raise (InternalCompilerError ("Integer overflow: " ^ (Int64.to_string n)))
     else
       Sized(QWORD_PTR, Const(Int64.mul n 2L))
   | EBool(true, _) -> const_true
