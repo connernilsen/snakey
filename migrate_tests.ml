@@ -3,11 +3,11 @@ open Printf
 
 let t (name : string) (program : string) (expected : string) = 
   let oc = open_out (Printf.sprintf "hw4/input/do_pass/%s.cobra" name) in
-    (Printf.fprintf oc "%s\n" expected);
+    (Printf.fprintf oc "%s\n" program);
     close_out oc;;
 let te (name : string) (program : string) (expected : string) = 
   let oc = open_out (Printf.sprintf "hw4/input/do_err/%s.cobra" name) in
-    (Printf.fprintf oc "%s\n" expected);
+    (Printf.fprintf oc "%s\n" program);
     close_out oc;;
 
 let main =
@@ -68,3 +68,4 @@ let main =
     ("((let x = 10, z = (let x = (x + 1), y = (x * 2) in x - y), " ^
       "y = (if z: 1 else: z) in (if sub1(y): z else: (z - y))) - " ^
       "(if (let abcd = 25 in abcd): 11 else: -11))") "-23";
+  te "improper_if" "if true then 1 else 2" ""
