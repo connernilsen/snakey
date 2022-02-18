@@ -102,6 +102,7 @@ let suite =
   t "equal7" "true == false" "false";
   t "equal8" "8 == true" "false";
   t "equal9" "false == 100" "false";
+  t "conditional_in_let" "let x = 1 == 1 in x == true" "true";
   te "greaterE1" "1 > true" "Error 1: comparison expected a number, got bool(true)";
   te "greaterE2" "false > 1" "Error 1: comparison expected a number, got bool(false)";
   te "greaterEqE1" "1 >= false" "Error 1: comparison expected a number, got bool(false)";
@@ -111,6 +112,7 @@ let suite =
   te "lessEqE1" "1 <= false" "Error 1: comparison expected a number, got bool(false)";
   te "lessEqE2" "true <= 1" "Error 1: comparison expected a number, got bool(true)";
   te "lessEqE2_in_if" "1 <= (if true: false else: 5)" "Error 1: comparison expected a number, got bool(false)";
+  te "lessEqE2_in_if_in_let" "let x = 1 <= (if true: false else: 5) in x" "Error 1: comparison expected a number, got bool(false)";
 
   te "overflow_2^62_base"
     "4611686018427387904" "Failure(\"Unexpected compile error: Errors.InternalCompilerError(\\\"Integer overflow: 4611686018427387904\\\")\")";
