@@ -292,7 +292,75 @@ let suite =
     ("((let x = 10, z = (let x = (x + 1), y = (x * 2) in x - y), " ^
       "y = (if isnum(z): 1 else: z) in (if (sub1(sub1(y)) == sub1(y)): z else: (z - y))) - " ^
       "(if (let abcd = true in abcd): 11 else: -11))") "-23";
+
+  "setup_func_call_1">::(fun _ -> 
+    assert_equal [ICall("label")] (setup_func_call [] "label") ~printer:to_asm);
+  "setup_func_call_2">::(fun _ ->
+    assert_equal [IMov(Reg(RDI), Const(1L)); ICall("label")]
+      (setup_func_call [Const(1L)] "label") ~printer:to_asm);
+  "setup_func_call_3">::(fun _ -> 
+    assert_equal [
+      IMov(Reg(RDI), Const(1L));
+      IMov(Reg(RSI), Const(2L));
+      IMov(Reg(RDX), Const(3L));
+      IMov(Reg(RCX), Const(4L));
+      IMov(Reg(R8), Const(5L));
+      IMov(Reg(R9), Const(6L));
+      ICall("label")]
+      (setup_func_call 
+         [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L)] 
+         "label") ~printer:to_asm);
+  "setup_func_call_4">::(fun _ -> 
+    assert_equal [
+      IMov(Reg(RDI), Const(1L));
+      IMov(Reg(RSI), Const(2L));
+      IMov(Reg(RDX), Const(3L));
+      IMov(Reg(RCX), Const(4L));
+      IMov(Reg(R8), Const(5L));
+      IMov(Reg(R9), Const(6L));
+      IPush(Const(0L));
+      IPush(Const(7L));
+      ICall("label");
+      IAdd(Reg(RSP), Const(16L))]
+      (setup_func_call 
+         [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
+         "label") ~printer:to_asm);
+  "setup_func_call_5">::(fun _ -> 
+    assert_equal [
+      IMov(Reg(RDI), Const(1L));
+      IMov(Reg(RSI), Const(2L));
+      IMov(Reg(RDX), Const(3L));
+      IMov(Reg(RCX), Const(4L));
+      IMov(Reg(R8), Const(5L));
+      IMov(Reg(R9), Const(6L));
+      IPush(Const(8L));
+      IPush(Const(7L));
+      ICall("label");
+      IAdd(Reg(RSP), Const(16L))]
+      (setup_func_call 
+         [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L)] 
+         "label") ~printer:to_asm);
+  "setup_func_call_6">::(fun _ -> 
+    assert_equal [
+      IMov(Reg(RDI), Const(1L));
+      IMov(Reg(RSI), Const(2L));
+      IMov(Reg(RDX), Const(3L));
+      IMov(Reg(RCX), Const(4L));
+      IMov(Reg(R8), Const(5L));
+      IMov(Reg(R9), Const(6L));
+      IPush(Const(0L));
+      IPush(Const(9L));
+      IPush(Const(8L));
+      IPush(Const(7L));
+      ICall("label");
+      IAdd(Reg(RSP), Const(32L))]
+      (setup_func_call 
+         [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L); Const(9L)] 
+         "label") ~printer:to_asm);
 ]
+
+(* let tanf (name : string) (program : 'a expr) (expected : unit expr) = name>::fun _ -> *)
+(*   assert_equal expected (anf (tag program)) ~printer:string_of_expr;; *)
 
 
 (* input_file_test_suite () will run all the tests in the subdirectories of input/ *)

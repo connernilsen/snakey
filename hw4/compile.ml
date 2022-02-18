@@ -313,17 +313,18 @@ let rec count_vars (e : 'a expr) =
     1 + (max (count_vars b) (count_vars body))
   | _ -> 0
   
-(* sets up a function call by putting args in the proper registers/stack positions, 
- * calls the given function, and cleans up the stack after 
+(* sets up a function call (x64) by putting args in the proper registers/stack positions, 
+ * calling the given function, and cleaning up the stack after 
  *)
 let setup_func_call (args : arg list) (label : string) : (instruction list) =
+  let leftover_args = Int64.max (Int64.of_int ((((List.length args) - 5) / 2) * 16)) 0L in
   (* aligns the stack by adding an extra value if the number of values 
    * needed for the stack is odd
    *)
   let align_stack (remaining_args : arg list) : (instruction list) =
-    if (List.length remaining_args) mod 2 != 0 
-    then []
-    else [IPush(Const(0L))] in
+    if ((List.length remaining_args) mod 2) != 0 
+    then [IPush(Const(0L))]
+    else [] in
   (* sets up args by putting them in the first 6 registers needed for a call,
    * optionally aligning the stack, and placing any remaining values on the stack 
    *)
@@ -334,14 +335,14 @@ let setup_func_call (args : arg list) (label : string) : (instruction list) =
       begin match registers with 
         | [] -> IPush(next_arg) :: (setup_args rest_args registers)
         | last_reg :: [] -> 
-          IMov(Reg(last_reg), next_arg) :: (align_stack rest_args) @ (setup_args rest_args [])
+          IMov(Reg(last_reg), next_arg) :: (align_stack rest_args) @ (setup_args (List.rev rest_args) [])
         | next_reg :: rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
       end
   in 
-  (setup_args (List.rev args) first_six_args_registers) 
+  (setup_args args first_six_args_registers) 
   @ [ICall(label)]
   (* pop off values added to the stack *)
-  @ [IAdd(Reg(RSP), Const(Int64.of_int ((((List.length args) - 5) / 2) * 16)))]
+  @ (if (Int64.equal leftover_args 0L) then [] else  [IAdd(Reg(RSP), Const(leftover_args))])
 
 (* setup an error handler by setting up a label 
  * for the specific error and calling the error func
@@ -568,11 +569,11 @@ our_code_starts_here:" in
     IPop(Reg(RBP));
     IRet
   ]
-    @ (setup_err_call label_COMP_NOT_NUM [Reg(RAX); Const(err_COMP_NOT_NUM)])
-    @ (setup_err_call label_ARITH_NOT_NUM [Reg(RAX); Const(err_ARITH_NOT_NUM)])
-    @ (setup_err_call label_LOGIC_NOT_BOOL [Reg(RAX); Const(err_LOGIC_NOT_BOOL)])
-    @ (setup_err_call label_IF_NOT_BOOL [Reg(RAX); Const(err_IF_NOT_BOOL)])
-    @ (setup_err_call label_OVERFLOW [Reg(RAX); Const(err_OVERFLOW)])
+    @ (setup_err_call label_COMP_NOT_NUM [Const(err_COMP_NOT_NUM); Reg(RAX)])
+    @ (setup_err_call label_ARITH_NOT_NUM [Const(err_ARITH_NOT_NUM); Reg(RAX)])
+    @ (setup_err_call label_LOGIC_NOT_BOOL [Const(err_LOGIC_NOT_BOOL); Reg(RAX)])
+    @ (setup_err_call label_IF_NOT_BOOL [Const(err_IF_NOT_BOOL); Reg(RAX)])
+    @ (setup_err_call label_OVERFLOW [Const(err_OVERFLOW); Reg(RAX)])
   in
   let body = (compile_expr anfed 1 []) in
   let as_assembly_string = (to_asm (stack_setup @ body @ postlude)) in
