@@ -142,23 +142,35 @@ let suite =
   te "overflow_-2^62_base"
     "-4611686018427387905" "Failure(\"Compile error: Integer overflow: -4611686018427387905\")";
 
-  te "overflow_2^62_plus"
+  te "overflow_2^62_plus_positive"
     "4611686018427387903 + 1" "Error 5: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
+  
+  te "overflow_2^62_plus_negative"
+    "-4611686018427387904 + -1" "Error 5: overflow occurred for arithmetic operation, got num(4611686018427387903)";
 
   te "overflow_2^62_add1"
     "add1(4611686018427387903)" "Error 5: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
 
-  te "overflow_-2^62"
+  te "overflow_-2^62_minus_positive"
+    "4611686018427387903 - -1" "Error 5: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
+
+  te "overflow_-2^62_minus_negative"
     "-4611686018427387904 - 1" "Error 5: overflow occurred for arithmetic operation, got num(4611686018427387903)";
 
   te "overflow_-2^62_sub1"
     "sub1(-4611686018427387904)" "Error 5: overflow occurred for arithmetic operation, got num(4611686018427387903)";
 
-  te "overflow_2^61_times"
+  te "overflow_2^61_times_positive_1"
     "4611686018427387903 * 4" "Error 5: overflow occurred for arithmetic operation, got num(-4)";
 
-  te "overflow_2^61_times_neg"
+  te "overflow_2^61_times_positive_2"
+    "-4611686018427387903 * -4" "Error 5: overflow occurred for arithmetic operation, got num(-4)";
+
+  te "overflow_2^61_times_negative_1"
     "4611686018427387903 * -4" "Error 5: overflow occurred for arithmetic operation, got num(4)";
+
+  te "overflow_2^61_times_negative_2"
+    "-4611686018427387903 * 4" "Error 5: overflow occurred for arithmetic operation, got num(4)";
 
   tprog "do_pass/test1.cobra" "6"; 
   teprog "do_err/test1.cobra" "Error 2: arithmetic expected a number, got bool(false)";

@@ -22,6 +22,7 @@ and is_imm e =
 ;;
 
 
+(* constants representing TRUE/FALSE, tag masks, and value masks *)
 let const_true    = HexConst(0xFFFFFFFFFFFFFFFFL)
 let const_false   = HexConst(0x7FFFFFFFFFFFFFFFL)
 let bool_mask     = HexConst(0x8000000000000000L)
@@ -30,16 +31,21 @@ let bool_tag_mask = 0x0000000000000007L
 let num_tag       = 0x0000000000000000L
 let num_tag_mask  = 0x0000000000000001L
 
+(* error codes *)
 let err_COMP_NOT_NUM     = 1L
 let err_ARITH_NOT_NUM    = 2L
 let err_LOGIC_NOT_BOOL   = 3L
 let err_IF_NOT_BOOL      = 4L
 let err_OVERFLOW         = 5L
+
+(* label names for errors *)
 let label_COMP_NOT_NUM   = "error_comp_not_num"
 let label_ARITH_NOT_NUM  = "error_arith_not_num"
 let label_LOGIC_NOT_BOOL = "error_logic_not_bool"
 let label_IF_NOT_BOOL    = "error_if_not_bool"
 let label_OVERFLOW       = "error_overflow"
+
+(* label names for conditionals *)
 let label_IS_NOT_BOOL    = "is_not_bool"
 let label_IS_NOT_NUM     = "is_not_num"
 let label_DONE           = "done"
@@ -307,11 +313,20 @@ let rec count_vars (e : 'a expr) =
     1 + (max (count_vars b) (count_vars body))
   | _ -> 0
   
+(* sets up a function call by putting args in the proper registers/stack positions, 
+ * calls the given function, and cleans up the stack after 
+ *)
 let setup_func_call (args : arg list) (label : string) : (instruction list) =
+  (* aligns the stack by adding an extra value if the number of values 
+   * needed for the stack is odd
+   *)
   let align_stack (remaining_args : arg list) : (instruction list) =
     if (List.length remaining_args) mod 2 != 0 
     then []
     else [IPush(Const(0L))] in
+  (* sets up args by putting them in the first 6 registers needed for a call,
+   * optionally aligning the stack, and placing any remaining values on the stack 
+   *)
   let rec setup_args (args : arg list) (registers : reg list) : (instruction list) =
     match args with 
     | [] -> []
@@ -325,28 +340,45 @@ let setup_func_call (args : arg list) (label : string) : (instruction list) =
   in 
   (setup_args (List.rev args) first_six_args_registers) 
   @ [ICall(label)]
+  (* pop off values added to the stack *)
   @ [IAdd(Reg(RSP), Const(Int64.of_int ((((List.length args) - 5) / 2) * 16)))]
 
+(* setup an error handler by setting up a label 
+ * for the specific error and calling the error func
+ *)
 let setup_err_call (err_name : string) (args : arg list) : (instruction list) =
   ILabel(err_name) :: (setup_func_call args "error")
 
 let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : instruction list =
-  (* TODO: probably refactor these helpers better later *)
+  (* creates a jump instruction to to_instr if testing the value in RAX with mask 
+   * satisifies the to_instr jump condition
+   *
+   * Note: the value to test should be in RAX before calling
+   *)
   let create_test_jump_instrs (mask : int64) (to_instr : instruction) : instruction list =
     [IMov(Reg(R11), HexConst(mask)); ITest(Reg(RAX), Reg(R11)); to_instr] 
   in
-  (* Jumps to to_label if not type *)
+  (* Jumps to to_label if not a num *)
   let num_tag_check (to_label : string) (body : instruction list) : instruction list =
     (create_test_jump_instrs num_tag_mask (IJnz(to_label)))
-    @ body @ [IJo(label_OVERFLOW)]
+    @ body 
   in
-  (* Jumps to to_label if not type and puts final_rax_value in RAX on exiting *)
+  (* Jumps to to_label if not type and puts final_rax_value in RAX on exiting.
+   * final_rax_value does not have to be the original RAX value, but
+   * in *most* cases should be (except for isbool())
+   *
+   * Note: the value to test should be in RAX before calling
+   *)
   let bool_tag_check (final_rax_value : arg) (to_label : string) : instruction list = [
     IMov(Reg(R11), HexConst(bool_tag_mask)); 
     IAnd(Reg(RAX), Reg(R11)); ICmp(Reg(RAX), Reg(R11));
     IMov(Reg(RAX), final_rax_value); IJnz(to_label);
   ] 
   in
+  (* generates the instructions for comparing the args e1_reg and e2_reg and 
+   * constructs an auto-generated jump label using the jmp_instr_constructor.
+   * jump_instr_constructor should take in a label name and create the appropriate jump instruction
+   *)
   let generate_cmp_func (e1_reg : arg) (e2_reg : arg) (jmp_instr_constructor : (string -> instruction)) tag : instruction list =
     let label_done = (sprintf "%s%n" label_DONE tag) in
     IMov(Reg(RAX), e2_reg) ::
@@ -356,6 +388,35 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
            [IMov(Reg(R11), e2_reg); ICmp(Reg(RAX), Reg(R11));
             IMov(Reg(RAX), const_true); (jmp_instr_constructor label_done);
             IMov(Reg(RAX), const_false); ILabel(label_done)])))
+  in
+  (* generates the instructions for performing a Prim2 arith operation on args e1_reg and e2_reg.
+   * constructs the body using body_constructor, which should expect e1_reg to be in RAX.
+   * after the arith operation completes, the result is checked for overflow.
+   *)
+  let generate_arith_func (e1_reg : arg) (e2_reg : arg) (body_constructor : (arg -> instruction list)) : instruction list =
+    IMov(Reg(RAX), e2_reg) :: 
+    (num_tag_check label_ARITH_NOT_NUM [IMov(Reg(RAX), e1_reg)])
+    @ (num_tag_check label_ARITH_NOT_NUM (body_constructor e2_reg))
+    @ [IJo(label_OVERFLOW)]
+  in
+  (* generates the instructions for performing a logical and/or on args e1_reg and e2_reg.
+   * if create_and is true, then the instructions are created for an and op, otherwise an or op is created. 
+   *)
+  let generate_logic_func (e1_reg : arg) (e2_reg : arg) (create_and : bool) tag : instruction list =
+    let label_done = (sprintf "%s%n" label_DONE tag) in
+    let jump_instr = if create_and then IJz(label_done) else IJnz(label_done) in 
+    let pass_test = if create_and then const_true else const_false in 
+    let fail_test = if create_and then const_false else const_true in
+    IMov(Reg(RAX), e1_reg) ::
+    (bool_tag_check e1_reg label_LOGIC_NOT_BOOL)
+    @ [
+      IMov(Reg(R11), bool_mask); ITest(Reg(RAX), Reg(R11)); IMov(Reg(RAX), fail_test); jump_instr;
+      IMov(Reg(RAX), e2_reg)]
+    @ (bool_tag_check e2_reg label_LOGIC_NOT_BOOL)
+    @ [
+      IMov(Reg(R11), bool_mask); ITest(Reg(RAX), Reg(R11)); IMov(Reg(RAX), fail_test); jump_instr;
+      IMov(Reg(RAX), pass_test)]
+    @ [ILabel(label_done)]
   in
   match e with
   | ELet([id, e, _], body, _) ->
@@ -370,16 +431,17 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
       | Add1 -> 
         IMov(Reg(RAX), e_reg) ::
         (num_tag_check label_ARITH_NOT_NUM 
-          [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(2L)))])
+          [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(2L))); IJo(label_OVERFLOW)])
       | Sub1 -> 
         IMov(Reg(RAX), e_reg) ::
         (num_tag_check label_ARITH_NOT_NUM 
-          [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(Int64.neg 2L)))])
+           [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(Int64.neg 2L))); IJo(label_OVERFLOW)])
       | Print -> (setup_func_call [e_reg] "print") 
       | IsBool -> 
         let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
         let label_done = (sprintf "%s%n" label_DONE tag) in
         IMov(Reg(RAX), e_reg) ::
+        (* check if value is a bool, and if not, then jump to label_not_bool *)
         (bool_tag_check const_true label_not_bool)
         @ [
           IJmp(label_done);
@@ -390,13 +452,15 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
       | IsNum ->
         let label_not_num = (sprintf "%s%n" label_IS_NOT_NUM tag) in 
         let label_done = (sprintf "%s%n" label_DONE tag) in
-        IMov(Reg(RAX), e_reg) :: (num_tag_check label_not_num 
-        [
-          IMov(Reg(RAX), const_true);
-          IJmp(label_done);
-          ILabel(label_not_num);
-          IMov(Reg(RAX), const_false);
-          ILabel(label_done);
+        IMov(Reg(RAX), e_reg) :: 
+        (* check if value is a num, and if not, then jump to label_not_num *)
+        (num_tag_check label_not_num 
+          [
+            IMov(Reg(RAX), const_true);
+            IJmp(label_done);
+            ILabel(label_not_num);
+            IMov(Reg(RAX), const_false);
+            ILabel(label_done);
           ])
       | Not -> 
         IMov(Reg(RAX), e_reg) ::
@@ -412,47 +476,16 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
     let e2_reg = compile_imm e2 env in
     begin match op with
       | Plus -> 
-        IMov(Reg(RAX), e2_reg) ::
-        (num_tag_check label_ARITH_NOT_NUM 
-          (IMov(Reg(RAX), e1_reg) ::
-          (num_tag_check label_ARITH_NOT_NUM 
-          [IAdd(Reg(RAX), e2_reg)])))
+        (generate_arith_func e1_reg e2_reg (fun e2 -> [IAdd(Reg(RAX), e2)]))
       | Minus -> 
-        IMov(Reg(RAX), e2_reg) :: 
-        (num_tag_check label_ARITH_NOT_NUM 
-          (IMov(Reg(RAX), e1_reg) ::
-          (num_tag_check label_ARITH_NOT_NUM 
-          [ISub(Reg(RAX), e2_reg)])))
+        (generate_arith_func e1_reg e2_reg (fun e2 -> [ISub(Reg(RAX), e2)]))
       | Times -> 
-        IMov(Reg(RAX), e2_reg) :: 
-        (num_tag_check label_ARITH_NOT_NUM 
-          (IMov(Reg(RAX), e1_reg) ::
-          (num_tag_check label_ARITH_NOT_NUM 
-          [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), e2_reg)])))
+        (generate_arith_func e1_reg e2_reg 
+           (fun e2 -> [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), e2)]))
       | And -> 
-        let label_done = (sprintf "%s%n" label_DONE tag) in
-        IMov(Reg(RAX), e1_reg) ::
-        (bool_tag_check e1_reg label_LOGIC_NOT_BOOL)
-        @ [
-          IMov(Reg(R11), bool_mask); ITest(Reg(RAX), Reg(R11)); IMov(Reg(RAX), const_false); IJz(label_done); 
-          IMov(Reg(RAX), e2_reg)]
-        @ (bool_tag_check e2_reg label_LOGIC_NOT_BOOL)
-        @ [
-          IMov(Reg(R11), bool_mask); ITest(Reg(RAX), Reg(R11)); IMov(Reg(RAX), const_false); IJz(label_done);
-          IMov(Reg(RAX), const_true)]
-        @ [ILabel(label_done)]
+        (generate_logic_func e1_reg e2_reg true tag)
       | Or -> 
-        let label_done = (sprintf "%s%n" label_DONE tag) in
-        IMov(Reg(RAX), e1_reg) ::
-        (bool_tag_check e1_reg label_LOGIC_NOT_BOOL)
-        @ [
-          IMov(Reg(R11), bool_mask); ITest(Reg(RAX), Reg(R11)); IMov(Reg(RAX), const_true); IJnz(label_done); 
-          IMov(Reg(RAX), e2_reg)]
-        @ (bool_tag_check e2_reg label_LOGIC_NOT_BOOL)
-        @ [
-          IMov(Reg(R11), bool_mask); ITest(Reg(RAX), Reg(R11)); IMov(Reg(RAX), const_true); IJnz(label_done);
-          IMov(Reg(RAX), const_false)]
-        @ [ILabel(label_done)]
+        (generate_logic_func e1_reg e2_reg false tag)
       | Greater -> 
         (generate_cmp_func e1_reg e2_reg (fun l -> IJg(l)) tag)
       | GreaterEq -> 
