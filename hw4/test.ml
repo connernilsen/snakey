@@ -172,6 +172,19 @@ let suite =
   te "overflow_2^61_times_negative_2"
     "-4611686018427387903 * 4" "Error 5: overflow occurred for arithmetic operation, got num(4)";
 
+  t "add_large_numbers1"
+    "4611686018427387903 + -4511686018427387903" "100000000000000000";
+
+  t "add_large_numbers2"
+    "-4511686018427387903 + 4611686018427387903" "100000000000000000";
+
+  t "sub_large_numbers1"
+    "4611686018427387903 - 4511686018427387903" "100000000000000000";
+
+  t "sub_large_numbers2"
+    "4511686018427387903 - 4611686018427387903" "-100000000000000000";
+
+
   tprog "do_pass/test1.cobra" "6"; 
   teprog "do_err/test1.cobra" "Error 2: arithmetic expected a number, got bool(false)";
 

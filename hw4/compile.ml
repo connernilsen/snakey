@@ -393,10 +393,11 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
    * constructs the body using body_constructor, which should expect e1_reg to be in RAX.
    * after the arith operation completes, the result is checked for overflow.
    *)
-  let generate_arith_func (e1_reg : arg) (e2_reg : arg) (body_constructor : (arg -> instruction list)) : instruction list =
+  let generate_arith_func (e1_reg : arg) (e2_reg : arg) (body : instruction list) : instruction list =
     IMov(Reg(RAX), e2_reg) :: 
     (num_tag_check label_ARITH_NOT_NUM [IMov(Reg(RAX), e1_reg)])
-    @ (num_tag_check label_ARITH_NOT_NUM (body_constructor e2_reg))
+    @ (num_tag_check label_ARITH_NOT_NUM [IMov(Reg(R11), e2_reg)])
+    @ body
     @ [IJo(label_OVERFLOW)]
   in
   (* generates the instructions for performing a logical and/or on args e1_reg and e2_reg.
@@ -476,12 +477,12 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
     let e2_reg = compile_imm e2 env in
     begin match op with
       | Plus -> 
-        (generate_arith_func e1_reg e2_reg (fun e2 -> [IAdd(Reg(RAX), e2)]))
+        (generate_arith_func e1_reg e2_reg [IAdd(Reg(RAX), Reg(R11))])
       | Minus -> 
-        (generate_arith_func e1_reg e2_reg (fun e2 -> [ISub(Reg(RAX), e2)]))
+        (generate_arith_func e1_reg e2_reg [ISub(Reg(RAX), Reg(R11))])
       | Times -> 
         (generate_arith_func e1_reg e2_reg 
-           (fun e2 -> [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), e2)]))
+           [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), Reg(R11))])
       | And -> 
         (generate_logic_func e1_reg e2_reg true tag)
       | Or -> 
