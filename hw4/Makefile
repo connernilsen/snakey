@@ -26,7 +26,7 @@ lsp-build: *.ml parser.mly lexer.mll main
 output/%.run: output/%.o main.c
 	clang $(CLANG_FLAGS) -o $@ main.c $<
 
-.PRECIOUS: output/%.o
+# .PRECIOUS: output/%.o
 output/%.o: output/%.s
 	nasm -g -F dwarf -f $(NASM_FORMAT) -o $@ $<
 

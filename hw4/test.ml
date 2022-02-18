@@ -141,111 +141,153 @@ let suite =
     "4611686018427387904" "Failure(\"Compile error: Integer overflow: 4611686018427387904\")";
   te "overflow_-2^62_base"
     "-4611686018427387905" "Failure(\"Compile error: Integer overflow: -4611686018427387905\")";
-
   te "overflow_2^62_plus_positive"
     "4611686018427387903 + 1" "Error 5: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
-  
   te "overflow_2^62_plus_negative"
     "-4611686018427387904 + -1" "Error 5: overflow occurred for arithmetic operation, got num(4611686018427387903)";
-
   te "overflow_2^62_add1"
     "add1(4611686018427387903)" "Error 5: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
-
   te "overflow_-2^62_minus_positive"
     "4611686018427387903 - -1" "Error 5: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
-
   te "overflow_-2^62_minus_negative"
     "-4611686018427387904 - 1" "Error 5: overflow occurred for arithmetic operation, got num(4611686018427387903)";
-
   te "overflow_-2^62_sub1"
     "sub1(-4611686018427387904)" "Error 5: overflow occurred for arithmetic operation, got num(4611686018427387903)";
-
   te "overflow_2^61_times_positive_1"
     "4611686018427387903 * 4" "Error 5: overflow occurred for arithmetic operation, got num(-4)";
-
   te "overflow_2^61_times_positive_2"
     "-4611686018427387903 * -4" "Error 5: overflow occurred for arithmetic operation, got num(-4)";
-
   te "overflow_2^61_times_negative_1"
     "4611686018427387903 * -4" "Error 5: overflow occurred for arithmetic operation, got num(4)";
-
   te "overflow_2^61_times_negative_2"
     "-4611686018427387903 * 4" "Error 5: overflow occurred for arithmetic operation, got num(4)";
 
-  t "add_large_numbers1"
+  t "add_large_numbers_1"
     "4611686018427387903 + -4511686018427387903" "100000000000000000";
-
-  t "add_large_numbers2"
+  t "add_large_numbers_2"
     "-4511686018427387903 + 4611686018427387903" "100000000000000000";
-
-  t "sub_large_numbers1"
+  t "sub_large_numbers_1"
     "4611686018427387903 - 4511686018427387903" "100000000000000000";
-
-  t "sub_large_numbers2"
+  t "sub_large_numbers_2"
     "4511686018427387903 - 4611686018427387903" "-100000000000000000";
+  t "mult_large_numbers_1"
+    "4294967296 * 1073741823" "4611686014132420608";
+  t "mult_large_numbers_2"
+    "1073741823 * 4294967296" "4611686014132420608";
+  t "mult_large_numbers_3"
+    "-4294967296 * 1073741823" "-4611686014132420608";
+  t "mult_large_numbers_4"
+    "1073741823 * -4294967296" "-4611686014132420608";
+  t "add1_large_number" "add1(4611686018427387902)" "4611686018427387903";
+  t "sub1_large_number" "sub1(-4611686018427387902)" "-4611686018427387903";
+  t "greater1_large_numbers" "4611686018427387903 > 4611686018427387903" "false";
+  t "greater2_large_numbers" "4611686018427387903 > 4511686018427387903" "true";
+  t "greater3_large_numbers" "4511686018427387903 > 4611686018427387903" "false";
+  t "greaterEqual1_large_numbers" "4611686018427387903 >= 4611686018427387903" "true";
+  t "greaterEqual2_large_numbers" "4611686018427387903 >= 4511686018427387903" "true";
+  t "greaterEqual3_large_numbers" "4511686018427387903 >= 4611686018427387903" "false";
+  t "less1_large_numbers" "4611686018427387903 < 4611686018427387903" "false";
+  t "less2_large_numbers" "4611686018427387903 < 4511686018427387903" "false";
+  t "less3_large_numbers" "4511686018427387903 < 4611686018427387903" "true";
+  t "lessEqual1_large_numbers" "4611686018427387903 <= 4611686018427387903" "true";
+  t "lessEqual2_large_numbers" "4611686018427387903 <= 4511686018427387903" "false";
+  t "lessEqual3_large_numbers" "4511686018427387903 <= 4611686018427387903" "true";
+  t "equal1_large_numbers" "4611686018427387903 == 4611686018427387903" "true";
+  t "equal2_large_numbers" "4611686018427387903 == 4511686018427387903" "false";
+  t "equal3_large_numbers" "4511686018427387903 == 4611686018427387903" "false";
+  t "equal4_large_numbers" "4611686018427387903 == true" "false";
+  t "equal5_large_numbers" "false == 4611686018427387903" "false";
+  t "equal6_large_numbers" "4611686018427387903 == -4611686018427387903" "false";
 
+  t "greater1_negatives" "-1 > -1" "false";
+  t "greater2_negatives" "-2 > -1" "false";
+  t "greater3_negatives" "-1 > -2" "true";
+  t "greaterEqual1_negatives" "-1 >= -1" "true";
+  t "greaterEqual2_negatives" "-2 >= -1" "false";
+  t "greaterEqual3_negatives" "-1 >= -2" "true";
+  t "less1_negatives" "-1 < -1" "false";
+  t "less2_negatives" "-2 < -1" "true";
+  t "less3_negatives" "-1 < -2" "false";
+  t "lessEqual1_negatives" "-1 <= -1" "true";
+  t "lessEqual2_negatives" "-2 <= -1" "true";
+  t "lessEqual3_negatives" "-1 <= -2" "false";
+  t "equal1_negatives" "-1 == -1" "true";
+  t "equal2_negatives" "-2 == -1" "false";
+  t "equal3_negatives" "-2 == -1" "false";
+
+  t "greater1_neg_pos" "-1 > 1" "false";
+  t "greater2_neg_pos" "1 > -1" "true";
+  t "greater3_neg_pos" "5 > -1" "true";
+  t "greater4_neg_pos" "-5 > 1" "false";
+  t "greater5_neg_pos" "1 > -5" "true";
+  t "greater6_neg_pos" "-1 > 5" "false";
+  t "greaterEqual1_neg_pos" "-1 >= 1" "false";
+  t "greaterEqual2_neg_pos" "1 >= -1" "true";
+  t "greaterEqual3_neg_pos" "5 >= -1" "true";
+  t "greaterEqual4_neg_pos" "-5 >= 1" "false";
+  t "greaterEqual5_neg_pos" "1 >= -5" "true";
+  t "greaterEqual6_neg_pos" "-1 >= 5" "false";
+  t "less1_neg_pos" "-1 < 1" "true";
+  t "less2_neg_pos" "1 < -1" "false";
+  t "less3_neg_pos" "5 < -1" "false";
+  t "less4_neg_pos" "-5 < 1" "true";
+  t "less5_neg_pos" "1 < -5" "false";
+  t "less6_neg_pos" "-1 < 5" "true";
+  t "lessEqual1_neg_pos" "-1 <= 1" "true";
+  t "lessEqual2_neg_pos" "1 <= -1" "false";
+  t "lessEqual3_neg_pos" "5 <= -1" "false";
+  t "lessEqual4_neg_pos" "-5 <= 1" "true";
+  t "lessEqual5_neg_pos" "1 <= -5" "false";
+  t "lessEqual6_neg_pos" "-1 <= 5" "true";
 
   tprog "do_pass/test1.cobra" "6"; 
   teprog "do_err/test1.cobra" "Error 2: arithmetic expected a number, got bool(false)";
 
   t "forty_one" "41" "41";
   t "basic_let" "let a = 1 in a" "1";
-
   t "if1" "if true: 4 else: 2" "4";
   t "if2" "if false: 4 else: 2" "2";
-
   t "multi_let" "let a = 1, b = a in b" "1";
-
   t "let_in_let_in_if_it_1"
     ("if (let x = 5, y = (let x = sub1(x), y = (add1(x) - 10) in y) in ((y + x) == 0)): " ^
       "(let abcd = 10 in add1(abcd)) " ^
       "else: (let x = 0, y = sub1(if isbool(x): x else: 1) in y)")
     "11";
-
   t "let_in_let_in_if_it_2"
     ("if (let x = 4, y = (let x = sub1(x), y = (add1(x) - 10) in y) in ((y + x) >= 0)): " ^
       "(let abcd = 10 in add1(abcd)) " ^
       "else: (let x = 0, y = sub1(if (x == 1): x else: 1) in y)")
     "0";
-
   t "let_in_let_in_if_it_3"
     ("if (let x = 5, y = (let x = sub1(x), y = (add1(x) - 10) in y) in ((y + x) < -5)): " ^
       "(let abcd = 10 in add1(abcd)) " ^
       "else: (let x = 1, y = sub1(if isnum(x): x else: 2) in y)")
     "0";
-
   t "let_in_let_in_if_it_4"
     ("if (let x = 4, y = (let x = sub1(x), y = (add1(x) - 10) in y) in ((y + x) < -5)): " ^
       "(let abcd = 10 in add1(abcd)) " ^
       "else: (let x = 0, y = sub1(if (x == 0): x else: 1) in y)")
     "-1";
-
   t "negative"
     "-1" "-1";
-
   t "if_basic"
     "if (0 == 0): 0 else: 1" "0";
-
   t "complex_conditional_it_ft" 
     ("(let x = (if ((5 - 10) > -4): sub1(5 + 5) else: sub1(6 * 2)) in " ^
       "(let y = sub1(if true: x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
     "31";
-
   t "complex_conditional_it_tt" 
     ("(let x = (if true: sub1(5 + 5) else: sub1(6 * 2)) in " ^
       "(let y = sub1(if true: x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
     "25";
-
   t "complex_conditional_it_tf" 
     ("(let x = (if true: sub1(5 + 5) else: sub1(6 * 2)) in " ^
       "(let y = sub1(if false: x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
     "22";
-
   t "complex_conditional_it_ff" 
     ("(let x = (if false: sub1(5 + 5) else: sub1(6 * 2)) in " ^
       "(let y = sub1(if isbool(x * 1): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
     "26";
-
   t "wrapped_let_and_if"
     ("((let x = 10, z = (let x = (x + 1), y = (x * 2) in x - y), " ^
       "y = (if isnum(z): 1 else: z) in (if (sub1(sub1(y)) == sub1(y)): z else: (z - y))) - " ^

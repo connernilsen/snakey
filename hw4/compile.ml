@@ -349,6 +349,9 @@ let setup_func_call (args : arg list) (label : string) : (instruction list) =
 let setup_err_call (err_name : string) (args : arg list) : (instruction list) =
   ILabel(err_name) :: (setup_func_call args "error")
 
+(* NOTE: many of the asm instructions use R11 as a temp register, since 
+ * truncation occurs when performing many operations with full qword values in memory.
+ *)
 let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : instruction list =
   (* creates a jump instruction to to_instr if testing the value in RAX with mask 
    * satisifies the to_instr jump condition
@@ -390,7 +393,8 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
             IMov(Reg(RAX), const_false); ILabel(label_done)])))
   in
   (* generates the instructions for performing a Prim2 arith operation on args e1_reg and e2_reg.
-   * constructs the body using body_constructor, which should expect e1_reg to be in RAX.
+   * the body should perform operations using RAX and R11, where e1_reg and e2_reg 
+   * will be moved to respectively.
    * after the arith operation completes, the result is checked for overflow.
    *)
   let generate_arith_func (e1_reg : arg) (e2_reg : arg) (body : instruction list) : instruction list =
