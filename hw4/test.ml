@@ -139,7 +139,20 @@ let suite =
     ("if (let x = 4, y = (let x = sub1(x), y = (add1(x) - 10) in y) in ((y + x) < -5)): " ^
       "(let abcd = 10 in add1(abcd)) " ^
       "else: (let x = 0, y = sub1(if (x == 0): x else: 1) in y)")
-    "11";
+    "-1";
+
+  te "overflow"
+    "9223372000000000000 + 1" "Compile error: Integer overflow: 9223372000000000000";
+
+  (* This should overflow, right? *)
+  te "overflow_2"
+    "4611686000000000000 + 1" "Compile error: Integer overflow: 4611686000000000000";
+
+  t "negative"
+    "-1" "-1";
+
+  t "if_basic"
+    "if (0 == 0): 0 else: 1" "0";
 
   t "complex_conditional_it_ft" 
     ("(let x = (if ((5 - 10) > -4): sub1(5 + 5) else: sub1(6 * 2)) in " ^

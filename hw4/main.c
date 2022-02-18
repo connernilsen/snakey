@@ -49,12 +49,12 @@ char* convertTypeToStr(int type) {
 }
 
 // NOTE: caller needs to free returned value
-char* convertValueToStr(uint64_t val, char debug) {
+char* convertValueToStr(int64_t val, char debug) {
   int valType = getValueType(val);
   char valueStr[21];
   switch (valType) {
     case NUM_TYPE:
-      sprintf(valueStr, "%lu", val >> 1);
+      sprintf(valueStr, "%ld", val >> 1);
       break;
     case BOOL_TYPE:
       if (val == TRUE) {
