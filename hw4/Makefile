@@ -83,6 +83,4 @@ clean:
 	rm -rf _build/
 	rm -f main test
 
-clean-test:
-	rm -rf output/*.o output/*.s output/*.dSYM output/*.run *.log
-	rm -rf output/*/*.o output/*/*.s output/*/*.dSYM output/*/*.run
+clean-test: clean test

@@ -341,7 +341,6 @@ let rec compile_expr (e : tag expr) (si : int) (env : (string * int) list) : ins
     @ body @ [IJo(label_OVERFLOW)]
   in
   (* Jumps to to_label if not type and puts final_rax_value in RAX on exiting *)
-  (* TODO: is this the best way to do this? *)
   let bool_tag_check (final_rax_value : arg) (to_label : string) : instruction list = [
     IMov(Reg(R11), HexConst(bool_tag_mask)); 
     IAnd(Reg(RAX), Reg(R11)); ICmp(Reg(RAX), Reg(R11));
@@ -495,7 +494,7 @@ and compile_imm (e : tag expr) (env : (string * int) list) : arg =
   match e with
   | ENumber(n, _) ->
     if n > (Int64.div Int64.max_int 2L) || n < (Int64.div Int64.min_int 2L) then
-      raise (InternalCompilerError ("Integer overflow: " ^ (Int64.to_string n)))
+      failwith ("Integer overflow: " ^ (Int64.to_string n))
     else
       Sized(QWORD_PTR, Const(Int64.mul n 2L))
   | EBool(true, _) -> const_true

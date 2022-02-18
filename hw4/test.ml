@@ -42,20 +42,31 @@ let suite =
   t "add1" "add1(0)" "1";
   t "add1_let" "let x = add1(0) in x" "1";
   t "true" "true" "true";
+  t "false" "false" "false";
   t "not_true" "!(true)" "false";
   t "not_false" "!(false)" "true";
   t "print" "print(40)" "40\n40";
   t "print2" "let _ = print(40) in 40" "40\n40";
   t "print3" "let x = print(40) in x" "40\n40";
+  t "print4" "let x = print(40) in print(x)" "40\n40\n40";
   t "isbool" "isbool(40)" "false";
   t "isboolT" "isbool(true)" "true";
   t "isnumT" "isnum(40)" "true";
   t "isnum" "isnum(false)" "false";
   t "isnum_highest" "isnum(4611686018427387903)" "true";
   t "isnum_lowest" "isnum(-4611686018427387904)" "true";
-  t "plus" "1 + 1" "2";
-  t "minus" "1 - 1" "0";
-  t "times" "2 * 5" "10";
+  t "plus1" "1 + 1" "2";
+  t "plus2" "-1 + 5" "4";
+  t "plus3" "1 + -5" "-4";
+  t "plus4" "-1 + -5" "-6";
+  t "minus1" "1 - 1" "0";
+  t "minus2" "-1 - 5" "-6";
+  t "minus3" "1 - -5" "6";
+  t "minus4" "-1 - -5" "4";
+  t "times1" "2 * 5" "10";
+  t "times2" "2 * -5" "-10";
+  t "times3" "-2 * 5" "-10";
+  t "times4" "-2 * -5" "10";
   t "and0" "false && false" "false";
   t "and1" "true && false" "false";
   t "and2" "false && true" "false";
@@ -81,6 +92,8 @@ let suite =
   te "num_instead_of_bool_in_if" "!(if false: false else: 5)" "Error 3: logic expected a boolean, got num(5)";
   te "bool_instead_of_num3" "1 < true" "Error 1: comparison expected a number, got bool(true)";
   te "num_instead_of_bool2" "if (1): 1 else: 0" "Error 4: if expected a boolean, got num(1)";
+  t "if_short_circuits1" "add1(if true: 1 else: add1(false))" "2";
+  t "if_short_circuits2" "add1(if false: add1(false) else: 1)" "2";
   t "greater1" "1 > 1" "false";
   t "greater2" "2 > 1" "true";
   t "greater3" "1 > 2" "false";
@@ -112,12 +125,22 @@ let suite =
   te "lessEqE2" "true <= 1" "Error 1: comparison expected a number, got bool(true)";
   te "lessEqE2_in_if" "1 <= (if true: false else: 5)" "Error 1: comparison expected a number, got bool(false)";
 
-  te "overflow_2^62_base"
-    "4611686018427387904" "Failure(\"Unexpected compile error: Errors.InternalCompilerError(\\\"Integer overflow: 4611686018427387904\\\")\")";
-  te "overflow_-2^62_base"
-    "-4611686018427387905" "Failure(\"Unexpected compile error: Errors.InternalCompilerError(\\\"Integer overflow: -4611686018427387905\\\")\")";
+  t "let_typing"
+    "let x = isnum(5 * add1(7)), y = (if x: isnum(x) else: 10) in if (x && y): 27 else: !(x && y)" 
+    "true";
+  t "let_typing_not"
+    "!(let x = isnum(5 * add1(7)), y = (if x: isnum(x) else: 10) in if (x && y): 27 else: !(x && y))" 
+    "false";
 
-  te "overflow_2^62"
+  t "bangbang1" "!(!(true))" "true";
+  t "bangbang2" "!(!(false))" "false";
+
+  te "overflow_2^62_base"
+    "4611686018427387904" "Failure(\"Compile error: Integer overflow: 4611686018427387904\")";
+  te "overflow_-2^62_base"
+    "-4611686018427387905" "Failure(\"Compile error: Integer overflow: -4611686018427387905\")";
+
+  te "overflow_2^62_plus"
     "4611686018427387903 + 1" "Error 5: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
 
   te "overflow_2^62_add1"
@@ -128,6 +151,12 @@ let suite =
 
   te "overflow_-2^62_sub1"
     "sub1(-4611686018427387904)" "Error 5: overflow occurred for arithmetic operation, got num(4611686018427387903)";
+
+  te "overflow_2^61_times"
+    "4611686018427387903 * 4" "Error 5: overflow occurred for arithmetic operation, got num(-4)";
+
+  te "overflow_2^61_times_neg"
+    "4611686018427387903 * -4" "Error 5: overflow occurred for arithmetic operation, got num(4)";
 
   tprog "do_pass/test1.cobra" "6"; 
   teprog "do_err/test1.cobra" "Error 2: arithmetic expected a number, got bool(false)";
