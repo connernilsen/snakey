@@ -85,6 +85,13 @@ let tanf_tests = [
                 "(alet unary_12 = add1(x#21) in (unary_12 + 5))) in " ^ 
                   "(alet y#7 = sub1(if_9) in " ^ 
                     "(alet binop_4 = (x#21 + y#7) in sub1(binop_4)))))))");
+  tanf_improved "expr basic"
+    ("def f() : 1\n1")
+    ("(fun f(): 1)\n1");
+  (* Todo: this fails with f() and i'm not sure why*)
+  tanf_improved "expr call"
+    ("def f() : 1\nf()")
+    ("(fun f(): 1)\n1");
 ]
 
 let tests = tanf_tests
