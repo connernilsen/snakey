@@ -100,8 +100,40 @@ let rec find_dup (l : 'a list) : 'a option =
 
 (* IMPLEMENT EVERYTHING BELOW *)
 
+let rename_expr (e : tag expr) : tag expr =
+  let rec help (env : (string * string) list) (e : tag expr) : tag expr =
+    match e with
+    | EId(x, tag) -> 
+      let _, name = (List.find (fun (e, b) -> (String.equal x e)) env) in 
+      EId (name, tag)
+    | ELet(binds, body, tag) ->
+      let (binds_renamed, new_env) = (let_helper env binds) in 
+      let body_renamed = (help new_env body) in 
+      ELet(binds_renamed, body_renamed, tag)
+    | ENumber(n, tag) -> ENumber(n, tag)
+    | EPrim1(op, e, tag) ->
+      EPrim1(op, help env e, tag)
+    | EPrim2(op, e1, e2, tag) ->
+      EPrim2(op, help env e1, help env e2, tag)
+    | EIf(cond, thn, els, tag) ->
+      EIf(help env cond, help env thn, help env els, tag)
+    | EBool(b, tag) -> EBool(b, tag)
+  (* Renames all bindings in a let string and returns them with new env *)
+  and let_helper (env : (string * string) list) (binds : tag bind list) : (tag bind list * (string * string) list) =
+    match binds with
+    | [] -> ([], env)
+    | (first, binding, tag)::rest -> 
+      let binding_renamed = (help env binding)
+      and new_name = (sprintf "%s#%n" first tag) in 
+      let (acc, env) = (let_helper ((first, new_name)::env) rest) in
+      ((new_name, binding_renamed, tag)::acc, env)
+  in help [] e
+;;
+
+(* Todo: We don't need to rename decls since their names have to be unique, right? *)
 let rename (e : tag program) : tag program =
-  raise (NotYetImplemented "Copy this from your Cobra implementation and generalize it")
+  match e with
+  | Program(decls, expr, tag) -> Program(decls, rename_expr expr, tag)
 ;;
 
 
