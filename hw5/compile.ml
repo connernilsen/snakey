@@ -193,7 +193,7 @@ let anf (p : tag program) : unit aprogram =
        let tmp = sprintf "app_%d" tag in
        let imms_and_setups = List.map helpI args in 
        let imms = List.map (fun (imm, _) -> imm) imms_and_setups in 
-       let setups = List.map (fun (_, setup) -> setup) imms_and_setups in
+       let setups = List.flatten (List.map (fun (_, setup) -> setup) imms_and_setups) in
        (ImmId(tmp, ()), setups @ [(tmp, CApp(funname, imms, ()))])
     | ELet([], body, _) -> helpI body
     | ELet((bind, exp, _)::rest, body, pos) ->
