@@ -90,12 +90,13 @@ let rec find_one (l : 'a list) (elt : 'a) : bool =
     | [] -> false
     | x::xs -> (elt = x) || (find_one xs elt)
 
-let rec find_dup (l : 'a list) : 'a option =
+let rec find_dups_by (l : 'a list) (eq : ('a -> 'a -> bool)) : ('a * 'a) list =
+  let rec find_dups_helper (l : 'a list) : ('a * 'a) list =
   match l with
-    | [] -> None
-    | [x] -> None
-    | x::xs ->
-      if find_one xs x then Some(x) else find_dup xs
+  | [] -> []
+  | x :: [] -> []
+  | first :: rest -> let (dups, other) = (List.partition (eq first) rest) in
+    (List.map (fun dup -> (first, dup)) dups) @ (find_dups_by other eq)
 ;;
 
 (* IMPLEMENT EVERYTHING BELOW *)
@@ -207,17 +208,68 @@ let anf (p : tag program) : unit aprogram =
   helpP p
 ;;
 
-
+(* A wf_env is a list of binding name to arity. arities of 0 are for variables *)
+type wf_env = (string * int) list
 
 let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
-  let rec wf_E e (* other parameters may be needed here *) =
-    Error([NotYetImplemented "Implement well-formedness checking for expressions"])
-  and wf_D d (* other parameters may be needed here *) =
-    Error([NotYetImplemented "Implement well-formedness checking for definitions"])
-  in
-  match p with
-  | Program(decls, body, _) ->
-     Error([NotYetImplemented "Implement well-formedness checking for programs"])
+  let rec wf_E (e : sourcespan expr) (env : (name * sourcespan) list) (fun_env : wf_env) : exn list =
+    match e with
+    | EBool _ -> []
+    | ENumber _ -> []
+    | EId (x, loc) ->
+      begin 
+      match (List.assoc_opt x env) with
+      | None -> [UnboundId(x, loc)]
+      | Some -> []
+      end
+    | EPrim1(_, e, _) -> (wf_E e env fun_env)
+    | EPrim2(_, l, r, _) -> (wf_E l env fun_env) @ (wf_E r env fun_env)
+    | EIf(c, t, f, _) -> (wf_E c env fun_env) @ (wf_E t env fun_env) @ (wf_E f env fun_env)
+    | ELet(binds, body, _) ->
+      let (env2, _, errors) =
+        (List.fold_left
+          (fun (scope_env, shadow_env, found_errors) (x, e, loc) ->
+              let curr_errors = (wf_E e scope_env fun_env) @ found_errors in
+              match List.assoc_opt x shadow_env with
+              | None -> ((x, loc) :: scope_env, (x, loc) :: shadow_env, curr_errors)
+              | Some((_, existing)) -> 
+                (scope_env, shadow_env, DuplicateId(x, loc, existing) @ curr_errors))
+          (env, [], []) binds) in
+      errors @ (wf_E body env2 fun_env)
+    | EApp(name, args, loc) -> 
+      let args_errors = List.flatten (List.map (fun expr -> wf_E expr env fun_env) args) in
+      begin
+      match (List.assoc_opt x env) with
+      | Some(arity) ->
+        if (List.length args) != arity
+          then [Arity(arity, (List.length args), loc)] @ args_errors
+          else args_errors
+      | None -> [UnboundFun(sprintf "The identifier %s, used at <%s>, is not in scope" x (string_of_sourcespan loc))] @ args_errors
+      end
+  and wf_D (d : sourcespan decl) (env : wf_env) : exn list =
+    match d with
+    | DFun(name, params, body, span) ->
+      let dup_bindings = 
+      List.map (fun ((n1, span1), (_, span2)) -> DuplicateId(n1, span1, span2))
+        (find_dups_by params (fun (n1, _), (n2, _) -> n1 = n2)) in 
+      dup_bindings @ (wf_E body [] env)
+  and get_env (decls : sourcespan decl list) : wf_env = 
+    (List.map (fun (name, args, _, _) (* <- might need to match on this *) -> (name, (List.length args))))
+  and dup_d_errors (decls : sourcespan decl list) = 
+    List.map (fun ((name, _, _, span1), (_, _, _, span2)) -> 
+      DuplicateFun(name, span1, span2)) (find_dups_by decls (fun (n1, _, _, _) (n2, _, _, _) -> n1 = n2))
+  and d_errors decls = List.flatten (List.map wf_D decls)
+  in match p with
+    | Program(decls, body, _) ->
+      let env = get_env decls in 
+      let dup_fun_errors = dup_d_errors decls in
+      let d_errs = d_errors decls in
+      let e_errs = wf_E body [] env in 
+      begin
+      match dup_fun_errors @ d_errs @ e_errs with 
+      | [] -> Ok p
+      | e -> Error e
+      end
 ;;
 
 (* ASSUMES that the program has been alpha-renamed and all names are unique *)

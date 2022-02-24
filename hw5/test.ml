@@ -113,7 +113,14 @@ let tanf_tests = [
     ("(fun f(a): a)\n(fun g(b): add1(b))\n(fun h(b): b)\n(alet app_3 = (g(1)) in (alet app_2 = (f(app_3)) in (h(app_2))))");
 ]
 
-let tests = tanf_tests
+let is_well_formed_tests = [
+  te "f()" "Error"
+]
+
+let tests = (
+  (* tanf_tests @ *)
+  is_well_formed_tests
+)
 
 let suite =
 "suite">:::tests
