@@ -91,7 +91,6 @@ let rec find_one (l : 'a list) (elt : 'a) : bool =
     | x::xs -> (elt = x) || (find_one xs elt)
 
 let rec find_dups_by (l : 'a list) (eq : ('a -> 'a -> bool)) : ('a * 'a) list =
-  let rec find_dups_helper (l : 'a list) : ('a * 'a) list =
   match l with
   | [] -> []
   | x :: [] -> []
@@ -212,7 +211,7 @@ let anf (p : tag program) : unit aprogram =
 type wf_env = (string * int) list
 
 let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
-  let rec wf_E (e : sourcespan expr) (env : (name * sourcespan) list) (fun_env : wf_env) : exn list =
+  let rec wf_E (e : sourcespan expr) (env : (string * sourcespan) list) (fun_env : wf_env) : exn list =
     match e with
     | EBool _ -> []
     | ENumber _ -> []
@@ -220,7 +219,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
       begin 
       match (List.assoc_opt x env) with
       | None -> [UnboundId(x, loc)]
-      | Some -> []
+      | Some(_) -> []
       end
     | EPrim1(_, e, _) -> (wf_E e env fun_env)
     | EPrim2(_, l, r, _) -> (wf_E l env fun_env) @ (wf_E r env fun_env)
@@ -232,38 +231,38 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
               let curr_errors = (wf_E e scope_env fun_env) @ found_errors in
               match List.assoc_opt x shadow_env with
               | None -> ((x, loc) :: scope_env, (x, loc) :: shadow_env, curr_errors)
-              | Some((_, existing)) -> 
-                (scope_env, shadow_env, DuplicateId(x, loc, existing) @ curr_errors))
+              | Some(existing) -> 
+                (scope_env, shadow_env, DuplicateId(x, loc, existing) :: curr_errors))
           (env, [], []) binds) in
       errors @ (wf_E body env2 fun_env)
     | EApp(name, args, loc) -> 
       let args_errors = List.flatten (List.map (fun expr -> wf_E expr env fun_env) args) in
       begin
-      match (List.assoc_opt x env) with
+      match (List.assoc_opt name fun_env) with
       | Some(arity) ->
         if (List.length args) != arity
           then [Arity(arity, (List.length args), loc)] @ args_errors
           else args_errors
-      | None -> [UnboundFun(sprintf "The identifier %s, used at <%s>, is not in scope" x (string_of_sourcespan loc))] @ args_errors
+      | None -> [UnboundFun(name, loc)] @ args_errors
       end
-  and wf_D (d : sourcespan decl) (env : wf_env) : exn list =
+  and wf_D (env : wf_env) (d : sourcespan decl) : exn list =
     match d with
     | DFun(name, params, body, span) ->
       let dup_bindings = 
-      List.map (fun ((n1, span1), (_, span2)) -> DuplicateId(n1, span1, span2))
-        (find_dups_by params (fun (n1, _), (n2, _) -> n1 = n2)) in 
+      (List.map (fun ((n1, span1), (_, span2)) -> DuplicateId(n1, span1, span2))
+        (find_dups_by params (fun (n1, _) (n2, _) -> n1 = n2))) in 
       dup_bindings @ (wf_E body [] env)
   and get_env (decls : sourcespan decl list) : wf_env = 
-    (List.map (fun (name, args, _, _) (* <- might need to match on this *) -> (name, (List.length args))))
+    (List.map (fun x -> begin match x with DFun(name, args, _, _) -> (name, (List.length args)) end) decls)
   and dup_d_errors (decls : sourcespan decl list) = 
-    List.map (fun ((name, _, _, span1), (_, _, _, span2)) -> 
-      DuplicateFun(name, span1, span2)) (find_dups_by decls (fun (n1, _, _, _) (n2, _, _, _) -> n1 = n2))
-  and d_errors decls = List.flatten (List.map wf_D decls)
+    List.map (fun x -> begin match x with (DFun(name, _, _, span1), DFun(_, _, _, span2)) -> 
+      DuplicateFun(name, span1, span2) end) (find_dups_by decls (fun d1 d2 -> begin match (d1, d2) with (DFun(n1, _, _, _), DFun(n2, _, _, _)) -> n1 = n2 end))
+  and d_errors (decls : sourcespan decl list) (env: wf_env) = List.flatten (List.map (wf_D env) decls)
   in match p with
     | Program(decls, body, _) ->
       let env = get_env decls in 
       let dup_fun_errors = dup_d_errors decls in
-      let d_errs = d_errors decls in
+      let d_errs = d_errors decls env in
       let e_errs = wf_E body [] env in 
       begin
       match dup_fun_errors @ d_errs @ e_errs with 

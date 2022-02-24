@@ -114,7 +114,7 @@ let tanf_tests = [
 ]
 
 let is_well_formed_tests = [
-  te "f()" "Error"
+  te "basic" "f()" "The function name f, used at <basic, 1:0-1:3>, is not in scope"
 ]
 
 let tests = (
