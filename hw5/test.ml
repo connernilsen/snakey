@@ -97,6 +97,14 @@ let tanf_tests = [
   tanf_improved "expr call w compound args"
     ("def f(a, b) : 1\nf(add1(1), 2)")
     ("(fun f(a, b): 1)\n(alet unary_2 = add1(1) in (f(unary_2, 2)))");
+  tanf_improved "expr call w multiple compound args"
+    ("def f(a, b) : 1\nf(add1(1), add1(1))")
+    ("(fun f(a, b): 1)\n(alet unary_2 = add1(1) in (alet unary_4 = add1(1) in (f(unary_2, unary_4))))");
+  tanf_improved "multiple expr call w multiple compound args"
+    ("def f(a, b) : 1\ndef g(a, b, c) : a == b\nlet c = f(add1(1), add1(1)), d = g(add1(2), add1(3), 4 + 3) in d")
+    ("(fun f(a, b): 1)\n" ^
+    "(fun g(a, b, c): (a == b))" ^
+    "(alet unary_5 = add1(1) in (alet unary_7 = add1(1) in (alet c#3 = (f(unary_5, unary_7)) in (alet unary_11 = add1(2) in (alet unary_13 = add1(3) in (alet binop_15 = (4 + 3) in (alet d#9 = (g(unary_11, unary_13, binop_15)) in d#9)))))))");
 ]
 
 let tests = tanf_tests
