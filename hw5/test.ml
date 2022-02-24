@@ -88,10 +88,15 @@ let tanf_tests = [
   tanf_improved "expr basic"
     ("def f() : 1\n1")
     ("(fun f(): 1)\n1");
-  (* Todo: this fails with f() and i'm not sure why*)
   tanf_improved "expr call"
     ("def f() : 1\nf()")
-    ("(fun f(): 1)\n1");
+    ("(fun f(): 1)\n(f())");
+  tanf_improved "expr call w imm args"
+    ("def f(a, b) : 1\nf(1, 2)")
+    ("(fun f(a, b): 1)\n(f(1, 2))");
+  tanf_improved "expr call w compound args"
+    ("def f(a, b) : 1\nf(add1(1), 2)")
+    ("(fun f(a, b): 1)\n(alet unary_2 = add1(1) in (f(unary_2, 2)))");
 ]
 
 let tests = tanf_tests

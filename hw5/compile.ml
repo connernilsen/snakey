@@ -118,6 +118,8 @@ let rename_expr (e : tag expr) : tag expr =
     | EIf(cond, thn, els, tag) ->
       EIf(help env cond, help env thn, help env els, tag)
     | EBool(b, tag) -> EBool(b, tag)
+    (* Todo: maybe add character start/end so their functions don't overlap *)
+    | EApp(funname, args, tag) -> EApp(funname, args, tag)
   (* Renames all bindings in a let string and returns them with new env *)
   and let_helper (env : (string * string) list) (binds : tag bind list) : (tag bind list * (string * string) list) =
     match binds with
@@ -163,7 +165,9 @@ let anf (p : tag program) : unit aprogram =
        let (body_ans, body_setup) = helpC (ELet(rest, body, pos)) in
        (body_ans, exp_setup @ [(bind, exp_ans)] @ body_setup)
     | EApp(funname, args, _) ->
-       raise (NotYetImplemented "Implement ANF conversion for function calls")
+      let imms_and_setups = List.map helpI args in
+        (CApp(funname, List.map (fun (imm, _)->imm) imms_and_setups, ()),
+        (List.fold_left (fun acc (_, setup) -> acc @ setup) [] imms_and_setups))
     | _ -> let (imm, setup) = helpI e in (CImmExpr imm, setup)
 
   and helpI (e : tag expr) : (unit immexpr * (string * unit cexpr) list) =
