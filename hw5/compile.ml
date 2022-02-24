@@ -190,7 +190,11 @@ let anf (p : tag program) : unit aprogram =
        let (cond_imm, cond_setup) = helpI cond in
        (ImmId(tmp, ()), cond_setup @ [(tmp, CIf(cond_imm, helpA _then, helpA _else, ()))])
     | EApp(funname, args, tag) ->
-       raise (NotYetImplemented "Implement ANF conversion for function calls")
+       let tmp = sprintf "app_%d" tag in
+       let imms_and_setups = List.map helpI args in 
+       let imms = List.map (fun (imm, _) -> imm) imms_and_setups in 
+       let setups = List.map (fun (_, setup) -> setup) imms_and_setups in
+       (ImmId(tmp, ()), setups @ [(tmp, CApp(funname, imms, ()))])
     | ELet([], body, _) -> helpI body
     | ELet((bind, exp, _)::rest, body, pos) ->
        let (exp_ans, exp_setup) = helpC exp in

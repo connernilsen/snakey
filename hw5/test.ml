@@ -26,7 +26,7 @@ let teq name actual expected = name>::fun _ ->
   assert_equal expected actual ~printer:(fun s -> s);;
 
 let tanf_tests = [
-    tanf_improved "let_in_prim"
+    (* tanf_improved "let_in_prim"
     "add1(let x = 5 in x)"
     "(alet x#4 = 5 in add1(x#4))";
 
@@ -104,7 +104,10 @@ let tanf_tests = [
     ("def f(a, b) : 1\ndef g(a, b, c) : a == b\nlet c = f(add1(1), add1(1)), d = g(add1(2), add1(3), 4 + 3) in d")
     ("(fun f(a, b): 1)\n" ^
     "(fun g(a, b, c): (a == b))" ^
-    "(alet unary_5 = add1(1) in (alet unary_7 = add1(1) in (alet c#3 = (f(unary_5, unary_7)) in (alet unary_11 = add1(2) in (alet unary_13 = add1(3) in (alet binop_15 = (4 + 3) in (alet d#9 = (g(unary_11, unary_13, binop_15)) in d#9)))))))");
+    "(alet unary_5 = add1(1) in (alet unary_7 = add1(1) in (alet c#3 = (f(unary_5, unary_7)) in (alet unary_11 = add1(2) in (alet unary_13 = add1(3) in (alet binop_15 = (4 + 3) in (alet d#9 = (g(unary_11, unary_13, binop_15)) in d#9)))))))"); *)
+  tanf_improved "expr_within_expr"
+    ("def f(a) : a\ndef g(b) : add1(b)\nf(g(1))")
+    ("(fun f(): 1)\n1");
 ]
 
 let tests = tanf_tests
