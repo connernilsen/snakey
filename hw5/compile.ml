@@ -275,7 +275,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
  * calling the given function, and cleaning up the stack after 
  *)
 let setup_call_to_func (args : arg list) (label : string) : (instruction list) =
-  let leftover_args = Int64.max (Int64.of_int ((((List.length args) - 5) / 2) * 16)) 0L in
+  let leftover_args = Int64.max (Int64.of_int ((((List.length args) - 5) / 2) * 2 * word_size)) 0L in
   (* aligns the stack by adding an extra value if the number of values 
    * needed for the stack is odd
    *)
@@ -307,20 +307,18 @@ let setup_enter_func
     (expected_num_args : int) 
     (stack_allocation_space : int)
     (gen_func_body : (arg list -> instruction list)) : instruction list =
-  let rec get_regs (regs : reg list) : arg list =
-    match regs with
-    | [] -> 
-      let remain_args = expected_num_args - 6 in
-      if remain_args > 0
-      then List.init remain_args (fun pos -> RegOffset(pos * word_size, RSP))
-      else []
-    | first :: rest -> Reg(first) :: (get_regs rest)
+  let arg_regs_len = List.length first_six_args_registers in
+  let args =
+    (List.map 
+       (fun reg -> Reg(reg))
+       (List.filteri (fun idx _ -> idx < expected_num_args) first_six_args_registers))
+    @ List.init (max 0 (expected_num_args - arg_regs_len)) (fun pos -> RegOffset((pos + 2) * word_size, RBP))
   in
   [
     IPush(Reg(RBP));
     IMov(Reg(RBP), Reg(RSP));
-    ISub(Reg(RSP), Const(Int64.of_int stack_allocation_space));
-  ] @ gen_func_body (get_regs first_six_args_registers) @ [
+    ISub(Reg(RSP), Const(Int64.of_int (stack_allocation_space * word_size)));
+  ] @ gen_func_body args @ [
     IMov(Reg(RSP), Reg(RBP));
     IPop(Reg(RBP));
     IRet;

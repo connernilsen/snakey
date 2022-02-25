@@ -5,7 +5,7 @@
   (wrapped false))
 
 (ocamllex (modules lexer))
-(menhir (modules parser))
+(ocamlyacc (modules parser))
 
 (executable
   (name main)

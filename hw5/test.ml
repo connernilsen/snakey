@@ -1,3 +1,4 @@
+open Assembly
 open Compile
 open Runner
 open Printf
@@ -161,9 +162,46 @@ test(1, 2)"
        [Arity(1, 0, (create_ss "arity" 1 15 1 21))]);
 ]
 
+let setup_func_check_pre_post num_args stack_size =
+  let al_to_asm al = String.concat ";" (List.map arg_to_asm al) in
+  let input_args = 
+    List.filteri (fun pos _ -> pos < num_args)
+    ((List.map (fun reg -> Reg(reg)) first_six_args_registers)
+    @ List.init 9 (fun pos -> RegOffset((pos + 2) * 8, RBP)))
+  in
+  let body = [IMov(Reg(RAX), Const(10L))] in
+  let gen_func_body_mock = (fun args ->
+    assert_equal input_args args ~printer:al_to_asm;
+    body)
+  in
+  let actual = (setup_enter_func num_args stack_size gen_func_body_mock) in
+  let pre_ex = [
+    IPush(Reg(RBP)); IMov(Reg(RBP), Reg(RSP)); 
+    ISub(Reg(RSP), Const(Int64.of_int (stack_size * 8)));
+  ] in
+  let post_ex = [IMov(Reg(RSP), Reg(RBP)); IPop(Reg(RBP)); IRet;] in 
+  assert_equal (pre_ex @ body @ post_ex) actual ~printer:to_asm
+;;
+
+let setup_enter_func_tests = [
+  "setup_enter_func_1">::(fun _ -> 
+      setup_func_check_pre_post 0 0);
+  "setup_enter_func_2">::(fun _ ->
+      setup_func_check_pre_post 1 1);
+  "setup_enter_func_3">::(fun _ ->
+      setup_func_check_pre_post 6 5);
+  "setup_enter_func_4">::(fun _ ->
+      setup_func_check_pre_post 7 5);
+  "setup_enter_func_5">::(fun _ ->
+      setup_func_check_pre_post 8 5);
+  "setup_enter_func_6">::(fun _ ->
+      setup_func_check_pre_post 9 5);
+]
+
 let tests = (
   (* tanf_tests @ *)
   is_well_formed_tests
+  @ setup_enter_func_tests
 )
 
 let suite = "suite">:::tests
