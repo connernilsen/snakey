@@ -5,6 +5,7 @@ open OUnit2
 open Pretty
 open Exprs
 open Errors
+open Libtest
 
 let t name program expected = name>::test_run program name expected;;
 
@@ -165,12 +166,8 @@ let tests = (
   is_well_formed_tests
 )
 
-let suite =
-"suite">:::tests
+let suite = "suite">:::tests
  
-
-
-
 let () =
-  run_test_tt_main ("all_tests">:::[suite; input_file_test_suite ()])
+  run_test_tt_main ("all_tests">:::[suite; (* old_tests; *) input_file_test_suite ()])
 ;;

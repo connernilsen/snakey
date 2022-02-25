@@ -271,6 +271,62 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
       end
 ;;
 
+(* sets up a function call (x64) by putting args in the proper registers/stack positions, 
+ * calling the given function, and cleaning up the stack after 
+ *)
+let setup_call_to_func (args : arg list) (label : string) : (instruction list) =
+  let leftover_args = Int64.max (Int64.of_int ((((List.length args) - 5) / 2) * 16)) 0L in
+  (* aligns the stack by adding an extra value if the number of values 
+   * needed for the stack is odd
+   *)
+  let align_stack (remaining_args : arg list) : (instruction list) =
+    if ((List.length remaining_args) mod 2) != 0 
+    then [IPush(Const(0L))]
+    else [] in
+  (* sets up args by putting them in the first 6 registers needed for a call,
+   * optionally aligning the stack, and placing any remaining values on the stack 
+   *)
+  let rec setup_args (args : arg list) (registers : reg list) : (instruction list) =
+    match args with 
+    | [] -> []
+    | next_arg :: rest_args ->
+      begin match registers with 
+        | [] -> IPush(next_arg) :: (setup_args rest_args registers)
+        | last_reg :: [] -> 
+          IMov(Reg(last_reg), next_arg) :: (align_stack rest_args) @ (setup_args (List.rev rest_args) [])
+        | next_reg :: rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
+      end
+  in 
+  (setup_args args first_six_args_registers) 
+  @ [ICall(label)]
+  (* pop off values added to the stack *)
+  @ (if (Int64.equal leftover_args 0L) then [] else [IAdd(Reg(RSP), Const(leftover_args))])
+;;
+
+let setup_enter_func 
+    (expected_num_args : int) 
+    (stack_allocation_space : int)
+    (gen_func_body : (arg list -> instruction list)) : instruction list =
+  let rec get_regs (regs : reg list) : arg list =
+    match regs with
+    | [] -> 
+      let remain_args = expected_num_args - 6 in
+      if remain_args > 0
+      then List.init remain_args (fun pos -> RegOffset(pos * word_size, RSP))
+      else []
+    | first :: rest -> Reg(first) :: (get_regs rest)
+  in
+  [
+    IPush(Reg(RBP));
+    IMov(Reg(RBP), Reg(RSP));
+    ISub(Reg(RSP), Const(Int64.of_int stack_allocation_space));
+  ] @ gen_func_body (get_regs first_six_args_registers) @ [
+    IMov(Reg(RSP), Reg(RBP));
+    IPop(Reg(RBP));
+    IRet;
+  ]
+;;
+
 (* ASSUMES that the program has been alpha-renamed and all names are unique *)
 let naive_stack_allocation (prog : tag aprogram) : tag aprogram * arg envt =
   raise (NotYetImplemented "Extract your stack-slot allocation logic from Cobra's compile_expr into here")
