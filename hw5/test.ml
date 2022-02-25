@@ -4,6 +4,7 @@ open Printf
 open OUnit2
 open Pretty
 open Exprs
+open Errors
 
 let t name program expected = name>::test_run program name expected;;
 
@@ -113,8 +114,35 @@ let tanf_tests = [
     ("(fun f(a): a)\n(fun g(b): add1(b))\n(fun h(b): b)\n(alet app_3 = (g(1)) in (alet app_2 = (f(app_3)) in (h(app_2))))");
 ]
 
+let create_ss (file : string) (start_l : int) (start_c : int) (end_l : int) (end_c : int) : sourcespan =
+  ({pos_fname=file; pos_lnum=start_l; pos_bol=0; pos_cnum=start_c},
+   {pos_fname=file; pos_lnum=end_l; pos_bol=0; pos_cnum=end_c})
+;;
+
+let print_te (exns : exn list) : string =
+  String.concat " " (print_errors exns)
+;;
+
 let is_well_formed_tests = [
-  te "basic" "f()" "The function name f, used at <basic, 1:0-1:3>, is not in scope"
+  te "basic" "f()" "The function name f, used at <basic, 1:0-1:3>, is not in scope";
+  te "test_dup_fun" 
+    "def test(): 1
+def test(): 2
+test()"
+    (print_te 
+       [DuplicateFun("test", 
+                     (create_ss "test_dup_fun" 2 0 2 13), 
+                     (create_ss "test_dup_fun" 1 0 1 13))]);
+  te "test_dup_binds"
+    "def test(x, x): x
+test(1, 2)"
+    (print_te 
+      [DuplicateId("x",
+                   create_ss "test_dup_binds" 1 12 1 13,
+                   create_ss "test_dup_binds" 1 9 1 10)]);
+  te "test_unbound_id"
+    "def test(): x test()"
+    (print_te [UnboundId("x", create_ss "test_unbound_id" 1 12 1 13)]);
 ]
 
 let tests = (

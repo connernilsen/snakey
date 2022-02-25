@@ -95,7 +95,7 @@ let rec find_dups_by (l : 'a list) (eq : ('a -> 'a -> bool)) : ('a * 'a) list =
   | [] -> []
   | x :: [] -> []
   | first :: rest -> let (dups, other) = (List.partition (eq first) rest) in
-    (List.map (fun dup -> (first, dup)) dups) @ (find_dups_by other eq)
+    (List.map (fun dup -> (dup, first)) dups) @ (find_dups_by other eq)
 ;;
 
 (* IMPLEMENT EVERYTHING BELOW *)
@@ -251,7 +251,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
       let dup_bindings = 
       (List.map (fun ((n1, span1), (_, span2)) -> DuplicateId(n1, span1, span2))
         (find_dups_by params (fun (n1, _) (n2, _) -> n1 = n2))) in 
-      dup_bindings @ (wf_E body [] env)
+      dup_bindings @ (wf_E body params env)
   and get_env (decls : sourcespan decl list) : wf_env = 
     (List.map (fun x -> begin match x with DFun(name, args, _, _) -> (name, (List.length args)) end) decls)
   and dup_d_errors (decls : sourcespan decl list) = 
