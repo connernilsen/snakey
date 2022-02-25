@@ -125,24 +125,39 @@ let print_te (exns : exn list) : string =
 
 let is_well_formed_tests = [
   te "basic" "f()" "The function name f, used at <basic, 1:0-1:3>, is not in scope";
-  te "test_dup_fun" 
+  te "dup_fun" 
     "def test(): 1
 def test(): 2
 test()"
     (print_te 
        [DuplicateFun("test", 
-                     (create_ss "test_dup_fun" 2 0 2 13), 
-                     (create_ss "test_dup_fun" 1 0 1 13))]);
-  te "test_dup_binds"
+                     (create_ss "dup_fun" 2 0 2 13), 
+                     (create_ss "dup_fun" 1 0 1 13))]);
+  te "dup_binds_fun"
     "def test(x, x): x
 test(1, 2)"
     (print_te 
       [DuplicateId("x",
-                   create_ss "test_dup_binds" 1 12 1 13,
-                   create_ss "test_dup_binds" 1 9 1 10)]);
-  te "test_unbound_id"
+                   create_ss "dup_binds_fun" 1 12 1 13,
+                   create_ss "dup_binds_fun" 1 9 1 10)]);
+  te "unbound_id"
     "def test(): x test()"
-    (print_te [UnboundId("x", create_ss "test_unbound_id" 1 12 1 13)]);
+    (print_te [UnboundId("x", create_ss "unbound_id" 1 12 1 13)]);
+  te "dup_binds_let"
+    "let x = 5, x = 6 in x"
+    (print_te 
+      [DuplicateId("x",
+                   (create_ss "dup_binds_let" 1 11 1 16),
+                   (create_ss "dup_binds_let" 1 4 1 9))]);
+  te "unbound_fun"
+    "test()"
+    (print_te 
+       [UnboundFun("test",
+                   (create_ss "unbound_fun" 1 0 1 6))]);
+  te "arity"
+    "def test(x): x test()"
+    (print_te 
+       [Arity(1, 0, (create_ss "arity" 1 15 1 21))]);
 ]
 
 let tests = (
