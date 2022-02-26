@@ -312,20 +312,6 @@ let get_func_call_params (expected_num_args : int) : arg list =
        (fun pos -> RegOffset((pos + 2) * word_size, RBP)))
 ;;
 
-let setup_enter_func 
-    (stack_allocation_space : int)
-    (body : instruction list) : instruction list =
-  [
-    IPush(Reg(RBP));
-    IMov(Reg(RBP), Reg(RSP));
-    ISub(Reg(RSP), Const(Int64.of_int (stack_allocation_space * word_size)));
-  ] @ body @ [
-    IMov(Reg(RSP), Reg(RBP));
-    IPop(Reg(RBP));
-    IRet;
-  ]
-;;
-
 (* ASSUMES that the program has been alpha-renamed and all names are unique *)
 let naive_stack_allocation (prog : tag aprogram) : tag aprogram * arg envt =
   (* In Cobra, you had logic somewhere that tracked the stack index, starting at 1 and incrementing it
@@ -338,19 +324,17 @@ let naive_stack_allocation (prog : tag aprogram) : tag aprogram * arg envt =
      name in the program appears bound exactly once, and therefore those names can be used as keys in 
      an environment without worry of shadowing errors.
   *)
-  (* get max allocation needed as an even value, possibly rounded up *)
-  let get_var_alloc_space space = ((space + 1) / 2) * 2 in
   let rec get_aexpr_envt (expr : tag aexpr) (si : int) : arg envt =
     match expr with 
-    | ALet(name, bind, body, tag) ->
+    | ALet(name, bind, body, _) ->
       (name, RegOffset(RBP, ~-si))
       :: (get_cexpr_envt bind (si + 1))
       @ (get_aexpr_envt body (si + 1))
-    | ACExpr(body, tag) ->
+    | ACExpr(body, _) ->
       (get_cexpr_envt body si)
   and get_cexpr_envt (expr : tag cexpr) (si : int) : arg envt =
     match expr with 
-    | CIf(_, l, r, tag) -> 
+    | CIf(_, l, r, _) -> 
       (get_aexpr_envt l si)
       @ (get_aexpr_envt r si)
     | _ -> []
@@ -358,7 +342,7 @@ let naive_stack_allocation (prog : tag aprogram) : tag aprogram * arg envt =
   let get_decl_envts (decls : tag adecl list) : arg envt =
     match decls with 
     | [] -> []
-    | ADFun(_, params, body, tag) :: rest ->
+    | ADFun(_, params, body, _) :: rest ->
       (List.map2 (fun l r -> (l, r))
          params
         (get_func_call_params (List.length params)))
@@ -366,13 +350,26 @@ let naive_stack_allocation (prog : tag aprogram) : tag aprogram * arg envt =
       @ (get_decl_envts rest)
   in
   match prog with 
-  | AProgram(decls, expr, tag) ->
-    (get_aexpr_envt expr 1)
-    @ get_decl_envts decls
+  | AProgram(decls, expr, _) ->
+    (prog, 
+     (get_aexpr_envt expr 1)
+     @ get_decl_envts decls)
 ;;
 
-let rec compile_fun (fun_name : string) (args : string list) (env : arg envt) : instruction list =
-  raise (NotYetImplemented "Compile funs not yet implemented")
+let rec compile_fun (fun_name : string) (body : tag aexpr) (args : string list) (env : arg envt) : instruction list =
+  (* get max allocation needed as an even value, possibly rounded up *)
+  let stack_alloc_space = (((deepest_stack body env) + 1) / 2 ) * 2 in
+  [
+    ILabel(fun_name);
+    IPush(Reg(RBP));
+    IMov(Reg(RBP), Reg(RSP));
+    ISub(Reg(RSP), Const(Int64.of_int (stack_alloc_space * word_size)));
+    (* TODO: change to true when implementing tail recursion *)
+  ] @ (compile_aexpr body (List.length num_params) env false) @ [
+    IMov(Reg(RSP), Reg(RBP));
+    IPop(Reg(RBP));
+    IRet;
+  ]
 and compile_aexpr (e : tag aexpr) (env : arg envt) (num_args : int) (is_tail : bool) : instruction list =
   raise (NotYetImplemented "Compile aexpr not yet implemented")
 and compile_cexpr (e : tag cexpr) (env : arg envt) (num_args : int) (is_tail : bool) =
@@ -385,10 +382,16 @@ and compile_imm e (env : arg envt) =
   | ImmId(x, _) -> (find env x)
 
 let compile_decl (d : tag adecl) (env : arg envt): instruction list =
-  raise (NotYetImplemented "Compile decl not yet implemented")
+  match d with 
+  | ADFun(name, params, body, _) ->
+    compile_fun name body params env
 
 let compile_prog ((anfed : tag aprogram), (env : arg envt)) : string =
-  raise (NotYetImplemented "Compiling programs not implemented yet")
+  match anfed with
+  | AProgram(decls, expr, _) ->
+    to_asm 
+      ((List.flatten (List.map (fun decl -> compile_decl decl env) decls))
+       @ (compile_fun "our_code_starts_here" [] env))
 
 (* Feel free to add additional phases to your pipeline.
    The final pipeline phase needs to return a string,
