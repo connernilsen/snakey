@@ -169,6 +169,7 @@ let setup_func_check_pre_post num_args stack_size =
     ((List.map (fun reg -> Reg(reg)) first_six_args_registers)
     @ List.init 9 (fun pos -> RegOffset((pos + 2) * 8, RBP)))
   in
+  assert_equal num_args (List.length input_args);
   let body = [IMov(Reg(RAX), Const(10L))] in
   let gen_func_body_mock = (fun args ->
     assert_equal input_args args ~printer:al_to_asm;

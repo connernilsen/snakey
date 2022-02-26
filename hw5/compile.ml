@@ -303,22 +303,23 @@ let setup_call_to_func (args : arg list) (label : string) : (instruction list) =
   @ (if (Int64.equal leftover_args 0L) then [] else [IAdd(Reg(RSP), Const(leftover_args))])
 ;;
 
-let setup_enter_func 
-    (expected_num_args : int) 
-    (stack_allocation_space : int)
-    (gen_func_body : (arg list -> instruction list)) : instruction list =
+let get_func_call_params (expected_num_args : int) : arg list =
   let arg_regs_len = List.length first_six_args_registers in
-  let args =
-    (List.map 
-       (fun reg -> Reg(reg))
-       (List.filteri (fun idx _ -> idx < expected_num_args) first_six_args_registers))
-    @ List.init (max 0 (expected_num_args - arg_regs_len)) (fun pos -> RegOffset((pos + 2) * word_size, RBP))
-  in
+  (List.map 
+     (fun reg -> Reg(reg))
+     (List.filteri (fun idx _ -> idx < expected_num_args) first_six_args_registers))
+  @ (List.init (max 0 (expected_num_args - arg_regs_len)) 
+       (fun pos -> RegOffset((pos + 2) * word_size, RBP)))
+;;
+
+let setup_enter_func 
+    (stack_allocation_space : int)
+    (body : instruction list) : instruction list =
   [
     IPush(Reg(RBP));
     IMov(Reg(RBP), Reg(RSP));
     ISub(Reg(RSP), Const(Int64.of_int (stack_allocation_space * word_size)));
-  ] @ gen_func_body args @ [
+  ] @ body @ [
     IMov(Reg(RSP), Reg(RBP));
     IPop(Reg(RBP));
     IRet;
@@ -327,17 +328,47 @@ let setup_enter_func
 
 (* ASSUMES that the program has been alpha-renamed and all names are unique *)
 let naive_stack_allocation (prog : tag aprogram) : tag aprogram * arg envt =
-  raise (NotYetImplemented "Extract your stack-slot allocation logic from Cobra's compile_expr into here")
-(* In Cobra, you had logic somewhere that tracked the stack index, starting at 1 and incrementing it
-   within the bodies of let-bindings.  It built up an environment that mapped each let-bound name to
-   a stack index, so that RegOffset(~-8 * stackIndex, RBP) stored the value of that let-binding.
-   In this function, you should build up that environment, and return a pair of the already-ANF'ed 
-   program and that environment, which can then both be passed along to compile_prog to finish compilation.
+  (* In Cobra, you had logic somewhere that tracked the stack index, starting at 1 and incrementing it
+     within the bodies of let-bindings.  It built up an environment that mapped each let-bound name to
+     a stack index, so that RegOffset(~-8 * stackIndex, RBP) stored the value of that let-binding.
+     In this function, you should build up that environment, and return a pair of the already-ANF'ed 
+     program and that environment, which can then both be passed along to compile_prog to finish compilation.
 
-   Since this environment-building step comes *after* renaming, you may rely on the invariant that every
-   name in the program appears bound exactly once, and therefore those names can be used as keys in 
-   an environment without worry of shadowing errors.
-*)
+     Since this environment-building step comes *after* renaming, you may rely on the invariant that every
+     name in the program appears bound exactly once, and therefore those names can be used as keys in 
+     an environment without worry of shadowing errors.
+  *)
+  (* get max allocation needed as an even value, possibly rounded up *)
+  let get_var_alloc_space space = ((space + 1) / 2) * 2 in
+  let rec get_aexpr_envt (expr : tag aexpr) (si : int) : arg envt =
+    match expr with 
+    | ALet(name, bind, body, tag) ->
+      (name, RegOffset(RBP, ~-si))
+      :: (get_cexpr_envt bind (si + 1))
+      @ (get_aexpr_envt body (si + 1))
+    | ACExpr(body, tag) ->
+      (get_cexpr_envt body si)
+  and get_cexpr_envt (expr : tag cexpr) (si : int) : arg envt =
+    match expr with 
+    | CIf(_, l, r, tag) -> 
+      (get_aexpr_envt l si)
+      @ (get_aexpr_envt r si)
+    | _ -> []
+  in
+  let get_decl_envts (decls : tag adecl list) : arg envt =
+    match decls with 
+    | [] -> []
+    | ADFun(_, params, body, tag) :: rest ->
+      (List.map2 (fun l r -> (l, r))
+         params
+        (get_func_call_params (List.length params)))
+      @ (get_aexpr_envt body 1)
+      @ (get_decl_envts rest)
+  in
+  match prog with 
+  | AProgram(decls, expr, tag) ->
+    (get_aexpr_envt expr 1)
+    @ get_decl_envts decls
 ;;
 
 let rec compile_fun (fun_name : string) (args : string list) (env : arg envt) : instruction list =
