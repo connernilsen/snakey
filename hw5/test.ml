@@ -323,7 +323,7 @@ let get_func_call_params_tests = [
 ]
 
 let tests = (
-  tanf_tests @
+  (* tanf_tests @ *)
   is_well_formed_tests
   @ get_func_call_params_tests
   @ integration_tests

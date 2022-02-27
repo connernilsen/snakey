@@ -296,6 +296,16 @@ let setup_call_to_func (args : arg list) (label : string) : (instruction list) =
     if ((List.length remaining_args) mod 2) != 0 
     then [IPush(Const(0L))]
     else [] in
+  (* Backs up ALL registers *)
+  let rec backup_caller_saved_registers (registers : reg list) : (instruction list) =
+    match registers with 
+      | [] -> []
+      | next_reg :: rest_regs -> IPush(Reg(next_reg)) :: (backup_caller_saved_registers rest_regs) in
+  (* Restores ALL registers. Reverse of backup_caller_saved_registers *)
+  let rec restore_caller_saved_registers (registers : reg list) : (instruction list) =
+    match registers with 
+      | [] -> []
+      | next_reg :: rest_regs -> IPop(Reg(next_reg)) :: (restore_caller_saved_registers rest_regs) in
   (* sets up args by putting them in the first 6 registers needed for a call,
    * optionally aligning the stack, and placing any remaining values on the stack 
    *)
@@ -310,10 +320,12 @@ let setup_call_to_func (args : arg list) (label : string) : (instruction list) =
         | next_reg :: rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
       end
   in 
-  (setup_args args first_six_args_registers) 
+  (backup_caller_saved_registers first_six_args_registers)
+  @ (setup_args args first_six_args_registers) 
   @ [ICall(label)]
   (* pop off values added to the stack *)
   @ (if (Int64.equal leftover_args 0L) then [] else [IAdd(Reg(RSP), Const(leftover_args))])
+  @ (restore_caller_saved_registers (List.rev first_six_args_registers))
 ;;
 
 let get_func_call_params (params : string list) : arg envt =
