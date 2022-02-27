@@ -122,7 +122,7 @@ let create_ss (file : string) (start_l : int) (start_c : int) (end_l : int) (end
 ;;
 
 let print_te (exns : exn list) : string =
-  String.concat " " (print_errors exns)
+  String.concat "\n" (print_errors exns)
 ;;
 
 let is_well_formed_tests = [
@@ -156,10 +156,27 @@ test(1, 2)"
     (print_te 
        [UnboundFun("test",
                    (create_ss "unbound_fun" 1 0 1 6))]);
-  te "arity"
+  te "arity_less"
     "def test(x): x test()"
     (print_te 
-       [Arity(1, 0, (create_ss "arity" 1 15 1 21))]);
+       [Arity(1, 0, (create_ss "arity_less" 1 15 1 21))]);
+  te "arity_more"
+    "def test(x, y): x + y test(1)"
+    (print_te 
+       [Arity(2, 1, (create_ss "arity_more" 1 22 1 29))]);
+  te "arity_and_dup_correct"
+    "def test(x): x def test(x, y): x + y test(1)"
+    (print_te 
+       [DuplicateFun("test", 
+                     (create_ss "arity_and_dup_correct" 1 15 1 36), 
+                     (create_ss "arity_and_dup_correct" 1 0 1 14))]);
+  te "arity_and_dup_incorrect"
+    "def test(x, y): x + y def test(x): x test(1)"
+    (print_te 
+       [DuplicateFun("test", 
+                     (create_ss "arity_and_dup_incorrect" 1 22 1 36), 
+                     (create_ss "arity_and_dup_incorrect" 1 0 1 21));
+        Arity(2, 1, (create_ss "arity_and_dup_incorrect" 1 37 1 44))]);
   te "overflow"
     "4611686018427387904" 
     (print_te [Overflow(4611686018427387904L,
@@ -241,7 +258,7 @@ let get_func_call_params_tests = [
 ]
 
 let tests = (
-  (* tanf_tests @ *)
+  tanf_tests @
   is_well_formed_tests
   @ get_func_call_params_tests
   @ integration_tests
