@@ -10,9 +10,9 @@ let t name program expected = name>::test_run program name expected;;
 
 let ta name program_and_env expected = name>::test_run_anf program_and_env name expected;;
 
-let te name program expected_err = name>::test_err program name expected_err;;
+let te name program expected_err = name>::test_err ~vg:false program name expected_err;;
 
-let tvg name program expected = name>::test_run_valgrind program name expected;;
+(* let t name program expected = name>::test_run_valgrind program name expected;; *)
   
 let tanf name program expected = name>::fun _ ->
   assert_equal expected (anf (tag program)) ~printer:string_of_aprogram;;

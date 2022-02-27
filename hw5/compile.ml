@@ -437,7 +437,25 @@ and compile_aexpr (e : tag aexpr) (env : arg envt) (num_args : int) (is_tail : b
     (compile_cexpr body env num_args is_tail)
 and compile_cexpr (e : tag cexpr) (env : arg envt) (num_args : int) (is_tail : bool) : instruction list =
   match e with 
-  | CIf(c, l, r, tag) -> raise (NotYetImplemented "nope")
+  | CIf(cond, thn, els, tag) ->
+    let if_t = (sprintf "if_true_%n" tag) and
+    if_f = (sprintf "if_false_%n" tag) and
+    done_txt = (sprintf "done_%n" tag) and
+    thn = compile_aexpr thn env num_args is_tail and
+    els = compile_aexpr els env num_args is_tail and
+    cond_value = compile_imm cond env in
+    IMov(Reg(RAX), cond_value) ::
+    (bool_tag_check cond_value label_IF_NOT_BOOL)
+    @ [
+      IMov(Reg(R10), bool_mask); ITest(Reg(RAX), Reg(R10));
+      IJz(if_f);
+      ILabel(if_t);
+    ] @ thn @ [
+      IJmp(done_txt);
+      ILabel(if_f); 
+    ] @ els @ [
+      ILabel(done_txt);
+    ]
   | CPrim1(op, body, tag) ->
     let e_reg = compile_imm body env in
     begin match op with
@@ -583,12 +601,32 @@ let compile_decl (d : tag adecl) (env : arg envt): instruction list =
   | ADFun(name, params, body, _) ->
     compile_fun name body params env
 
+let compile_error_handler ((err_name : string), (err_code : int64)) : instruction list =
+  ILabel(err_name) :: setup_call_to_func [Const(err_code); Reg(RAX)] "error"
+
 let compile_prog ((anfed : tag aprogram), (env : arg envt)) : string =
   match anfed with
   | AProgram(decls, expr, _) ->
-    to_asm 
-      ((List.flatten (List.map (fun decl -> compile_decl decl env) decls))
-       @ (compile_fun "our_code_starts_here" expr [] env))
+    let prelude =
+      "section .text
+extern error
+extern print
+global our_code_starts_here
+our_code_starts_here:" in
+    let body = to_asm 
+        ((List.flatten (List.map (fun decl -> compile_decl decl env) decls)
+          @ (compile_fun "our_code_starts_here" expr [] env))
+         @ (List.flatten 
+              (List.map compile_error_handler [
+                  (* TODO: which of these errors do we still need? *)
+                  (label_COMP_NOT_NUM, err_COMP_NOT_NUM);
+                  (label_ARITH_NOT_NUM, err_ARITH_NOT_NUM);
+                  (label_LOGIC_NOT_BOOL, err_LOGIC_NOT_BOOL);
+                  (label_IF_NOT_BOOL, err_IF_NOT_BOOL);
+                  (label_OVERFLOW, err_OVERFLOW);
+                ])))
+    in 
+    sprintf "%s%s\n" prelude body
 
 (* Feel free to add additional phases to your pipeline.
    The final pipeline phase needs to return a string,
