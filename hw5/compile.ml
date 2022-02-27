@@ -221,11 +221,8 @@ let anf (p : tag program) : unit aprogram =
   helpP p
 ;;
 
-(* A wf_env is a list of binding name to arity. arities of 0 are for variables *)
-type wf_env = (string * int) list
-
 let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
-  let rec wf_E (e : sourcespan expr) (env : (string * sourcespan) list) (fun_env : wf_env) : exn list =
+  let rec wf_E (e : sourcespan expr) (env : (string * sourcespan) list) (fun_env : int envt) : exn list =
     match e with
     | EBool _ -> []
     | ENumber(n, loc) -> 
@@ -262,19 +259,19 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
           else args_errors
       | None -> [UnboundFun(name, loc)] @ args_errors
       end
-  and wf_D (env : wf_env) (d : sourcespan decl) : exn list =
+  and wf_D (env : int envt) (d : sourcespan decl) : exn list =
     match d with
     | DFun(name, params, body, span) ->
       let dup_bindings = 
       (List.map (fun ((n1, span1), (_, span2)) -> DuplicateId(n1, span1, span2))
         (find_dups_by params (fun (n1, _) (n2, _) -> n1 = n2))) in 
       dup_bindings @ (wf_E body params env)
-  and get_env (decls : sourcespan decl list) : wf_env = 
+  and get_env (decls : sourcespan decl list) : int envt = 
     (List.map (fun x -> begin match x with DFun(name, args, _, _) -> (name, (List.length args)) end) decls)
   and dup_d_errors (decls : sourcespan decl list) = 
     List.map (fun x -> begin match x with (DFun(name, _, _, span1), DFun(_, _, _, span2)) -> 
       DuplicateFun(name, span1, span2) end) (find_dups_by decls (fun d1 d2 -> begin match (d1, d2) with (DFun(n1, _, _, _), DFun(n2, _, _, _)) -> n1 = n2 end))
-  and d_errors (decls : sourcespan decl list) (env: wf_env) = List.flatten (List.map (wf_D env) decls)
+  and d_errors (decls : sourcespan decl list) (env: int envt) = List.flatten (List.map (wf_D env) decls)
   in match p with
     | Program(decls, body, _) ->
       let env = get_env decls in 

@@ -91,19 +91,19 @@ let tanf_tests = [
   tanf_improved "expr basic"
     ("def f() : 1\n1")
     ("(fun f(): 1)\n1");
-  tanf_improved "expr call"
+  tanf_improved "expr_call"
     ("def f() : 1\nf()")
     ("(fun f(): 1)\n(f())");
-  tanf_improved "expr call w imm args"
+  tanf_improved "expr_call_w_imm_args"
     ("def f(a, b) : 1\nf(1, 2)")
     ("(fun f(a, b): 1)\n(f(1, 2))");
-  tanf_improved "expr call w compound args"
+  tanf_improved "expr_call_w_compound_args"
     ("def f(a, b) : 1\nf(add1(1), 2)")
     ("(fun f(a, b): 1)\n(alet unary_2 = add1(1) in (f(unary_2, 2)))");
-  tanf_improved "expr call w multiple compound args"
+  tanf_improved "expr_call_w_multiple_compound_args"
     ("def f(a, b) : 1\nf(add1(1), add1(1))")
     ("(fun f(a, b): 1)\n(alet unary_2 = add1(1) in (alet unary_4 = add1(1) in (f(unary_2, unary_4))))");
-  tanf_improved "multiple expr call w multiple compound args"
+  tanf_improved "multiple_expr_call_w_multiple_compound_args"
     ("def f(a, b) : 1\ndef g(a, b, c) : a == b\nlet c = f(add1(1), add1(1)), d = g(add1(2), add1(3), 4 + 3) in d")
     ("(fun f(a, b): 1)\n" ^
     "(fun g(a, b, c): (a == b))" ^
@@ -160,6 +160,31 @@ test(1, 2)"
     "def test(x): x test()"
     (print_te 
        [Arity(1, 0, (create_ss "arity" 1 15 1 21))]);
+  te "overflow"
+    "4611686018427387904" 
+    (print_te [Overflow(4611686018427387904L,
+                        (create_ss "overflow" 1 0 1 19))]);
+  te "underflow"
+    "-4611686018427387905" 
+    (print_te [Overflow(-4611686018427387905L,
+                        (create_ss "underflow" 1 0 1 20))]);
+  (* TODO: more wf tests *)
+]
+
+let integration_tests = [
+  t "call_func"
+    "def double_print(val):
+      print(print(val))
+    double_print(123)"
+    "123\n123\n123";
+  t "recursion"
+    "def print_dec(x):
+      if x <= 0:
+        print(0)
+      else:
+        print_dec(sub1(print(x)))
+    print_dec(7)"
+    "7\n6\n5\n4\n3\n2\n1\n0\n0";
 ]
 
 let arg_envt_printer args =
@@ -219,6 +244,7 @@ let tests = (
   (* tanf_tests @ *)
   is_well_formed_tests
   @ get_func_call_params_tests
+  @ integration_tests
 )
 
 let suite = "suite">:::tests
