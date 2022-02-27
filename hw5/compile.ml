@@ -228,7 +228,10 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
   let rec wf_E (e : sourcespan expr) (env : (string * sourcespan) list) (fun_env : wf_env) : exn list =
     match e with
     | EBool _ -> []
-    | ENumber _ -> []
+    | ENumber(n, loc) -> 
+      if n > (Int64.div Int64.max_int 2L) || n < (Int64.div Int64.min_int 2L)
+      then [Overflow(n, loc)]
+      else []
     | EId (x, loc) ->
       begin 
       match (List.assoc_opt x env) with
@@ -359,7 +362,7 @@ let naive_stack_allocation (prog : tag aprogram) : tag aprogram * arg envt =
   let rec get_aexpr_envt (expr : tag aexpr) (si : int) : arg envt =
     match expr with 
     | ALet(name, bind, body, _) ->
-      (name, RegOffset(~-si, RBP))
+      (name, RegOffset(~-si * word_size, RBP))
       :: (get_cexpr_envt bind (si + 1))
       @ (get_aexpr_envt body (si + 1))
     | ACExpr(body) ->
@@ -611,8 +614,7 @@ let compile_prog ((anfed : tag aprogram), (env : arg envt)) : string =
       "section .text
 extern error
 extern print
-global our_code_starts_here
-our_code_starts_here:" in
+global our_code_starts_here" in
     let body = to_asm 
         ((List.flatten (List.map (fun decl -> compile_decl decl env) decls)
           @ (compile_fun "our_code_starts_here" expr [] env))

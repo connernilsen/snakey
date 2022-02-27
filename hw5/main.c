@@ -27,18 +27,12 @@ const int BOOL_TYPE = 2;
  * Determine the type of the given value by comparing the tags
  * with known type tags and return a representative type constant.
  */
-int getValueType(SNAKEVAL val)
-{
-  if ((NUM_TAG_MASK & val) == 0L)
-  {
+int getValueType(SNAKEVAL val) {
+  if ((NUM_TAG_MASK & val) == 0L) {
     return NUM_TYPE;
-  }
-  else if ((BOOL_TAG_MASK & val) == BOOL_TAG_MASK)
-  {
+  } else if ((BOOL_TAG_MASK & val) == BOOL_TAG_MASK) {
     return BOOL_TYPE;
-  }
-  else
-  {
+  } else {
     return UNKNOWN_TYPE;
   }
 }
@@ -50,18 +44,16 @@ int getValueType(SNAKEVAL val)
  * NOTE: caller needs to free returned value's memory, since it's
  * returned as a char array.
  */
-char *convertTypeToStr(int type)
-{
-  switch (type)
-  {
-  case NUM_TYPE:
-    return strdup("num");
-    break;
-  case BOOL_TYPE:
-    return strdup("bool");
-    break;
-  default:
-    return strdup("unknown");
+char *convertTypeToStr(int type) {
+  switch (type) {
+    case NUM_TYPE:
+      return strdup("num");
+      break;
+    case BOOL_TYPE:
+      return strdup("bool");
+      break;
+    default:
+      return strdup("unknown");
   }
 }
 
@@ -73,37 +65,29 @@ char *convertTypeToStr(int type)
  *
  * NOTE: caller needs to free returned value
  */
-char *convertValueToStr(SNAKEVAL val, char debug)
-{
+char *convertValueToStr(SNAKEVAL val, char debug) {
   int valType = getValueType(val);
   char valueStr[21];
   // convert val to a string
-  switch (valType)
-  {
-  case NUM_TYPE:
-    sprintf(valueStr, "%ld", val >> 1);
-    break;
-  case BOOL_TYPE:
-    if (val == TRUE)
-    {
-      strcpy(valueStr, "true");
-    }
-    else if (val == FALSE)
-    {
-      strcpy(valueStr, "false");
-    }
-    else
-    {
+  switch (valType) {
+    case NUM_TYPE:
+      sprintf(valueStr, "%ld", ((int64_t) val) >> 1);
+      break;
+    case BOOL_TYPE:
+      if (val == TRUE) {
+        strcpy(valueStr, "true");
+      } else if (val == FALSE) {
+        strcpy(valueStr, "false");
+      } else {
+        sprintf(valueStr, "%#018lx", val);
+      }
+      break;
+    default:
       sprintf(valueStr, "%#018lx", val);
-    }
-    break;
-  default:
-    sprintf(valueStr, "%#018lx", val);
   }
 
   // return immediately if not debug
-  if (!debug)
-  {
+  if (!debug) {
     return strdup(valueStr);
   }
   // convert the type to a string and format as <type>(<value>)
@@ -118,47 +102,35 @@ char *convertValueToStr(SNAKEVAL val, char debug)
 
 /**
  * Handle an error. The print statement depends
- * on the error code given.
+ * on the error code given. 
  *
  * The value is converted to a string if possible
  * with debug == true using convertValueToStr.
- *
+ * 
  * After the error message is printed, exit(errCode) is called.
  */
-void error(uint64_t errCode, uint64_t val)
-{
+void error(uint64_t errCode, uint64_t val) {
   char *valueStr = convertValueToStr(val, 1);
 
-  if (errCode == COMP_NOT_NUM)
-  {
+  if (errCode == COMP_NOT_NUM) {
     fprintf(stderr,
-            "comparison expected a number, got %s\n", valueStr);
-  }
-  else if (errCode == ARITH_NOT_NUM)
-  {
+        "comparison expected a number, got %s\n", valueStr);
+  } else if (errCode == ARITH_NOT_NUM) {
     fprintf(stderr,
-            "arithmetic expected a number, got %s\n", valueStr);
-  }
-  else if (errCode == LOGIC_NOT_BOOL)
-  {
+        "arithmetic expected a number, got %s\n", valueStr);
+  } else if (errCode == LOGIC_NOT_BOOL) {
     fprintf(stderr,
-            "logic expected a boolean, got %s\n", valueStr);
-  }
-  else if (errCode == IF_NOT_BOOL)
-  {
+        "logic expected a boolean, got %s\n", valueStr);
+  } else if (errCode == IF_NOT_BOOL) {
     fprintf(stderr,
-            "if expected a boolean, got %s\n", valueStr);
-  }
-  else if (errCode == OVERFLOW)
-  {
+        "if expected a boolean, got %s\n", valueStr);
+  } else if (errCode == OVERFLOW) {
     fprintf(stderr,
-            "overflow occurred for arithmetic operation, got %s\n", valueStr);
-  }
-  else
-  {
+        "overflow occurred for arithmetic operation, got %s\n", valueStr);
+  } else {
     fprintf(stderr,
-            "unknown error code provided (%#018lx) for value %s\n",
-            errCode, valueStr);
+        "unknown error code provided (%#018lx) for value %s\n",
+        errCode, valueStr);
   }
 
   free(valueStr);
@@ -168,16 +140,14 @@ void error(uint64_t errCode, uint64_t val)
 /**
  * Prints the given value with a newline at the end.
  */
-SNAKEVAL print(SNAKEVAL val)
-{
+SNAKEVAL print(SNAKEVAL val) {
   char *valueStr = convertValueToStr(val, 0);
   printf("%s\n", valueStr);
   free(valueStr);
   return val;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
   SNAKEVAL result = our_code_starts_here();
   print(result);
   return 0;

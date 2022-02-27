@@ -141,9 +141,11 @@ let old_tests =
   t "bangbang2" "!(!(false))" "false";
 
   te "overflow_2^62_base"
-    "4611686018427387904" "Failure(\"Compile error: Integer overflow: 4611686018427387904\")";
+    "4611686018427387904" 
+    "The number literal 4611686018427387904, used at <overflow_2^62_base, 1:0-1:19>, is not supported in this language";
   te "overflow_-2^62_base"
-    "-4611686018427387905" "Failure(\"Compile error: Integer overflow: -4611686018427387905\")";
+    "-4611686018427387905" 
+    "The number literal -4611686018427387905, used at <overflow_-2^62_base, 1:0-1:20>, is not supported in this language";
   te "overflow_2^62_plus_positive"
     "4611686018427387903 + 1" "Error 5: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
   te "overflow_2^62_plus_negative"
@@ -242,9 +244,6 @@ let old_tests =
   t "lessEqual4_neg_pos" "-5 <= 1" "true";
   t "lessEqual5_neg_pos" "1 <= -5" "false";
   t "lessEqual6_neg_pos" "-1 <= 5" "true";
-
-  tprog "do_pass/test1.cobra" "6"; 
-  teprog "do_err/test1.cobra" "Error 2: arithmetic expected a number, got bool(false)";
 
   t "forty_one" "41" "41";
   t "basic_let" "let a = 1 in a" "1";
