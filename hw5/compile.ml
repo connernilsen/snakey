@@ -153,7 +153,6 @@ let rename (e : tag program) : tag program =
 ;;
 
 
-
 let anf (p : tag program) : unit aprogram =
   let rec helpP (p : tag program) : unit aprogram =
     match p with
@@ -288,7 +287,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
 (* sets up a function call (x64) by putting args in the proper registers/stack positions, 
  * calling the given function, and cleaning up the stack after 
  *)
-let setup_call_to_func (args : arg list) (label : string) : (instruction list) =
+let setup_call_to_c_func (args : arg list) (label : string) : (instruction list) =
   let leftover_args = Int64.max (Int64.of_int ((((List.length args) - 5) / 2) * 2 * word_size)) 0L in
   (* aligns the stack by adding an extra value if the number of values 
    * needed for the stack is odd
@@ -467,7 +466,7 @@ and compile_cexpr (e : tag cexpr) (env : arg envt) (num_args : int) (is_tail : b
         IMov(Reg(RAX), e_reg) ::
         (num_tag_check label_ARITH_NOT_NUM 
            [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(Int64.neg 2L))); IJo(label_OVERFLOW)])
-      | Print -> (setup_call_to_func [e_reg] "print") 
+      | Print -> (setup_call_to_c_func [e_reg] "print") 
       | IsBool -> 
         let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
         let label_done = (sprintf "%s%n" label_DONE tag) in
@@ -587,7 +586,7 @@ and compile_cexpr (e : tag cexpr) (env : arg envt) (num_args : int) (is_tail : b
          IJe(label_done); IMov(Reg(RAX), const_false);
          ILabel(label_done)]
     end
-  | CApp(fun_name, args, _) -> (setup_call_to_func (List.map (fun e -> compile_imm e env) args) fun_name)
+  | CApp(fun_name, args, _) -> (setup_call_to_c_func (List.map (fun e -> compile_imm e env) args) fun_name)
   | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env)]
 and compile_imm (e : tag immexpr) (env : arg envt) =
   match e with
@@ -602,7 +601,7 @@ let compile_decl (d : tag adecl) (env : arg envt): instruction list =
     compile_fun name body params env
 
 let compile_error_handler ((err_name : string), (err_code : int64)) : instruction list =
-  ILabel(err_name) :: setup_call_to_func [Const(err_code); Reg(RAX)] "error"
+  ILabel(err_name) :: setup_call_to_c_func [Const(err_code); Reg(RAX)] "error"
 
 let compile_prog ((anfed : tag aprogram), (env : arg envt)) : string =
   match anfed with
