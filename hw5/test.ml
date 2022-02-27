@@ -185,6 +185,71 @@ let integration_tests = [
         print_dec(sub1(print(x)))
     print_dec(7)"
     "7\n6\n5\n4\n3\n2\n1\n0\n0";
+  t "if_print_stmts"
+    "if print(true): print(true) else: print(false)"
+    "true\ntrue\ntrue";
+  t "mutually_recursive"
+    "def abs_dec(num):
+      if num == 0:
+        0
+      else:
+        if num < 0:
+          num + 1
+        else:
+          num - 1
+    def t1(print_neg, num):
+      if print_neg:
+        t2(print(num * -1))
+      else:
+        t2(print(num))
+    def t2(val):
+      let dec_num = abs_dec(val) in
+      if dec_num == 0:
+        val > 0 
+      else:
+        let neg = t1(true, dec_num),
+            pos = t1(false, dec_num) in 
+            neg && pos
+    t1(false, 4)"
+    "4\n-3\n2\n-1\n1\n-2\n1\n-1\n3\n-2\n1\n-1\n2\n-1\n1\ntrue";
+  te "eventual_error"
+    "def abs_dec(num):
+      if num == 0:
+        0
+      else:
+        if num < 0:
+          num + 1
+        else:
+          num - 1
+    def t1(print_neg, num):
+      if print_neg:
+        t2(print(num * -1))
+      else:
+        t2(print(num))
+    def t2(val):
+      let dec_num = abs_dec(val) in
+      if dec_num == 0:
+        0 
+      else:
+        let neg = t1(true, dec_num),
+            pos = t1(false, dec_num)
+          in neg && pos
+      t1(false, 4)"
+    "logic expected a boolean, got num(0)";
+  t "reuse_reg_args_not_tail_recursive"
+    "def f1(b, n):
+      let x = print(b),
+          y = print(n) in 
+        isnum(n) && isbool(b) 
+        && isnum(y) && isbool(x)
+    def f2(n, b):
+      let x = print(f1(b, n)),
+          y = print(n),
+          z = print(b) in 
+        x && isnum(x) && isbool(z)
+        && isnum(n) && isbool(b)
+    f2(5, true)"
+    "true\n5\ntrue\n5\ntrue\ntrue";
 ]
 
 let arg_envt_printer args =
