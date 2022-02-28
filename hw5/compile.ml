@@ -114,7 +114,7 @@ let rec find_dups_by (l : 'a list) (eq : ('a -> 'a -> bool)) : ('a * 'a) list =
 
 (* IMPLEMENT EVERYTHING BELOW *)
 
-let rename_expr (e : tag expr) : tag expr =
+let rename (e : tag program) : tag program =
   let rec help (env : (string * string) list) (e : tag expr) : tag expr =
     match e with
     | EId(x, tag) -> 
@@ -143,15 +143,28 @@ let rename_expr (e : tag expr) : tag expr =
       and new_name = (sprintf "%s#%n" first tag) in 
       let (acc, env) = (let_helper ((first, new_name)::env) rest) in
       ((new_name, binding_renamed, tag)::acc, env)
-  in help [] e
-;;
-
-(* Todo: We don't need to rename decls since their names have to be unique, right? *)
-let rename (e : tag program) : tag program =
+  in
+  let rec rename_decl_args ((renamed, env) : (string * tag) list * (string * string) list) (args : (string * tag) list) : ((string * tag) list * (string * string) list) = 
+    match args with 
+    | [] -> (List.rev renamed, env)
+    | (fname, tag) :: rest ->
+      let new_name = (sprintf "%s#%n" fname tag) in 
+      (rename_decl_args (((new_name, tag) :: renamed), ((fname, new_name) :: env)) rest)
+  in
+  let help_decl (e : tag decl) : tag decl =
+    (* Todo: We don't need to rename decls since their names have to be unique, right? *)
+    match e with 
+    | DFun(name, args, body, tag) ->
+      let new_args, env = (rename_decl_args ([], []) args) in
+      let new_body = (help env body) in 
+      DFun(name, new_args, new_body, tag)
+  in
   match e with
-  | Program(decls, expr, tag) -> Program(decls, rename_expr expr, tag)
+  | Program(decls, expr, tag) -> 
+    let new_decls = List.map help_decl decls in
+    let new_body = (help [] expr) in
+    Program(new_decls, new_body, tag)
 ;;
-
 
 let anf (p : tag program) : unit aprogram =
   let rec helpP (p : tag program) : unit aprogram =

@@ -7,6 +7,7 @@ open Pretty
 open Exprs
 open Errors
 open Libtest
+open Phases
 
 let t name program expected = name>::test_run program name expected;;
 
@@ -27,6 +28,25 @@ let tanf_improved (name : string) (program : string) (expected : string) = name>
 
 let teq name actual expected = name>::fun _ ->
   assert_equal expected actual ~printer:(fun s -> s);;
+
+(* naive_stack_allocation equality tests *)
+let tsae (name : string) (prog : string) (ex_envt : arg envt) = name>:: fun _ ->
+    let out = 
+      Ok(parse_string name prog, [])
+      |> (add_err_phase well_formed is_well_formed)
+      |> (add_phase tagged tag)
+      |> (add_phase renamed rename)
+      |> (add_phase anfed (fun p -> atag (anf p)))
+      |> (add_phase locate_bindings naive_stack_allocation)
+    in 
+    match out with 
+    | Ok((_, act_envt), _) ->
+      assert_equal ex_envt act_envt ~printer:(fun env ->
+          String.concat ", " 
+            (List.map (fun (name, arg) ->
+                sprintf "%s: %s" name (arg_to_asm arg)) env))
+    | _ -> assert_failure "Invalid program"
+;;
 
 let tanf_tests = [
   tanf_improved "let_in_prim"
@@ -322,11 +342,39 @@ let get_func_call_params_tests = [
         ~printer:arg_envt_printer);
 ]
 
+let naive_stack_allocation_tests = [
+  tsae "mutually_recursive"
+    "def abs_dec(num):
+      if num == 0:
+        0
+      else:
+        if num < 0:
+          num + 1
+        else:
+          num - 1
+    def t1(print_neg, num):
+      if print_neg:
+        t2(print(num * -1))
+      else:
+        t2(print(num))
+    def t2(val):
+      let dec_num = abs_dec(val) in
+      if dec_num == 0:
+        val > 0 
+      else:
+        let neg = t1(true, dec_num),
+            pos = t1(false, dec_num) in 
+            neg && pos
+    t1(false, 4)"
+    [];
+]
+
 let tests = (
   (* tanf_tests @ *)
   is_well_formed_tests
   @ get_func_call_params_tests
   @ integration_tests
+  @ naive_stack_allocation_tests
 )
 
 let suite = "suite">:::tests
