@@ -40,11 +40,12 @@ let tsae (name : string) (prog : string) (ex_envt : arg envt) = name>:: fun _ ->
       |> (add_phase locate_bindings naive_stack_allocation)
     in 
     match out with 
-    | Ok((_, act_envt), _) ->
+    | Ok((fin_prog, act_envt), _) ->
       assert_equal ex_envt act_envt ~printer:(fun env ->
-          String.concat ", " 
+          (String.concat ", " 
             (List.map (fun (name, arg) ->
-                sprintf "%s: %s" name (arg_to_asm arg)) env))
+                sprintf "%s: %s" name (arg_to_asm arg)) env)
+          ^ (string_of_aprogram fin_prog)))
     | _ -> assert_failure "Invalid program"
 ;;
 
@@ -246,7 +247,7 @@ let integration_tests = [
       else:
         let neg = t1(true, dec_num),
             pos = t1(false, dec_num) in 
-            neg && pos
+            neg || pos
     t1(false, 4)"
     "4\n-3\n2\n-1\n1\n-2\n1\n-1\n3\n-2\n1\n-1\n2\n-1\n1\ntrue";
   te "eventual_error"
@@ -283,10 +284,10 @@ let integration_tests = [
       let x = print(f1(b, n)),
           y = print(n),
           z = print(b) in 
-        x && isnum(x) && isbool(z)
+        x && isnum(y) && isbool(z)
         && isnum(n) && isbool(b)
-    f2(5, true)"
-    "true\n5\ntrue\n5\ntrue\ntrue";
+    f2(5, false)"
+    "false\n5\ntrue\n5\nfalse\ntrue";
 ]
 
 let arg_envt_printer args =
@@ -343,7 +344,7 @@ let get_func_call_params_tests = [
 ]
 
 let naive_stack_allocation_tests = [
-  tsae "mutually_recursive"
+  tsae "mutually_recursive_tsae"
     "def abs_dec(num):
       if num == 0:
         0
@@ -366,6 +367,20 @@ let naive_stack_allocation_tests = [
             pos = t1(false, dec_num) in 
             neg && pos
     t1(false, 4)"
+    [];
+  tsae "reuse_reg_args_not_tail_recursive_tsae"
+    "def f1(b, n):
+      let x = print(b),
+          y = print(n) in 
+        isnum(n) && isbool(b) 
+        && isnum(y) && isbool(x)
+    def f2(n, b):
+      let x = print(f1(b, n)),
+          y = print(n),
+          z = print(b) in 
+        x && isnum(y) && isbool(z)
+        && isnum(n) && isbool(b)
+    f2(5, false)"
     [];
 ]
 

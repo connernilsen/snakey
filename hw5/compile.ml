@@ -133,7 +133,8 @@ let rename (e : tag program) : tag program =
       EIf(help env cond, help env thn, help env els, tag)
     | EBool(b, tag) -> EBool(b, tag)
     (* Todo: maybe add character start/end so their functions don't overlap *)
-    | EApp(funname, args, tag) -> EApp(funname, args, tag)
+    | EApp(funname, args, tag) -> 
+      EApp(funname, List.map (help env) args, tag)
   (* Renames all bindings in a let string and returns them with new env *)
   and let_helper (env : (string * string) list) (binds : tag bind list) : (tag bind list * (string * string) list) =
     match binds with
