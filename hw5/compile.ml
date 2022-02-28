@@ -287,25 +287,30 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
 (* sets up a function call (x64) by putting args in the proper registers/stack positions, 
  * calling the given function, and cleaning up the stack after 
  *)
-let setup_call_to_func (args : arg list) (label : string) : (instruction list) =
-  let leftover_args = Int64.max (Int64.of_int ((((List.length args) - 5) / 2) * 2 * word_size)) 0L in
-  (* aligns the stack by adding an extra value if the number of values 
-   * needed for the stack is odd
-   *)
-  let align_stack (remaining_args : arg list) : (instruction list) =
-    if ((List.length remaining_args) mod 2) != 0 
-    then [IPush(Const(0L))]
-    else [] in
+let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : string) : (instruction list) =
+  let leftover_args = max ((((List.length args) - 5) / 2) * 2) 0 in
+  let should_stack_align = ((leftover_args + num_regs_to_save) mod 2) != 0 in
   (* Backs up ALL registers *)
-  let rec backup_caller_saved_registers (registers : reg list) : (instruction list) =
-    match registers with 
-      | [] -> []
-      | next_reg :: rest_regs -> IPush(Reg(next_reg)) :: (backup_caller_saved_registers rest_regs) in
+  let rec backup_caller_saved_registers (rem_args : int) (registers : reg list) : (instruction list) =
+    if rem_args = 0
+    then []
+    else
+      begin
+        match registers with 
+        | [] -> []
+        | next_reg :: rest_regs -> 
+          IPush(Reg(next_reg)) 
+          :: (backup_caller_saved_registers (rem_args - 1) rest_regs)
+      end in
   (* Restores ALL registers. Reverse of backup_caller_saved_registers *)
-  let rec restore_caller_saved_registers (registers : reg list) : (instruction list) =
+  let rec restore_caller_saved_registers (args_to_skip : int) (registers : reg list) : (instruction list) =
     match registers with 
-      | [] -> []
-      | next_reg :: rest_regs -> IPop(Reg(next_reg)) :: (restore_caller_saved_registers rest_regs) in
+    | [] -> []
+    | next_reg :: rest_regs -> 
+      if args_to_skip = 0
+      then IPop(Reg(next_reg)) :: (restore_caller_saved_registers 0 rest_regs) 
+      else (restore_caller_saved_registers (args_to_skip - 1) rest_regs)
+  in
   (* sets up args by putting them in the first 6 registers needed for a call,
    * optionally aligning the stack, and placing any remaining values on the stack 
    *)
@@ -316,16 +321,18 @@ let setup_call_to_func (args : arg list) (label : string) : (instruction list) =
       begin match registers with 
         | [] -> IPush(next_arg) :: (setup_args rest_args registers)
         | last_reg :: [] -> 
-          IMov(Reg(last_reg), next_arg) :: (align_stack rest_args) @ (setup_args (List.rev rest_args) [])
+          IMov(Reg(last_reg), next_arg) :: (setup_args (List.rev rest_args) [])
         | next_reg :: rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
       end
   in 
-  (backup_caller_saved_registers first_six_args_registers)
+  (backup_caller_saved_registers num_regs_to_save first_six_args_registers)
+  @ (if should_stack_align then [IPush(Const(0L))] else [])
   @ (setup_args args first_six_args_registers) 
   @ [ICall(label)]
   (* pop off values added to the stack *)
-  @ (if (Int64.equal leftover_args 0L) then [] else [IAdd(Reg(RSP), Const(leftover_args))])
-  @ (restore_caller_saved_registers (List.rev first_six_args_registers))
+  @ (if leftover_args = 0 then [] else [IAdd(Reg(RSP), Const(Int64.of_int leftover_args))])
+  @ (if should_stack_align then [IPop(Reg(RSI))] else [])
+  @ (restore_caller_saved_registers ((List.length first_six_args_registers) - num_regs_to_save) (List.rev first_six_args_registers))
 ;;
 
 let get_func_call_params (params : string list) : arg envt =
@@ -343,13 +350,13 @@ let get_func_call_params (params : string list) : arg envt =
         | [] -> [] 
         | _ -> (pair_stack params 2)
       end 
-    | rf :: rr ->
+    | reg_first :: reg_rest ->
       begin
         match params with 
         | [] -> []
-        | first :: rest ->
-          (first, Reg(rf))
-          :: (pair_regs rest rr)
+        | param_first :: param_rest ->
+          (param_first, Reg(reg_first))
+          :: (pair_regs param_rest reg_rest)
       end
   in
   (pair_regs params first_six_args_registers)
@@ -393,8 +400,8 @@ let naive_stack_allocation (prog : tag aprogram) : tag aprogram * arg envt =
   match prog with 
   | AProgram(decls, expr, _) ->
     (prog, 
-     (get_aexpr_envt expr 1)
-     @ get_decl_envts decls)
+     ((get_decl_envts decls)
+     @ (get_aexpr_envt expr 1)))
 ;;
 
 (* creates a jump instruction to to_instr if testing the value in RAX with mask 
@@ -478,7 +485,7 @@ and compile_cexpr (e : tag cexpr) (env : arg envt) (num_args : int) (is_tail : b
         IMov(Reg(RAX), e_reg) ::
         (num_tag_check label_ARITH_NOT_NUM 
            [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(Int64.neg 2L))); IJo(label_OVERFLOW)])
-      | Print -> (setup_call_to_func [e_reg] "print") 
+      | Print -> (setup_call_to_func num_args [e_reg] "print") 
       | IsBool -> 
         let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
         let label_done = (sprintf "%s%n" label_DONE tag) in
@@ -598,7 +605,7 @@ and compile_cexpr (e : tag cexpr) (env : arg envt) (num_args : int) (is_tail : b
          IJe(label_done); IMov(Reg(RAX), const_false);
          ILabel(label_done)]
     end
-  | CApp(fun_name, args, _) -> (setup_call_to_func (List.map (fun e -> compile_imm e env) args) fun_name)
+  | CApp(fun_name, args, _) -> (setup_call_to_func num_args (List.map (fun e -> compile_imm e env) args) fun_name)
   | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env)]
 and compile_imm (e : tag immexpr) (env : arg envt) =
   match e with
@@ -613,7 +620,7 @@ let compile_decl (d : tag adecl) (env : arg envt): instruction list =
     compile_fun name body params env
 
 let compile_error_handler ((err_name : string), (err_code : int64)) : instruction list =
-  ILabel(err_name) :: setup_call_to_func [Const(err_code); Reg(RAX)] "error"
+  ILabel(err_name) :: setup_call_to_func 0 [Const(err_code); Reg(RAX)] "error"
 
 let compile_prog ((anfed : tag aprogram), (env : arg envt)) : string =
   match anfed with
@@ -626,15 +633,14 @@ global our_code_starts_here" in
     let body = to_asm 
         ((List.flatten (List.map (fun decl -> compile_decl decl env) decls)
           @ (compile_fun "our_code_starts_here" expr [] env))
-         @ (List.flatten 
-              (List.map compile_error_handler [
-                  (* TODO: which of these errors do we still need? *)
-                  (label_COMP_NOT_NUM, err_COMP_NOT_NUM);
-                  (label_ARITH_NOT_NUM, err_ARITH_NOT_NUM);
-                  (label_LOGIC_NOT_BOOL, err_LOGIC_NOT_BOOL);
-                  (label_IF_NOT_BOOL, err_IF_NOT_BOOL);
-                  (label_OVERFLOW, err_OVERFLOW);
-                ])))
+         @ (List.flatten (List.map compile_error_handler [
+             (* TODO: which of these errors do we still need? *)
+             (label_COMP_NOT_NUM, err_COMP_NOT_NUM);
+             (label_ARITH_NOT_NUM, err_ARITH_NOT_NUM);
+             (label_LOGIC_NOT_BOOL, err_LOGIC_NOT_BOOL);
+             (label_IF_NOT_BOOL, err_IF_NOT_BOOL);
+             (label_OVERFLOW, err_OVERFLOW);
+           ])))
     in 
     sprintf "%s%s\n" prelude body
 

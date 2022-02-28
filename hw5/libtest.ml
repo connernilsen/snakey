@@ -296,10 +296,10 @@ let old_tests =
       "(if (let abcd = true in abcd): 11 else: -11))") "-23";
 
   "setup_call_to_func_1">::(fun _ -> 
-    assert_equal [ICall("label")] (setup_call_to_func [] "label") ~printer:to_asm);
+    assert_equal [ICall("label")] (setup_call_to_func 0 [] "label") ~printer:to_asm);
   "setup_call_to_func_2">::(fun _ ->
     assert_equal [IMov(Reg(RDI), Const(1L)); ICall("label")]
-      (setup_call_to_func [Const(1L)] "label") ~printer:to_asm);
+      (setup_call_to_func 0 [Const(1L)] "label") ~printer:to_asm);
   "setup_call_to_func_3">::(fun _ -> 
     assert_equal [
       IMov(Reg(RDI), Const(1L));
@@ -309,7 +309,7 @@ let old_tests =
       IMov(Reg(R8), Const(5L));
       IMov(Reg(R9), Const(6L));
       ICall("label")]
-      (setup_call_to_func 
+      (setup_call_to_func 0
          [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L)] 
          "label") ~printer:to_asm);
   "setup_call_to_func_4">::(fun _ -> 
@@ -324,7 +324,7 @@ let old_tests =
       IPush(Const(7L));
       ICall("label");
       IAdd(Reg(RSP), Const(16L))]
-      (setup_call_to_func 
+      (setup_call_to_func 0
          [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
          "label") ~printer:to_asm);
   "setup_call_to_func_5">::(fun _ -> 
@@ -339,7 +339,7 @@ let old_tests =
       IPush(Const(7L));
       ICall("label");
       IAdd(Reg(RSP), Const(16L))]
-      (setup_call_to_func 
+      (setup_call_to_func 0
          [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L)] 
          "label") ~printer:to_asm);
   "setup_call_to_func_6">::(fun _ -> 
@@ -356,7 +356,7 @@ let old_tests =
       IPush(Const(7L));
       ICall("label");
       IAdd(Reg(RSP), Const(32L))]
-      (setup_call_to_func 
+      (setup_call_to_func 0
          [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L); Const(9L)] 
          "label") ~printer:to_asm);
 ]
