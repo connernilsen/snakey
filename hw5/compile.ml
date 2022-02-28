@@ -329,15 +329,28 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : strin
    * optionally aligning the stack, and placing any remaining values on the stack 
    *)
   let rec setup_args (args : arg list) (registers : reg list) : (instruction list) =
-    match args with 
-    | [] -> []
-    | next_arg :: rest_args ->
-      begin match registers with 
+    let reg_assoc_list = List.mapi (fun pos value -> (value, pos + 1)) first_six_args_registers in
+    let use_reg (next_arg : arg) (rest_args : arg list) : instruction list =
+      match registers with 
         | [] -> IPush(next_arg) :: (setup_args rest_args registers)
         | last_reg :: [] -> 
           IMov(Reg(last_reg), next_arg) :: (setup_args (List.rev rest_args) [])
         | next_reg :: rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
-      end
+    in
+    let swap_reg (register : reg) (rest_args : arg list) : instruction list =
+      match List.assoc_opt register reg_assoc_list with 
+      | Some(idx) -> 
+        let align_off = if should_stack_align then 1 else 0 in
+        let off = (align_off + num_regs_to_save - idx) in
+        use_reg (RegOffset(off * word_size, RSP)) rest_args
+      | None -> use_reg (Reg(register)) rest_args
+    in
+    match args with 
+    | [] -> []
+    | Reg(some_reg) :: rest_args ->
+      swap_reg some_reg rest_args
+    | next_arg :: rest_args ->
+      use_reg next_arg rest_args
   in 
   (backup_caller_saved_registers num_regs_to_save first_six_args_registers)
   @ (if should_stack_align then [IPush(Const(0L))] else [])
