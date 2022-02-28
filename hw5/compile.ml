@@ -330,7 +330,7 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : strin
   @ (setup_args args first_six_args_registers) 
   @ [ICall(label)]
   (* pop off values added to the stack *)
-  @ (if leftover_args = 0 then [] else [IAdd(Reg(RSP), Const(Int64.of_int leftover_args))])
+  @ (if leftover_args = 0 then [] else [IAdd(Reg(RSP), Const((Int64.of_int (leftover_args * word_size))))])
   @ (if should_stack_align then [IPop(Reg(RSI))] else [])
   @ (restore_caller_saved_registers ((List.length first_six_args_registers) - num_regs_to_save) (List.rev first_six_args_registers))
 ;;

@@ -320,7 +320,6 @@ let old_tests =
       IMov(Reg(RCX), Const(4L));
       IMov(Reg(R8), Const(5L));
       IMov(Reg(R9), Const(6L));
-      IPush(Const(0L));
       IPush(Const(7L));
       ICall("label");
       IAdd(Reg(RSP), Const(16L))]
@@ -350,7 +349,6 @@ let old_tests =
       IMov(Reg(RCX), Const(4L));
       IMov(Reg(R8), Const(5L));
       IMov(Reg(R9), Const(6L));
-      IPush(Const(0L));
       IPush(Const(9L));
       IPush(Const(8L));
       IPush(Const(7L));
