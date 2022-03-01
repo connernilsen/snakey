@@ -15,11 +15,11 @@ let te name program expected_err = name>::test_err ~vg:false program name expect
 (* let t name program expected = name>::test_run_valgrind program name expected;; *)
   
 let tanf name program expected = name>::fun _ ->
-  assert_equal expected (anf (tag program)) ~printer:string_of_aprogram;;
+  assert_equal expected (anf (stag (desugar (tag program)))) ~printer:string_of_aprogram;;
 
 (* Transforms a program into ANF, and compares the output to expected *)
 let tanf_improved (name : string) (program : string) (expected : string) = name>:: fun _ ->
-    assert_equal (expected) (string_of_aprogram (anf (rename (tag (parse_string name program))))) ~printer:(fun s->s);
+    assert_equal (expected) (string_of_aprogram (anf (stag (desugar (rename (tag (parse_string name program))))))) ~printer:(fun s->s);
     (* check_scope_helper (fun _-> "ignored") (parse_string name program) []; *)
 ;;
 
@@ -80,10 +80,10 @@ let old_tests =
   t "or3" "true || true" "true";
   t "andSS" "false && 1" "false";
   t "orSS" "true || 1" "true";
-  te "andE1" "1 && true" "Error 3: logic expected a boolean, got num(1)";
-  te "andE2" "true && 1" "Error 3: logic expected a boolean, got num(1)";
-  te "orE1" "1 || true" "Error 3: logic expected a boolean, got num(1)";
-  te "orE2" "false || 1" "Error 3: logic expected a boolean, got num(1)";
+  te "andE1" "1 && true" "Error 3: expected a boolean, got num(1)";
+  te "andE2" "true && 1" "Error 3: expected a boolean, got num(1)";
+  te "orE1" "1 || true" "Error 3: expected a boolean, got num(1)";
+  te "orE2" "false || 1" "Error 3: expected a boolean, got num(1)";
   t "notIsbool" "!(isbool(40))" "true";
   t "notIsboolT" "!(isbool(true))" "false";
   t "notIsnumT" "!(isnum(40))" "false";
@@ -91,10 +91,10 @@ let old_tests =
   te "bool_instead_of_num" "add1(true)" "Error 2: arithmetic expected a number, got bool(true)";
   te "bool_instead_of_num_in_if" "add1(if true: false else: 5)" "Error 2: arithmetic expected a number, got bool(false)";
   te "bool_instead_of_num2" "sub1(false)" "Error 2: arithmetic expected a number, got bool(false)";
-  te "num_instead_of_bool" "!(1)" "Error 3: logic expected a boolean, got num(1)";
-  te "num_instead_of_bool_in_if" "!(if false: false else: 5)" "Error 3: logic expected a boolean, got num(5)";
+  te "num_instead_of_bool" "!(1)" "Error 3: expected a boolean, got num(1)";
+  te "num_instead_of_bool_in_if" "!(if false: false else: 5)" "Error 3: expected a boolean, got num(5)";
   te "bool_instead_of_num3" "1 < true" "Error 1: comparison expected a number, got bool(true)";
-  te "num_instead_of_bool2" "if (1): 1 else: 0" "Error 4: if expected a boolean, got num(1)";
+  te "num_instead_of_bool2" "if (1): 1 else: 0" "Error 3: expected a boolean, got num(1)";
   t "if_short_circuits1" "add1(if true: 1 else: add1(false))" "2";
   t "if_short_circuits2" "add1(if false: add1(false) else: 1)" "2";
   t "greater1" "1 > 1" "false";
@@ -147,25 +147,25 @@ let old_tests =
     "-4611686018427387905" 
     "The number literal -4611686018427387905, used at <overflow_-2^62_base, 1:0-1:20>, is not supported in this language";
   te "overflow_2^62_plus_positive"
-    "4611686018427387903 + 1" "Error 5: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
+    "4611686018427387903 + 1" "Error 4: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
   te "overflow_2^62_plus_negative"
-    "-4611686018427387904 + -1" "Error 5: overflow occurred for arithmetic operation, got num(4611686018427387903)";
+    "-4611686018427387904 + -1" "Error 4: overflow occurred for arithmetic operation, got num(4611686018427387903)";
   te "overflow_2^62_add1"
-    "add1(4611686018427387903)" "Error 5: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
+    "add1(4611686018427387903)" "Error 4: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
   te "overflow_-2^62_minus_positive"
-    "4611686018427387903 - -1" "Error 5: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
+    "4611686018427387903 - -1" "Error 4: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
   te "overflow_-2^62_minus_negative"
-    "-4611686018427387904 - 1" "Error 5: overflow occurred for arithmetic operation, got num(4611686018427387903)";
+    "-4611686018427387904 - 1" "Error 4: overflow occurred for arithmetic operation, got num(4611686018427387903)";
   te "overflow_-2^62_sub1"
-    "sub1(-4611686018427387904)" "Error 5: overflow occurred for arithmetic operation, got num(4611686018427387903)";
+    "sub1(-4611686018427387904)" "Error 4: overflow occurred for arithmetic operation, got num(4611686018427387903)";
   te "overflow_2^61_times_positive_1"
-    "4611686018427387903 * 4" "Error 5: overflow occurred for arithmetic operation, got num(-4)";
+    "4611686018427387903 * 4" "Error 4: overflow occurred for arithmetic operation, got num(-4)";
   te "overflow_2^61_times_positive_2"
-    "-4611686018427387903 * -4" "Error 5: overflow occurred for arithmetic operation, got num(-4)";
+    "-4611686018427387903 * -4" "Error 4: overflow occurred for arithmetic operation, got num(-4)";
   te "overflow_2^61_times_negative_1"
-    "4611686018427387903 * -4" "Error 5: overflow occurred for arithmetic operation, got num(4)";
+    "4611686018427387903 * -4" "Error 4: overflow occurred for arithmetic operation, got num(4)";
   te "overflow_2^61_times_negative_2"
-    "-4611686018427387903 * 4" "Error 5: overflow occurred for arithmetic operation, got num(4)";
+    "-4611686018427387903 * 4" "Error 4: overflow occurred for arithmetic operation, got num(4)";
 
   t "add_large_numbers_1"
     "4611686018427387903 + -4511686018427387903" "100000000000000000";

@@ -19,7 +19,7 @@ type phase =
   | Parsed of sourcespan program
   | WellFormed of sourcespan program
   | Renamed of tag program
-  | Desugared of sourcespan program
+  | Desugared of tag sprogram
   | Tagged of tag program
   | ANFed of tag aprogram
   | Located of tag aprogram * (string * arg) list
@@ -113,7 +113,7 @@ let print_trace (trace : phase list) : string list =
     | Parsed p
     | WellFormed p -> string_of_program p
     | Renamed p -> string_of_program p
-    | Desugared p -> string_of_program p
+    | Desugared p -> string_of_sprogram p
     | Tagged p -> string_of_program_with (fun tag -> sprintf "@%d" tag) p
     | ANFed p -> string_of_aprogram_with (fun tag -> sprintf "@%d" tag)  p
     | Located(p, e) ->

@@ -36,15 +36,14 @@ let num_tag_mask  = 0x0000000000000001L
 (* error codes *)
 let err_COMP_NOT_NUM   = 1L
 let err_ARITH_NOT_NUM  = 2L
-let err_LOGIC_NOT_BOOL = 3L
-let err_IF_NOT_BOOL    = 4L
-let err_OVERFLOW       = 5L
+let err_NOT_BOOL = 3L
+let err_OVERFLOW       = 4L
 
 (* label names for errors *)
 let label_COMP_NOT_NUM   = "error_comp_not_num"
 let label_ARITH_NOT_NUM  = "error_arith_not_num"
-let label_LOGIC_NOT_BOOL = "error_logic_not_bool"
-let label_IF_NOT_BOOL    = "error_if_not_bool"
+let label_NOT_BOOL = "error_not_bool"
+
 let label_OVERFLOW       = "error_overflow"
 
 (* label names for conditionals *)
@@ -180,67 +179,67 @@ let rename (e : tag program) : tag program =
     Program(new_decls, new_body, tag)
 ;;
 
-let anf (p : tag program) : unit aprogram =
-  let rec helpP (p : tag program) : unit aprogram =
+let anf (p : tag sprogram) : unit aprogram =
+  let rec helpP (p : tag sprogram) : unit aprogram =
     match p with
-    | Program(decls, body, _) -> AProgram(List.map helpD decls, helpA body, ())
-  and helpD (d : tag decl) : unit adecl =
+    | SProgram(decls, body, _) -> AProgram(List.map helpD decls, helpA body, ())
+  and helpD (d : tag sdecl) : unit adecl =
     match d with
-    | DFun(name, args, body, _) -> ADFun(name, List.map fst args, helpA body, ())
-  and helpC (e : tag expr) : (unit cexpr * (string * unit cexpr) list) = 
+    | SDFun(name, args, body, _) -> ADFun(name, List.map fst args, helpA body, ())
+  and helpC (e : tag sexpr) : (unit cexpr * (string * unit cexpr) list) = 
     match e with
-    | EPrim1(op, arg, _) ->
+    | SPrim1(op, arg, _) ->
        let (arg_imm, arg_setup) = helpI arg in
        (CPrim1(op, arg_imm, ()), arg_setup)
-    | EPrim2(op, left, right, _) ->
+    | SPrim2(op, left, right, _) ->
        let (left_imm, left_setup) = helpI left in
        let (right_imm, right_setup) = helpI right in
        (CPrim2(op, left_imm, right_imm, ()), left_setup @ right_setup)
-    | EIf(cond, _then, _else, _) ->
+    | SIf(cond, _then, _else, _) ->
        let (cond_imm, cond_setup) = helpI cond in
        (CIf(cond_imm, helpA _then, helpA _else, ()), cond_setup)
-    | ELet([], body, _) -> helpC body
-    | ELet((bind, exp, _)::rest, body, pos) ->
+    | SLet([], body, _) -> helpC body
+    | SLet((bind, exp, _)::rest, body, pos) ->
        let (exp_ans, exp_setup) = helpC exp in
-       let (body_ans, body_setup) = helpC (ELet(rest, body, pos)) in
+       let (body_ans, body_setup) = helpC (SLet(rest, body, pos)) in
        (body_ans, exp_setup @ [(bind, exp_ans)] @ body_setup)
-    | EApp(funname, args, _) ->
+    | SApp(funname, args, _) ->
       let imms_and_setups = List.map helpI args in
         (CApp(funname, List.map (fun (imm, _)->imm) imms_and_setups, ()),
         (List.fold_left (fun acc (_, setup) -> acc @ setup) [] imms_and_setups))
     | _ -> let (imm, setup) = helpI e in (CImmExpr imm, setup)
 
-  and helpI (e : tag expr) : (unit immexpr * (string * unit cexpr) list) =
+  and helpI (e : tag sexpr) : (unit immexpr * (string * unit cexpr) list) =
     match e with
-    | ENumber(n, _) -> (ImmNum(n, ()), [])
-    | EBool(b, _) -> (ImmBool(b, ()), [])
-    | EId(name, _) -> (ImmId(name, ()), [])
+    | SNumber(n, _) -> (ImmNum(n, ()), [])
+    | SBool(b, _) -> (ImmBool(b, ()), [])
+    | SId(name, _) -> (ImmId(name, ()), [])
 
-    | EPrim1(op, arg, tag) ->
+    | SPrim1(op, arg, tag) ->
        let tmp = sprintf "unary_%d" tag in
        let (arg_imm, arg_setup) = helpI arg in
        (ImmId(tmp, ()), arg_setup @ [(tmp, CPrim1(op, arg_imm, ()))])
-    | EPrim2(op, left, right, tag) ->
+    | SPrim2(op, left, right, tag) ->
        let tmp = sprintf "binop_%d" tag in
        let (left_imm, left_setup) = helpI left in
        let (right_imm, right_setup) = helpI right in
        (ImmId(tmp, ()), left_setup @ right_setup @ [(tmp, CPrim2(op, left_imm, right_imm, ()))])
-    | EIf(cond, _then, _else, tag) ->
+    | SIf(cond, _then, _else, tag) ->
        let tmp = sprintf "if_%d" tag in
        let (cond_imm, cond_setup) = helpI cond in
        (ImmId(tmp, ()), cond_setup @ [(tmp, CIf(cond_imm, helpA _then, helpA _else, ()))])
-    | EApp(funname, args, tag) ->
+    | SApp(funname, args, tag) ->
        let tmp = sprintf "app_%d" tag in
        let imms_and_setups = List.map helpI args in 
        let imms = List.map (fun (imm, _) -> imm) imms_and_setups in 
        let setups = List.flatten (List.map (fun (_, setup) -> setup) imms_and_setups) in
        (ImmId(tmp, ()), setups @ [(tmp, CApp(funname, imms, ()))])
-    | ELet([], body, _) -> helpI body
-    | ELet((bind, exp, _)::rest, body, pos) ->
+    | SLet([], body, _) -> helpI body
+    | SLet((bind, exp, _)::rest, body, pos) ->
        let (exp_ans, exp_setup) = helpC exp in
-       let (body_ans, body_setup) = helpI (ELet(rest, body, pos)) in
+       let (body_ans, body_setup) = helpI (SLet(rest, body, pos)) in
        (body_ans, exp_setup @ [(bind, exp_ans)] @ body_setup)
-  and helpA e : unit aexpr = 
+  and helpA (e: tag sexpr) : unit aexpr = 
     let (ans, ans_setup) = helpC e in
     List.fold_right (fun (bind, exp) body -> ALet(bind, exp, body, ())) ans_setup (ACExpr ans)
   in
@@ -523,7 +522,7 @@ and compile_cexpr (e : tag cexpr) (env : arg envt) (num_args : int) (is_tail : b
     els = compile_aexpr els env num_args is_tail and
     cond_value = compile_imm cond env in
     IMov(Reg(RAX), cond_value) ::
-    (bool_tag_check cond_value label_IF_NOT_BOOL)
+    (bool_tag_check cond_value label_NOT_BOOL)
     @ [
       IMov(Reg(R10), bool_mask); ITest(Reg(RAX), Reg(R10));
       IJz(if_f);
@@ -573,7 +572,7 @@ and compile_cexpr (e : tag cexpr) (env : arg envt) (num_args : int) (is_tail : b
           ])
       | Not -> 
         IMov(Reg(RAX), e_reg) ::
-        (bool_tag_check e_reg label_LOGIC_NOT_BOOL)
+        (bool_tag_check e_reg label_NOT_BOOL)
         @ [ 
           IMov(Reg(R10), bool_mask);
           IXor(Reg(RAX), Reg(R10));
@@ -616,28 +615,6 @@ and compile_cexpr (e : tag cexpr) (env : arg envt) (num_args : int) (is_tail : b
       @ body
       @ [IJo(label_OVERFLOW)]
     in
-    (* generates the instructions for performing a logical and/or on args e1_reg and e2_reg.
-     * if create_and is true, then the instructions are created for an and op, otherwise an or op is created. 
-    *)
-    let generate_logic_func 
-        (e1_reg : arg) 
-        (e2_reg : arg) 
-        (create_and : bool) tag : instruction list =
-      let label_done = (sprintf "%s%n" label_DONE tag) in
-      let jump_instr = if create_and then IJz(label_done) else IJnz(label_done) in 
-      let pass_test = if create_and then const_true else const_false in 
-      let fail_test = if create_and then const_false else const_true in
-      IMov(Reg(RAX), e1_reg) ::
-      (bool_tag_check e1_reg label_LOGIC_NOT_BOOL)
-      @ [
-        IMov(Reg(R10), bool_mask); ITest(Reg(RAX), Reg(R10)); IMov(Reg(RAX), fail_test); jump_instr;
-        IMov(Reg(RAX), e2_reg)]
-      @ (bool_tag_check e2_reg label_LOGIC_NOT_BOOL)
-      @ [
-        IMov(Reg(R10), bool_mask); ITest(Reg(RAX), Reg(R10)); IMov(Reg(RAX), fail_test); jump_instr;
-        IMov(Reg(RAX), pass_test)]
-      @ [ILabel(label_done)]
-    in
     begin match op with
       | Plus -> 
         (generate_arith_func e1_reg e2_reg [IAdd(Reg(RAX), Reg(R10))])
@@ -646,10 +623,6 @@ and compile_cexpr (e : tag cexpr) (env : arg envt) (num_args : int) (is_tail : b
       | Times -> 
         (generate_arith_func e1_reg e2_reg 
            [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), Reg(R10))])
-      | And -> 
-        (generate_logic_func e1_reg e2_reg true tag)
-      | Or -> 
-        (generate_logic_func e1_reg e2_reg false tag)
       | Greater -> 
         (generate_cmp_func e1_reg e2_reg (fun l -> IJg(l)) tag)
       | GreaterEq -> 
@@ -697,8 +670,7 @@ global our_code_starts_here" in
              (* TODO: which of these errors do we still need? *)
              (label_COMP_NOT_NUM, err_COMP_NOT_NUM);
              (label_ARITH_NOT_NUM, err_ARITH_NOT_NUM);
-             (label_LOGIC_NOT_BOOL, err_LOGIC_NOT_BOOL);
-             (label_IF_NOT_BOOL, err_IF_NOT_BOOL);
+             (label_NOT_BOOL, err_NOT_BOOL);
              (label_OVERFLOW, err_OVERFLOW);
            ])))
     in 
@@ -712,6 +684,7 @@ let compile_to_string (prog : sourcespan program pipeline) : string pipeline =
   |> (add_err_phase well_formed is_well_formed)
   |> (add_phase tagged tag)
   |> (add_phase renamed rename)
+  |> (add_phase desugared (fun p -> stag (desugar p)))
   |> (add_phase anfed (fun p -> atag (anf p)))
   |> (add_phase locate_bindings naive_stack_allocation)
   |> (add_phase result compile_prog)

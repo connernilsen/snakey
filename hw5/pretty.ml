@@ -29,7 +29,29 @@ let name_of_op1 op =
   | IsNum -> "IsNum"
   | IsBool -> "IsBool"
 
-let string_of_op2 op =
+let string_of_sop2 (op: sprim2) =
+  match op with
+  | Plus -> "+"
+  | Minus -> "-"
+  | Times -> "*"
+  | Greater -> ">"
+  | Less -> "<"
+  | GreaterEq -> ">="
+  | LessEq -> "<="
+  | Eq -> "=="
+
+let name_of_sop2 (op: sprim2) =
+  match op with
+  | Plus -> "Plus"
+  | Minus -> "Minus"
+  | Times -> "Times"
+  | Greater -> "Greater"
+  | Less -> "Less"
+  | GreaterEq -> "GreaterEq"
+  | LessEq -> "LessEq"
+  | Eq -> "Eq"
+
+let string_of_op2 (op: prim2) =
   match op with
   | Plus -> "+"
   | Minus -> "-"
@@ -41,7 +63,7 @@ let string_of_op2 op =
   | GreaterEq -> ">="
   | LessEq -> "<="
   | Eq -> "=="
-let name_of_op2 op =
+let name_of_op2 (op: prim2) =
   match op with
   | Plus -> "Plus"
   | Minus -> "Minus"
@@ -53,7 +75,6 @@ let name_of_op2 op =
   | GreaterEq -> "GreaterEq"
   | LessEq -> "LessEq"
   | Eq -> "Eq"
-               
 
 let rec string_of_expr_with (print_a : 'a -> string) (e : 'a expr) : string =
   let string_of_expr = string_of_expr_with print_a in
@@ -98,6 +119,48 @@ let string_of_program_with (print_a : 'a -> string) (p : 'a program) : string =
 let string_of_program (p : 'a program) : string =
   string_of_program_with (fun _ -> "") p
 
+let rec string_of_sexpr_with (print_a : 'a -> string) (e : 'a sexpr) : string =
+  let string_of_sexpr = string_of_sexpr_with print_a in
+  match e with
+  | SNumber(n, a) -> (Int64.to_string n) ^ (print_a a)
+  | SBool(b, a) -> (string_of_bool b) ^ (print_a a)
+  | SId(x, a) -> x ^ (print_a a)
+  | SPrim1(op, e, a) ->
+     sprintf "%s(%s)%s" (string_of_op1 op) (string_of_sexpr e) (print_a a)
+  | SPrim2(op, left, right, a) ->
+     sprintf "(%s %s %s)%s" (string_of_sexpr left) (string_of_sop2 op) (string_of_sexpr right) (print_a a)
+  | SLet(binds, body, a) ->
+     let binds_strs = List.map (fun (x, e, _) -> sprintf "%s = %s" x (string_of_sexpr e)) binds in
+     let binds_str = List.fold_left (^) "" (intersperse binds_strs ", ") in
+     sprintf "(let %s in %s)%s" binds_str (string_of_sexpr body) (print_a a)
+  | SIf(cond, thn, els, a) ->
+     sprintf "(if %s: %s else: %s)%s"
+             (string_of_sexpr cond)
+             (string_of_sexpr thn)
+             (string_of_sexpr els)
+             (print_a a)
+  | SApp(funname, args, a) ->
+     sprintf "(%s(%s))%s" funname (ExtString.String.join ", " (List.map string_of_sexpr args)) (print_a a)
+let string_of_sexpr (e : 'a sexpr) : string =
+  string_of_sexpr_with (fun _ -> "") e
+             
+let string_of_sdecl_with (print_a : 'a -> string) (d : 'a sdecl) : string =
+  match d with
+  | SDFun(name, args, body, a) ->
+     sprintf "(def %s(%s):\n  %s)%s"
+       name
+       (ExtString.String.join ", " (List.map (fun (arg, a) -> sprintf "%s%s" arg (print_a a)) args))
+       (string_of_sexpr_with print_a body) (print_a a)
+let string_of_sdecl (d : 'a sdecl) : string =
+  string_of_sdecl_with (fun _ -> "") d
+
+let string_of_sprogram_with (print_a : 'a -> string) (p : 'a sprogram) : string =
+  match p with
+  | SProgram(sdecls, body, a) ->
+     (ExtString.String.join "\n" (List.map (string_of_sdecl_with print_a) sdecls)) ^ "\n" ^
+       (string_of_sexpr_with print_a body) ^ "\n" ^ (print_a a)
+let string_of_sprogram (p : 'a sprogram) : string =
+  string_of_sprogram_with (fun _ -> "") p
 
 let string_of_position (p : position) : string =
   sprintf "%s:line %d, col %d" p.pos_fname p.pos_lnum (p.pos_cnum - p.pos_bol);;
@@ -118,7 +181,7 @@ and string_of_cexpr_with (print_a : 'a -> string) (c : 'a cexpr) : string =
   | CPrim1(op, e, a) ->
      sprintf "%s(%s)%s" (string_of_op1 op) (string_of_immexpr e) (print_a a)
   | CPrim2(op, left, right, a) ->
-     sprintf "(%s %s %s)%s" (string_of_immexpr left) (string_of_op2 op) (string_of_immexpr right) (print_a a)
+     sprintf "(%s %s %s)%s" (string_of_immexpr left) (string_of_sop2 op) (string_of_immexpr right) (print_a a)
   | CIf(cond, thn, els, a) ->
      sprintf "(if %s: %s else: %s)%s"
              (string_of_immexpr cond)

@@ -21,15 +21,17 @@ let ta name program_and_env expected = (check_name name)>::test_run_anf program_
 let te name program expected_err = (check_name name)>::test_err program name expected_err;;
 
 let tvg name program expected = (check_name name)>::test_run_valgrind program name expected;;
-  
 let tanf name program expected = (check_name name)>::fun _ ->
-  assert_equal expected (anf (tag program)) ~printer:string_of_aprogram;;
+  assert_equal expected (anf (stag (desugar (tag program)))) ~printer:string_of_aprogram;;
 
 (* Transforms a program into ANF, and compares the output to expected *)
 let tanf_improved (name : string) (program : string) (expected : string) = (check_name name)>:: fun _ ->
-    assert_equal (expected ^ "\n") (string_of_aprogram (anf (rename (tag (parse_string name program))))) ~printer:(fun s->s);
+    assert_equal (expected ^ "\n") (string_of_aprogram (anf (stag (desugar (rename (tag (parse_string name program))))))) ~printer:(fun s->s);
     (* check_scope_helper (fun _-> "ignored") (parse_string name program) []; *)
 ;;
+
+let tdesugar (name : string) (program : string) (expected : string) = (check_name name)>:: fun _ ->
+    assert_equal (expected ^ "\n") (string_of_sprogram (desugar (tag (parse_string name program)))) ~printer:(fun s->s);;
 
 let teq name actual expected = (check_name name)>::fun _ ->
   assert_equal expected actual ~printer:(fun s -> s);;
@@ -292,7 +294,7 @@ let integration_tests = [
             pos = t1(false, dec_num)
           in neg && pos
       t1(false, 4)"
-    "logic expected a boolean, got num(0)";
+    "expected a boolean, got num(0)";
   t "reuse_reg_args_not_tail_recursive"
     "def f1(b, n):
       let x = print(b),
@@ -357,6 +359,26 @@ let integration_tests = [
     false && run(6)"
     "false";
   t "short_circuit_def_2"
+    "def run(run): print(run)
+    true || run(6)"
+    "true";
+  t "short_circuit_and"
+    "false && print(6)"
+    "false";
+  t "short_circuit_or"
+    "true || print(6)"
+    "true";
+  t "short_circuit_let_and"
+    "let x = print(6) in false && x"
+    "6\nfalse";
+  t "short_circuit_let_or"
+    "let x = print(6) in true || x"
+    "6\ntrue";
+  t "short_circuit_def_and"
+    "def run(run): print(run)
+    false && run(6)"
+    "false";
+  t "short_circuit_def_or"
     "def run(run): print(run)
     true || run(6)"
     "true";
@@ -712,11 +734,46 @@ let get_func_call_params_tests = [
          "label") ~printer:to_asm);
 ]
 
+let desugar_tests = [
+  tdesugar "desugar_and"
+  "true && false"
+  "\n(if true: (if false: true else: false) else: false)";
+  tdesugar "desugar_or"
+  "true || false"
+  "\n(if true: true else: (if false: true else: false))";
+  tdesugar "desugar_nested_or"
+  "true || true || false"
+  "\n(if (if true: true else: (if true: true else: false)): true else: (if false: true else: false))";
+  tdesugar "desugar_nested_and"
+  "true && true && false"
+  "\n(if (if true: (if true: true else: false) else: false): (if false: true else: false) else: false)";
+  tdesugar "desugar_print"
+  "true || print(1)"
+  "\n(if true: true else: (if print(1): true else: false))";
+  tdesugar "desugar_complex"
+  "def f1(b, n):
+      let x = print(b),
+          y = print(n) in 
+        isnum(n) && isbool(b) 
+  def f2(n, b):
+    let x = print(f1(b, n)),
+        y = print(n),
+        z = print(b) in 
+      x && isnum(y) && isbool(z)
+  f2(5, false)"
+  "(def f1(b, n):
+  (let x = print(b), y = print(n) in (if isnum(n): (if isbool(b): true else: false) else: false)))
+(def f2(n, b):
+  (let x = print((f1(b, n))), y = print(n), z = print(b) in (if (if x: (if isnum(y): true else: false) else: false): (if isbool(z): true else: false) else: false)))
+(f2(5, false))";
+    ]
+
 let tests = (
   tanf_tests @
-  is_well_formed_tests
-  @ get_func_call_params_tests
-  @ integration_tests
+  is_well_formed_tests @
+  get_func_call_params_tests @
+  integration_tests @
+  desugar_tests
 )
 
 let suite = "suite">:::tests
