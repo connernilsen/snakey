@@ -616,28 +616,6 @@ and compile_cexpr (e : tag cexpr) (env : arg envt) (num_args : int) (is_tail : b
       @ body
       @ [IJo(label_OVERFLOW)]
     in
-    (* generates the instructions for performing a logical and/or on args e1_reg and e2_reg.
-     * if create_and is true, then the instructions are created for an and op, otherwise an or op is created. 
-    *)
-    let generate_logic_func 
-        (e1_reg : arg) 
-        (e2_reg : arg) 
-        (create_and : bool) tag : instruction list =
-      let label_done = (sprintf "%s%n" label_DONE tag) in
-      let jump_instr = if create_and then IJz(label_done) else IJnz(label_done) in 
-      let pass_test = if create_and then const_true else const_false in 
-      let fail_test = if create_and then const_false else const_true in
-      IMov(Reg(RAX), e1_reg) ::
-      (bool_tag_check e1_reg label_LOGIC_NOT_BOOL)
-      @ [
-        IMov(Reg(R10), bool_mask); ITest(Reg(RAX), Reg(R10)); IMov(Reg(RAX), fail_test); jump_instr;
-        IMov(Reg(RAX), e2_reg)]
-      @ (bool_tag_check e2_reg label_LOGIC_NOT_BOOL)
-      @ [
-        IMov(Reg(R10), bool_mask); ITest(Reg(RAX), Reg(R10)); IMov(Reg(RAX), fail_test); jump_instr;
-        IMov(Reg(RAX), pass_test)]
-      @ [ILabel(label_done)]
-    in
     begin match op with
       | Plus -> 
         (generate_arith_func e1_reg e2_reg [IAdd(Reg(RAX), Reg(R10))])
@@ -646,10 +624,6 @@ and compile_cexpr (e : tag cexpr) (env : arg envt) (num_args : int) (is_tail : b
       | Times -> 
         (generate_arith_func e1_reg e2_reg 
            [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), Reg(R10))])
-      | And -> 
-        (generate_logic_func e1_reg e2_reg true tag)
-      | Or -> 
-        (generate_logic_func e1_reg e2_reg false tag)
       | Greater -> 
         (generate_cmp_func e1_reg e2_reg (fun l -> IJg(l)) tag)
       | GreaterEq -> 
@@ -710,6 +684,8 @@ global our_code_starts_here" in
 let compile_to_string (prog : sourcespan program pipeline) : string pipeline =
   prog
   |> (add_err_phase well_formed is_well_formed)
+  |> (add_phase tagged tag)
+  |> (add_phase desugared desugar)
   |> (add_phase tagged tag)
   |> (add_phase renamed rename)
   |> (add_phase anfed (fun p -> atag (anf p)))

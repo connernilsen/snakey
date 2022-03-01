@@ -347,9 +347,25 @@ let integration_tests = [
     "def run(run): print(run)
     let run = 5 in run(run)"
     "5\n5";
-  t "short_circuit_def"
+  t "short_circuit_and"
+    "false && print(6)"
+    "false";
+  t "short_circuit_let_and"
+    "let x = print(6) in true && x"
+    "false";
+  t "short_circuit_or"
+    "true || print(6)"
+    "true";
+  t "short_circuit_let_or"
+    "let x = print(6) in true || x"
+    "false";
+  t "short_circuit_def_and"
     "def run(run): print(run)
     false && run(6)"
+    "false";
+  t "short_circuit_def_or"
+    "def run(run): print(run)
+    false || run(6)"
     "false";
 ]
 
@@ -704,9 +720,9 @@ let get_func_call_params_tests = [
 ]
 
 let tests = (
-  tanf_tests @
+  (* tanf_tests @ *)
   is_well_formed_tests
-  @ get_func_call_params_tests
+  (* @ get_func_call_params_tests *)
   @ integration_tests
 )
 

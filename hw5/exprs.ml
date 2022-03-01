@@ -1,3 +1,4 @@
+open Printf
 open Int64
 ;;
        
@@ -26,6 +27,16 @@ type prim2 =
   | LessEq
   | Eq
 
+type sprim2 = (* Sugared prim *)
+  | Plus
+  | Minus
+  | Times
+  | Greater
+  | GreaterEq
+  | Less
+  | LessEq
+  | Eq
+
 type 'a bind = (string * 'a expr * 'a)
 
 and 'a expr =
@@ -37,6 +48,21 @@ and 'a expr =
   | EBool of bool * 'a
   | EId of string * 'a
   | EApp of string * 'a expr list * 'a
+
+type 'a sbind = (string * 'a sexpr * 'a)
+and 'a sprogram =
+  | SProgram of 'a sdecl list * 'a sexpr * 'a
+and 'a sexpr = (* Sugared expression *)
+  | SLet of 'a sbind list * 'a sexpr * 'a
+  | SPrim1 of prim1 * 'a sexpr * 'a
+  | SPrim2 of sprim2 * 'a sexpr * 'a sexpr * 'a
+  | SIf of 'a sexpr * 'a sexpr * 'a sexpr * 'a
+  | SNumber of int64 * 'a
+  | SBool of bool * 'a
+  | SId of string * 'a
+  | SApp of string * 'a sexpr list * 'a
+and 'a sdecl =
+  | SDFun of string * (string * 'a) list * 'a sexpr * 'a
 
 type 'a decl =
   | DFun of string * (string * 'a) list * 'a expr * 'a
@@ -51,7 +77,7 @@ type 'a immexpr = (* immediate expressions *)
 and 'a cexpr = (* compound expressions *)
   | CIf of 'a immexpr * 'a aexpr * 'a aexpr * 'a
   | CPrim1 of prim1 * 'a immexpr * 'a
-  | CPrim2 of prim2 * 'a immexpr * 'a immexpr * 'a
+  | CPrim2 of sprim2 * 'a immexpr * 'a immexpr * 'a
   | CApp of string * 'a immexpr list * 'a
   | CImmExpr of 'a immexpr (* for when you just need an immediate value *)
 and 'a aexpr = (* anf expressions *)
@@ -166,4 +192,52 @@ let atag (p : 'a aprogram) : tag aprogram =
     match p with
     | AProgram(decls, body, _) ->
        AProgram(List.map helpD decls, helpA body, 0)
+  in helpP p
+
+let desugar (p : tag program) : unit sprogram =
+  let rec helpE (e : tag expr) : unit sexpr =
+    match e with
+    | EId(x, _) -> SId(x, ())
+    | ENumber(n, _) -> SNumber(n, ())
+    | EBool(b, _) -> SBool(b, ())
+    | EPrim1(op, e, _) ->
+       SPrim1(op, helpE e, ())
+    | EPrim2(op, e1, e2, a) ->
+      begin
+       match op with
+       | And -> let l = (sprintf "and_left%n" a) and r = (sprintf "and_right%n" a) in 
+        SLet(
+         [(l, helpE e1, ()); (r, helpE e2, ())],
+         SIf(SId(l, ()), SId(r, ()), SBool(false, ()), ()),
+         ()
+        )
+       | Or -> let l = sprintf "or_left%n" a and r = sprintf "or_right%n" a in 
+        SLet(
+         [(l, helpE e1, ()); (r, helpE e2, ())],
+         SIf(SId(l, ()), SBool(true, ()), SId(r, ()), ()),
+         ()
+        )
+       | Plus -> SPrim2(Plus, helpE e1, helpE e2, ())
+       | Minus -> SPrim2(Minus, helpE e1, helpE e2, ())
+       | Times -> SPrim2(Times, helpE e1, helpE e2, ())
+       | Greater -> SPrim2(Greater, helpE e1, helpE e2, ())
+       | GreaterEq -> SPrim2(GreaterEq, helpE e1, helpE e2, ())
+       | Less -> SPrim2(Less, helpE e1, helpE e2, ())
+       | LessEq -> SPrim2(LessEq, helpE e1, helpE e2, ())
+       | Eq -> SPrim2(Eq, helpE e1, helpE e2, ())
+      end
+    | ELet(binds, body, _) ->
+       SLet(List.map (fun (name, expr, _) -> (name, helpE expr, ())) binds, helpE body, ())
+    | EIf(cond, thn, els, _) ->
+       SIf(helpE cond, helpE thn, helpE els, ())
+    | EApp(name, args, _) ->
+       SApp(name, List.map helpE args, ())
+  and helpD d =
+    match d with
+    | DFun(name, args, body, _) ->
+       SDFun(name, List.map (fun (name, _) -> (name, ())) args, helpE body, ())
+  and helpP p =
+    match p with
+    | Program(decls, body, _) ->
+       SProgram(List.map helpD decls, helpE body, ())
   in helpP p
