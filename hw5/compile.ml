@@ -293,22 +293,39 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
         (find_dups_by params (fun (n1, _) (n2, _) -> n1 = n2))) in 
       dup_bindings @ (wf_E body params env)
   and get_env (decls : sourcespan decl list) : int envt = 
-    (List.map (fun x -> begin match x with DFun(name, args, _, _) -> (name, (List.length args)) end) decls)
+    (List.map (fun x -> 
+         begin 
+           match x with 
+           | DFun(name, args, _, _) -> 
+             (name, (List.length args)) 
+         end) decls)
   and dup_d_errors (decls : sourcespan decl list) = 
-    List.map (fun x -> begin match x with (DFun(name, _, _, span1), DFun(_, _, _, span2)) -> 
-      DuplicateFun(name, span1, span2) end) (find_dups_by decls (fun d1 d2 -> begin match (d1, d2) with (DFun(n1, _, _, _), DFun(n2, _, _, _)) -> n1 = n2 end))
-  and d_errors (decls : sourcespan decl list) (env: int envt) = List.flatten (List.map (wf_D env) decls)
-  in match p with
-    | Program(decls, body, _) ->
-      let env = get_env decls in 
-      let dup_fun_errors = dup_d_errors decls in
-      let d_errs = d_errors decls env in
-      let e_errs = wf_E body [] env in 
-      begin
+    List.map (fun x -> 
+        begin 
+          match x with 
+          | (DFun(name, _, _, span1), DFun(_, _, _, span2)) -> 
+            DuplicateFun(name, span1, span2) 
+        end) 
+      (find_dups_by decls 
+         (fun d1 d2 -> 
+            begin 
+              match (d1, d2) with 
+              | (DFun(n1, _, _, _), DFun(n2, _, _, _)) -> 
+                n1 = n2 
+            end))
+  and d_errors (decls : sourcespan decl list) (env: int envt) = 
+    List.flatten (List.map (wf_D env) decls) in 
+  match p with
+  | Program(decls, body, _) ->
+    let env = get_env decls in 
+    let dup_fun_errors = dup_d_errors decls in
+    let d_errs = d_errors decls env in
+    let e_errs = wf_E body [] env in 
+    begin
       match dup_fun_errors @ d_errs @ e_errs with 
       | [] -> Ok p
       | e -> Error e
-      end
+    end
 ;;
 
 (* sets up a function call (x64) by putting args in the proper registers/stack positions, 
