@@ -241,37 +241,27 @@ let desugar (p : tag program) : unit sprogram =
     | EPrim2(op, e1, e2, a) ->
       begin
        match op with
-       | And -> let l = (sprintf "and_left%n" a) and r = (sprintf "and_right%n" a) in 
-        SLet(
-         [(l, helpE e1, ()); (r, helpE e2, ())],
-         SIf(
-           SId(l, ()),
-           SIf(
-             SId(r, ()),
-             SBool(true, ()),
-             SBool(false, ()),
-             ()
-           ),
-           SBool(false, ()),
-           ()
-         ),
-         ()
-        )
-       | Or -> let l = sprintf "or_left%n" a and r = sprintf "or_right%n" a in 
-        SLet(
-         [(l, helpE e1, ()); (r, helpE e2, ())],
-         SIf(
-           SId(l, ()),
-           SBool(true, ()),
-           SIf(
-            SId(r, ()),
+       | And -> SIf(
+          helpE e1,
+          SIf(
+            helpE e2,
             SBool(true, ()),
             SBool(false, ()),
             ()
-            ),
+          ),
+          SBool(false, ()),
           ()
-         ),
-         ()
+        )
+       | Or -> SIf(
+          helpE e1,
+          SBool(true, ()),
+          SIf(
+          helpE e2,
+          SBool(true, ()),
+          SBool(false, ()),
+          ()
+          ),
+        ()
         )
        | Plus -> SPrim2(Plus, helpE e1, helpE e2, ())
        | Minus -> SPrim2(Minus, helpE e1, helpE e2, ())
