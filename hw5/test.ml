@@ -299,6 +299,17 @@ let integration_tests = [
         f1(b, n, i)
     f2(5, false, 0)"
     "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\ntrue";
+    tvg "valgrind_mutual"
+    "def f1(b, n, i):
+      if i == 10:
+        isbool(b) && isnum(n)
+      else:
+        let a = print(i) in 
+          f2(n, b, i + 1)
+    def f2(n, b, i):
+        f1(b, n, i)
+    f2(5, false, 0)"
+    "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\ntrue";
 ]
 
 let arg_envt_printer args =
