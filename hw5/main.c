@@ -15,9 +15,8 @@ const uint64_t TRUE = 0xFFFFFFFFFFFFFFFFL;
 const uint64_t FALSE = 0x7FFFFFFFFFFFFFFFL;
 const uint64_t COMP_NOT_NUM = 1L;
 const uint64_t ARITH_NOT_NUM = 2L;
-const uint64_t LOGIC_NOT_BOOL = 3L;
-const uint64_t IF_NOT_BOOL = 4L;
-const uint64_t OVERFLOW = 5L;
+const uint64_t NOT_BOOL = 3L;
+const uint64_t OVERFLOW = 4L;
 
 const int UNKNOWN_TYPE = 0;
 const int NUM_TYPE = 1;
@@ -118,12 +117,9 @@ void error(uint64_t errCode, uint64_t val) {
   } else if (errCode == ARITH_NOT_NUM) {
     fprintf(stderr,
         "arithmetic expected a number, got %s\n", valueStr);
-  } else if (errCode == LOGIC_NOT_BOOL) {
+  } else if (errCode == NOT_BOOL) {
     fprintf(stderr,
-        "logic expected a boolean, got %s\n", valueStr);
-  } else if (errCode == IF_NOT_BOOL) {
-    fprintf(stderr,
-        "if expected a boolean, got %s\n", valueStr);
+        "expected a boolean, got %s\n", valueStr);
   } else if (errCode == OVERFLOW) {
     fprintf(stderr,
         "overflow occurred for arithmetic operation, got %s\n", valueStr);

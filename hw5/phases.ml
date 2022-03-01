@@ -19,7 +19,7 @@ type phase =
   | Parsed of sourcespan program
   | WellFormed of sourcespan program
   | Renamed of tag program
-  | Desugared of sourcespan program
+  | Desugared of tag sprogram
   | Tagged of tag program
   | ANFed of tag aprogram
   | Located of tag aprogram * (string * arg) list

@@ -29,7 +29,7 @@ let name_of_op1 op =
   | IsNum -> "IsNum"
   | IsBool -> "IsBool"
 
-let string_of_sop2 op =
+let string_of_sop2 (op: sprim2) =
   match op with
   | Plus -> "+"
   | Minus -> "-"
@@ -40,7 +40,18 @@ let string_of_sop2 op =
   | LessEq -> "<="
   | Eq -> "=="
 
-let string_of_op2 op =
+let name_of_sop2 (op: sprim2) =
+  match op with
+  | Plus -> "Plus"
+  | Minus -> "Minus"
+  | Times -> "Times"
+  | Greater -> "Greater"
+  | Less -> "Less"
+  | GreaterEq -> "GreaterEq"
+  | LessEq -> "LessEq"
+  | Eq -> "Eq"
+
+let string_of_op2 (op: prim2) =
   match op with
   | Plus -> "+"
   | Minus -> "-"
@@ -52,7 +63,7 @@ let string_of_op2 op =
   | GreaterEq -> ">="
   | LessEq -> "<="
   | Eq -> "=="
-let name_of_op2 op =
+let name_of_op2 (op: prim2) =
   match op with
   | Plus -> "Plus"
   | Minus -> "Minus"
@@ -64,7 +75,6 @@ let name_of_op2 op =
   | GreaterEq -> "GreaterEq"
   | LessEq -> "LessEq"
   | Eq -> "Eq"
-               
 
 let rec string_of_expr_with (print_a : 'a -> string) (e : 'a expr) : string =
   let string_of_expr = string_of_expr_with print_a in

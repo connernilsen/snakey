@@ -152,6 +152,42 @@ let rec untag (p : 'a program) : unit program =
        Program(List.map helpD decls, helpE body, ())
   in helpP p
 
+let stag (p : 'a sprogram) : tag sprogram =
+  let next = ref 0 in
+  let tag () =
+    next := !next + 1;
+    !next in
+  let rec helpE (e : 'a sexpr) : tag sexpr =
+    match e with
+    | SId(x, _) -> SId(x, tag())
+    | SNumber(n, _) -> SNumber(n, tag())
+    | SBool(b, _) -> SBool(b, tag())
+    | SPrim1(op, e, _) ->
+       let prim_tag = tag() in
+       SPrim1(op, helpE e, prim_tag)
+    | SPrim2(op, e1, e2, _) ->
+       let prim_tag = tag() in
+       SPrim2(op, helpE e1, helpE e2, prim_tag)
+    | SLet(binds, body, _) ->
+       let let_tag = tag() in
+       SLet(List.map (fun (x, b, _) -> let t = tag() in (x, helpE b, t)) binds, helpE body, let_tag)
+    | SIf(cond, thn, els, _) ->
+       let if_tag = tag() in
+       SIf(helpE cond, helpE thn, helpE els, if_tag)
+    | SApp(name, args, _) ->
+       let app_tag = tag() in
+       SApp(name, List.map helpE args, app_tag)
+  and helpD d =
+    match d with
+    | SDFun(name, args, body, _) ->
+       let fun_tag = tag() in
+       SDFun(name, List.map (fun (a, _) -> (a, tag())) args, helpE body, fun_tag)
+  and helpP p =
+    match p with
+    | SProgram(decls, body, _) ->
+       SProgram(List.map helpD decls, helpE body, 0)
+  in helpP p
+
 let atag (p : 'a aprogram) : tag aprogram =
   let next = ref 0 in
   let tag () =
@@ -208,13 +244,33 @@ let desugar (p : tag program) : unit sprogram =
        | And -> let l = (sprintf "and_left%n" a) and r = (sprintf "and_right%n" a) in 
         SLet(
          [(l, helpE e1, ()); (r, helpE e2, ())],
-         SIf(SId(l, ()), SId(r, ()), SBool(false, ()), ()),
+         SIf(
+           SId(l, ()),
+           SIf(
+             SId(r, ()),
+             SBool(true, ()),
+             SBool(false, ()),
+             ()
+           ),
+           SBool(false, ()),
+           ()
+         ),
          ()
         )
        | Or -> let l = sprintf "or_left%n" a and r = sprintf "or_right%n" a in 
         SLet(
          [(l, helpE e1, ()); (r, helpE e2, ())],
-         SIf(SId(l, ()), SBool(true, ()), SId(r, ()), ()),
+         SIf(
+           SId(l, ()),
+           SBool(true, ()),
+           SIf(
+            SId(r, ()),
+            SBool(true, ()),
+            SBool(false, ()),
+            ()
+            ),
+          ()
+         ),
          ()
         )
        | Plus -> SPrim2(Plus, helpE e1, helpE e2, ())

@@ -18,11 +18,11 @@ let te name program expected_err = name>::test_err program name expected_err;;
 let tvg name program expected = name>::test_run_valgrind program name expected;;
   
 let tanf name program expected = name>::fun _ ->
-  assert_equal expected (anf (tag program)) ~printer:string_of_aprogram;;
+  assert_equal expected (anf (stag (desugar (tag program)))) ~printer:string_of_aprogram;;
 
 (* Transforms a program into ANF, and compares the output to expected *)
 let tanf_improved (name : string) (program : string) (expected : string) = name>:: fun _ ->
-    assert_equal (expected ^ "\n") (string_of_aprogram (anf (rename (tag (parse_string name program))))) ~printer:(fun s->s);
+    assert_equal (expected ^ "\n") (string_of_aprogram (anf (stag (desugar (rename (tag (parse_string name program))))))) ~printer:(fun s->s);
     (* check_scope_helper (fun _-> "ignored") (parse_string name program) []; *)
 ;;
 
@@ -287,7 +287,7 @@ let integration_tests = [
             pos = t1(false, dec_num)
           in neg && pos
       t1(false, 4)"
-    "logic expected a boolean, got num(0)";
+    "expected a boolean, got num(0)";
   t "reuse_reg_args_not_tail_recursive"
     "def f1(b, n):
       let x = print(b),
