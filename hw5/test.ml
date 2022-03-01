@@ -354,22 +354,22 @@ let integration_tests = [
     "false && print(6)"
     "false";
   t "short_circuit_let_and"
-    "let x = print(6) in true && x"
+    "let x = print(6) in false && x"
     "false";
   t "short_circuit_or"
     "true || print(6)"
     "true";
   t "short_circuit_let_or"
     "let x = print(6) in true || x"
-    "false";
+    "true";
   t "short_circuit_def_and"
     "def run(run): print(run)
     false && run(6)"
     "false";
   t "short_circuit_def_or"
     "def run(run): print(run)
-    false || run(6)"
-    "false";
+    true || run(6)"
+    "true";
 ]
 
 let arg_envt_printer args =
