@@ -34,22 +34,21 @@ let num_tag       = 0x0000000000000000L
 let num_tag_mask  = 0x0000000000000001L
 
 (* error codes *)
-let err_COMP_NOT_NUM   = 1L
-let err_ARITH_NOT_NUM  = 2L
-let err_NOT_BOOL = 3L
-let err_OVERFLOW       = 4L
+let err_COMP_NOT_NUM  = 1L
+let err_ARITH_NOT_NUM = 2L
+let err_NOT_BOOL      = 3L
+let err_OVERFLOW      = 4L
 
 (* label names for errors *)
-let label_COMP_NOT_NUM   = "error_comp_not_num"
-let label_ARITH_NOT_NUM  = "error_arith_not_num"
-let label_NOT_BOOL = "error_not_bool"
-
-let label_OVERFLOW       = "error_overflow"
+let label_COMP_NOT_NUM  = "error_comp_not_num"
+let label_ARITH_NOT_NUM = "error_arith_not_num"
+let label_NOT_BOOL      = "error_not_bool"
+let label_OVERFLOW      = "error_overflow"
 
 (* label names for conditionals *)
-let label_IS_NOT_BOOL    = "is_not_bool"
-let label_IS_NOT_NUM     = "is_not_num"
-let label_DONE           = "done"
+let label_IS_NOT_BOOL = "is_not_bool"
+let label_IS_NOT_NUM  = "is_not_num"
+let label_DONE        = "done"
 
 let first_six_args_registers = [RDI; RSI; RDX; RCX; R8; R9]
 
@@ -142,7 +141,7 @@ let rename (e : tag program) : tag program =
     | EIf(cond, thn, els, tag) ->
       EIf(help env cond, help env thn, help env els, tag)
     | EBool(b, tag) -> EBool(b, tag)
-    (* Todo: maybe add character start/end so their functions don't overlap *)
+    (* TODO: maybe add character start/end so their functions don't overlap *)
     | EApp(funname, args, tag) -> 
       let new_name = (find fun_env funname) in
       EApp(new_name, List.map (help env) args, tag)
@@ -164,7 +163,6 @@ let rename (e : tag program) : tag program =
       (rename_decl_args (((new_name, tag) :: renamed), ((fname, new_name) :: env)) rest)
   in
   let help_decl (e : tag decl) : tag decl =
-    (* Todo: We don't need to rename decls since their names have to be unique, right? *)
     match e with 
     | DFun(name, args, body, tag) ->
       let new_name = (find fun_env name) in
@@ -246,6 +244,9 @@ let anf (p : tag sprogram) : unit aprogram =
   helpP p
 ;;
 
+(** Determines if the given program is well formed.
+ * Checks for unbound/duplicate functions and ids, overflow,
+ * and arity mismatches *)
 let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
   let rec wf_E (e : sourcespan expr) (env : (string * sourcespan) list) (fun_env : int envt) : exn list =
     match e with
@@ -331,13 +332,20 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
  * calling the given function, and cleaning up the stack after 
  *)
 let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : string) : (instruction list) =
+  (* how many call args must go on the stack *)
   let stack_args = max ((List.length args) - 6) 0 in
+  (* whether an extra stack align var should be used 
+   * (are there an odd number of stack args and registers being pushed? ) *)
   let should_stack_align = ((stack_args + num_regs_to_save) mod 2) != 0 in
+  (* how many args should be popped off the stack before possible register 
+   * restoration? *)
   let cleanup_stack = if should_stack_align 
+    (* if stack alignment was needed, then pop off pushed args + the extra align value *)
     then Int64.of_int ((stack_args + 1) * word_size)
+    (* otherwise, just pop off pushed args *)
     else Int64.of_int (stack_args * word_size)
   in
-  (* Backs up ALL registers *)
+  (* Backs up all registers used by the function we're in *)
   let rec backup_caller_saved_registers (rem_args : int) (registers : reg list) : (instruction list) =
     if rem_args = 0
     then []
@@ -349,7 +357,7 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : strin
           IPush(Reg(next_reg)) 
           :: (backup_caller_saved_registers (rem_args - 1) rest_regs)
       end in
-  (* Restores ALL registers. Reverse of backup_caller_saved_registers *)
+  (* Restores all registers used by the function we're in. Reverse of backup_caller_saved_registers *)
   let rec restore_caller_saved_registers (args_to_skip : int) (registers : reg list) : (instruction list) =
     match registers with 
     | [] -> []
@@ -358,11 +366,14 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : strin
       then IPop(Reg(next_reg)) :: (restore_caller_saved_registers 0 rest_regs) 
       else (restore_caller_saved_registers (args_to_skip - 1) rest_regs)
   in
-  (* sets up args by putting them in the first 6 registers needed for a call,
-   * optionally aligning the stack, and placing any remaining values on the stack 
+  (* sets up args by putting them in the first 6 registers needed for a call
+   * and placing any remaining values on the stack 
    *)
   let rec setup_args (args : arg list) (registers : reg list) : (instruction list) =
+    (* assoc list of args to their position in the call regs list *)
     let reg_assoc_list = List.mapi (fun pos value -> (value, pos + 1)) first_six_args_registers in
+    (* put the next argument in the appropriate register or onto the stack.
+     * reverses the args list before pushing on the stack so they're in the right order *)
     let use_reg (next_arg : arg) (rest_args : arg list) : instruction list =
       match registers with 
         | [] -> IPush(next_arg) :: (setup_args rest_args registers)
@@ -370,30 +381,45 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : strin
           IMov(Reg(last_reg), next_arg) :: (setup_args (List.rev rest_args) [])
         | next_reg :: rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
     in
+    (* if a value being passed into the next function is an arg passed into this
+     * function by a register, then convert that reference to 
+     * the stack offset of the arg pushed previously.
+     * if the register isn't one of first_six_args_registers, then just use the register *)
     let swap_reg (register : reg) (rest_args : arg list) : instruction list =
       match List.assoc_opt register reg_assoc_list with 
       | Some(idx) -> 
+        (* skip the extra stack align spot if applicable *)
         let align_off = if should_stack_align then 1 else 0 in
+        (* get the offset = RSP + 8 * (number of spots to get to the pushed reg value) *)
         let off = (align_off + num_regs_to_save - idx) in
         use_reg (RegOffset(off * word_size, RSP)) rest_args
       | None -> use_reg (Reg(register)) rest_args
     in
     match args with 
     | [] -> []
+    (* replace the register if it's one passed in *)
     | Reg(some_reg) :: rest_args ->
       swap_reg some_reg rest_args
+    (* just use the arg *)
     | next_arg :: rest_args ->
       use_reg next_arg rest_args
   in 
+  (* push args passed into this function so they don't get overwritten *)
   (backup_caller_saved_registers num_regs_to_save first_six_args_registers)
+  (* align the stack if necessary *)
   @ (if should_stack_align then [IPush(Const(0L))] else [])
+  (* put the args for the next function in registers/on the stack *)
   @ (setup_args args first_six_args_registers) 
+  (* call *)
   @ [ICall(label)]
-  (* pop off values added to the stack *)
+  (* pop off values added to the stack up to pushed register values *)
   @ (if Int64.equal cleanup_stack 0L then [] else [IAdd(Reg(RSP), Const(cleanup_stack))])
+  (* restore register values for the rest of this function to use *)
   @ (restore_caller_saved_registers ((List.length first_six_args_registers) - num_regs_to_save) (List.rev first_six_args_registers))
 ;;
 
+(** Gets an environment mapping id names to register names or stack offsets.
+ * This makes it easy for callee functions to use args *)
 let get_func_call_params (params : string list) : arg envt =
   let rec pair_stack (params : string list) (next_off : int) : arg envt =
     match params with 
@@ -452,6 +478,7 @@ let naive_stack_allocation (prog : tag aprogram) : tag aprogram * arg envt =
     match decls with 
     | [] -> []
     | ADFun(_, params, body, _) :: rest ->
+      (* put call args in the environment too *)
       (get_func_call_params params)
       @ (get_aexpr_envt body 1)
       @ (get_decl_envts rest)
@@ -496,7 +523,7 @@ let rec compile_fun (fun_name : string) (body : tag aexpr) (args : string list) 
     IPush(Reg(RBP));
     IMov(Reg(RBP), Reg(RSP));
     ISub(Reg(RSP), Const(Int64.of_int (stack_alloc_space * word_size)));
-    (* TODO: change to true when implementing tail recursion *)
+    (* TODO: change to maybe when implementing tail recursion *)
   ] @ (compile_aexpr body env (List.length args) false) @ [
     IMov(Reg(RSP), Reg(RBP));
     IPop(Reg(RBP));
@@ -667,7 +694,6 @@ global our_code_starts_here" in
         ((List.flatten (List.map (fun decl -> compile_decl decl env) decls)
           @ (compile_fun "our_code_starts_here" expr [] env))
          @ (List.flatten (List.map compile_error_handler [
-             (* TODO: which of these errors do we still need? *)
              (label_COMP_NOT_NUM, err_COMP_NOT_NUM);
              (label_ARITH_NOT_NUM, err_ARITH_NOT_NUM);
              (label_NOT_BOOL, err_NOT_BOOL);
