@@ -353,15 +353,15 @@ let integration_tests = [
   t "short_circuit_and"
     "false && print(6)"
     "false";
-  t "short_circuit_let_and"
-    "let x = print(6) in false && x"
-    "false";
   t "short_circuit_or"
     "true || print(6)"
     "true";
+  t "short_circuit_let_and"
+    "let x = print(6) in false && x"
+    "6\nfalse";
   t "short_circuit_let_or"
     "let x = print(6) in true || x"
-    "true";
+    "6\ntrue";
   t "short_circuit_def_and"
     "def run(run): print(run)
     false && run(6)"
@@ -757,9 +757,9 @@ let desugar_tests = [
     ]
 
 let tests = (
-  (* tanf_tests @ *)
-  (* is_well_formed_tests @ *)
-  (* get_func_call_params_tests @ *)
+  tanf_tests @
+  is_well_formed_tests @
+  get_func_call_params_tests @
   integration_tests @
   desugar_tests
 )
