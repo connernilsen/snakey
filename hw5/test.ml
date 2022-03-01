@@ -115,6 +115,9 @@ let tanf_tests = [
   tanf_improved "expr_within_expr_within_expr"
     ("def f(a) : a\ndef g(b) : add1(b)\ndef h(b) : b\nh(f(g(1)))")
     ("(fun f#5(a#7): a#7)\n(fun g#8(b#11): add1(b#11))\n(fun h#12(b#14): b#14)\n(alet app_3 = (g#8(1)) in (alet app_2 = (f#5(app_3)) in (h#12(app_2))))");
+  tanf_improved "infinite_loop"
+    ("def f(a) : g(a)\ndef g(a) : f(a)\ng(1)")
+    ("(fun f#3(a#6): (g#7(a#6)))\n(fun g#7(a#10): (f#3(a#10)))\n(g#7(1))");
 ]
 
 let create_ss (file : string) (start_l : int) (start_c : int) (end_l : int) (end_c : int) : sourcespan =
@@ -344,6 +347,10 @@ let integration_tests = [
     "def run(run): print(run)
     let run = 5 in run(run)"
     "5\n5";
+  t "short_circuit_def"
+    "def run(run): print(run)
+    false && run(6)"
+    "false";
 ]
 
 let arg_envt_printer args =
