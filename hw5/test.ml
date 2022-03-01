@@ -397,6 +397,303 @@ let get_func_call_params_tests = [
       ] (get_func_call_params 
            ["1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9"])
         ~printer:arg_envt_printer);
+  "setup_call_to_func_save_regs_one_1">::(fun _ ->
+      assert_equal [
+        IPush(Reg(RDI));
+        IPush(Const(0L));
+        IMov(Reg(RDI), Const(1L));
+        ICall("label");
+        IAdd(Reg(RSP), Const(Int64.of_int word_size));
+        IPop(Reg(RDI));
+      ]
+        (setup_call_to_func 1 [Const(1L)] "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_one_2">::(fun _ ->
+      assert_equal [
+        IPush(Reg(RDI));
+        IPush(Const(0L));
+        IMov(Reg(RDI), RegOffset(word_size, RSP));
+        ICall("label");
+        IAdd(Reg(RSP), Const(Int64.of_int word_size));
+        IPop(Reg(RDI));
+      ]
+        (setup_call_to_func 1 [Reg(RDI)] "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_one_3">::(fun _ ->
+      assert_equal [
+        IPush(Reg(RDI));
+        IPush(Const(0L));
+        IMov(Reg(RDI), Const(0L));
+        IMov(Reg(RSI), Const(1L));
+        ICall("label");
+        IAdd(Reg(RSP), Const(Int64.of_int word_size));
+        IPop(Reg(RDI));
+      ]
+        (setup_call_to_func 1 [Const(0L); Const(1L)] "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_one_4">::(fun _ ->
+      assert_equal [
+        IPush(Reg(RDI));
+        IPush(Const(0L));
+        IMov(Reg(RDI), Const(0L));
+        IMov(Reg(RSI), RegOffset(word_size, RSP));
+        ICall("label");
+        IAdd(Reg(RSP), Const(Int64.of_int word_size));
+        IPop(Reg(RDI));
+      ]
+        (setup_call_to_func 1 [Const(0L); Reg(RDI)] "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_two_1">::(fun _ ->
+      assert_equal [
+        IPush(Reg(RDI));
+        IPush(Reg(RSI));
+        IMov(Reg(RDI), Const(1L));
+        ICall("label");
+        IPop(Reg(RSI));
+        IPop(Reg(RDI));
+      ]
+        (setup_call_to_func 2 [Const(1L)] "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_two_2">::(fun _ ->
+      assert_equal [
+        IPush(Reg(RDI));
+        IPush(Reg(RSI));
+        IMov(Reg(RDI), RegOffset(word_size, RSP));
+        ICall("label");
+        IPop(Reg(RSI));
+        IPop(Reg(RDI));
+      ]
+        (setup_call_to_func 2 [Reg(RDI)] "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_two_3">::(fun _ ->
+      assert_equal [
+        IPush(Reg(RDI));
+        IPush(Reg(RSI));
+        IMov(Reg(RDI), Const(0L));
+        IMov(Reg(RSI), Const(1L));
+        ICall("label");
+        IPop(Reg(RSI));
+        IPop(Reg(RDI));
+      ]
+        (setup_call_to_func 2 [Const(0L); Const(1L)] "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_two_4">::(fun _ ->
+      assert_equal [
+        IPush(Reg(RDI));
+        IPush(Reg(RSI));
+        IMov(Reg(RDI), RegOffset(0, RSP));
+        IMov(Reg(RSI), RegOffset(word_size, RSP));
+        ICall("label");
+        IPop(Reg(RSI));
+        IPop(Reg(RDI));
+      ]
+        (setup_call_to_func 2 [Reg(RSI); Reg(RDI)] "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_three_1">::(fun _ ->
+      assert_equal [
+        IPush(Reg(RDI));
+        IPush(Reg(RSI));
+        IPush(Reg(RDX));
+        IPush(Const(0L));
+        IMov(Reg(RDI), Const(1L));
+        ICall("label");
+        IAdd(Reg(RSP), Const(Int64.of_int word_size));
+        IPop(Reg(RDX));
+        IPop(Reg(RSI));
+        IPop(Reg(RDI));
+      ]
+        (setup_call_to_func 3 [Const(1L)] "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_three_2">::(fun _ ->
+      assert_equal [
+        IPush(Reg(RDI));
+        IPush(Reg(RSI));
+        IPush(Reg(RDX));
+        IPush(Const(0L));
+        IMov(Reg(RDI), RegOffset(word_size * 3, RSP));
+        ICall("label");
+        IAdd(Reg(RSP), Const(Int64.of_int word_size));
+        IPop(Reg(RDX));
+        IPop(Reg(RSI));
+        IPop(Reg(RDI));
+      ]
+        (setup_call_to_func 3 [Reg(RDI)] "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_three_3">::(fun _ ->
+      assert_equal [
+        IPush(Reg(RDI));
+        IPush(Reg(RSI));
+        IPush(Reg(RDX));
+        IPush(Const(0L));
+        IMov(Reg(RDI), Const(0L));
+        IMov(Reg(RSI), Const(1L));
+        ICall("label");
+        IAdd(Reg(RSP), Const(Int64.of_int word_size));
+        IPop(Reg(RDX));
+        IPop(Reg(RSI));
+        IPop(Reg(RDI));
+      ]
+        (setup_call_to_func 3 [Const(0L); Const(1L)] "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_three_4">::(fun _ ->
+      assert_equal [
+        IPush(Reg(RDI));
+        IPush(Reg(RSI));
+        IPush(Reg(RDX));
+        IPush(Const(0L));
+        IMov(Reg(RDI), RegOffset(word_size * 2, RSP));
+        IMov(Reg(RSI), RegOffset(word_size * 3, RSP));
+        ICall("label");
+        IAdd(Reg(RSP), Const(Int64.of_int word_size));
+        IPop(Reg(RDX));
+        IPop(Reg(RSI));
+        IPop(Reg(RDI));
+      ]
+        (setup_call_to_func 3 [Reg(RSI); Reg(RDI)] "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_five_equal">::(fun _ -> 
+    assert_equal [
+      IPush(Reg(RDI));
+      IPush(Reg(RSI));
+      IPush(Reg(RDX));
+      IPush(Reg(RCX));
+      IPush(Reg(R8));
+      IPush(Const(0L));
+      IMov(Reg(RDI), Const(1L));
+      IMov(Reg(RSI), Const(2L));
+      IMov(Reg(RDX), Const(3L));
+      IMov(Reg(RCX), Const(4L));
+      IMov(Reg(R8), Const(5L));
+      ICall("label");
+      IAdd(Reg(RSP), Const(8L));
+      IPop(Reg(R8));
+      IPop(Reg(RCX));
+      IPop(Reg(RDX));
+      IPop(Reg(RSI));
+      IPop(Reg(RDI));
+    ]
+      (setup_call_to_func 5
+         [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L)] 
+         "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_five_odd">::(fun _ -> 
+    assert_equal [
+      IPush(Reg(RDI));
+      IPush(Reg(RSI));
+      IPush(Reg(RDX));
+      IPush(Reg(RCX));
+      IPush(Reg(R8));
+      IMov(Reg(RDI), Const(1L));
+      IMov(Reg(RSI), Const(2L));
+      IMov(Reg(RDX), Const(3L));
+      IMov(Reg(RCX), Const(4L));
+      IMov(Reg(R8), Const(5L));
+      IMov(Reg(R9), Const(6L));
+      IPush(Const(7L));
+      ICall("label");
+      IAdd(Reg(RSP), Const(8L));
+      IPop(Reg(R8));
+      IPop(Reg(RCX));
+      IPop(Reg(RDX));
+      IPop(Reg(RSI));
+      IPop(Reg(RDI));
+    ]
+      (setup_call_to_func 5
+         [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
+         "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_six_equal">::(fun _ -> 
+    assert_equal [
+      IPush(Reg(RDI));
+      IPush(Reg(RSI));
+      IPush(Reg(RDX));
+      IPush(Reg(RCX));
+      IPush(Reg(R8));
+      IPush(Reg(R9));
+      IMov(Reg(RDI), Const(1L));
+      IMov(Reg(RSI), Const(2L));
+      IMov(Reg(RDX), Const(3L));
+      IMov(Reg(RCX), Const(4L));
+      IMov(Reg(R8), Const(5L));
+      IMov(Reg(R9), Const(6L));
+      ICall("label");
+      IPop(Reg(R9));
+      IPop(Reg(R8));
+      IPop(Reg(RCX));
+      IPop(Reg(RDX));
+      IPop(Reg(RSI));
+      IPop(Reg(RDI));
+    ]
+      (setup_call_to_func 6
+         [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L)] 
+         "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_six_odd">::(fun _ -> 
+    assert_equal [
+      IPush(Reg(RDI));
+      IPush(Reg(RSI));
+      IPush(Reg(RDX));
+      IPush(Reg(RCX));
+      IPush(Reg(R8));
+      IPush(Reg(R9));
+      IPush(Const(0L));
+      IMov(Reg(RDI), Const(1L));
+      IMov(Reg(RSI), Const(2L));
+      IMov(Reg(RDX), Const(3L));
+      IMov(Reg(RCX), Const(4L));
+      IMov(Reg(R8), Const(5L));
+      IMov(Reg(R9), Const(6L));
+      IPush(Const(7L));
+      ICall("label");
+      IAdd(Reg(RSP), Const(16L));
+      IPop(Reg(R9));
+      IPop(Reg(R8));
+      IPop(Reg(RCX));
+      IPop(Reg(RDX));
+      IPop(Reg(RSI));
+      IPop(Reg(RDI));
+    ]
+      (setup_call_to_func 6
+         [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
+         "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_six_even">::(fun _ -> 
+    assert_equal [
+      IPush(Reg(RDI));
+      IPush(Reg(RSI));
+      IPush(Reg(RDX));
+      IPush(Reg(RCX));
+      IPush(Reg(R8));
+      IPush(Reg(R9));
+      IMov(Reg(RDI), Const(1L));
+      IMov(Reg(RSI), Const(2L));
+      IMov(Reg(RDX), Const(3L));
+      IMov(Reg(RCX), Const(4L));
+      IMov(Reg(R8), Const(5L));
+      IMov(Reg(R9), Const(6L));
+      IPush(Const(8L));
+      IPush(Const(7L));
+      ICall("label");
+      IAdd(Reg(RSP), Const(16L));
+      IPop(Reg(R9));
+      IPop(Reg(R8));
+      IPop(Reg(RCX));
+      IPop(Reg(RDX));
+      IPop(Reg(RSI));
+      IPop(Reg(RDI));
+    ]
+      (setup_call_to_func 6
+         [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L)] 
+         "label") ~printer:to_asm);
+  "setup_call_to_func_save_regs_six_even">::(fun _ -> 
+    assert_equal [
+      IPush(Reg(RDI));
+      IPush(Reg(RSI));
+      IPush(Reg(RDX));
+      IPush(Reg(RCX));
+      IPush(Reg(R8));
+      IPush(Reg(R9));
+      IMov(Reg(RDI), RegOffset(word_size * 4, RSP));
+      IMov(Reg(RSI), RegOffset(word_size * 3, RSP));
+      IMov(Reg(RDX), RegOffset(word_size * 2, RSP));
+      IMov(Reg(RCX), RegOffset(word_size * 1, RSP));
+      IMov(Reg(R8), RegOffset(word_size * 0, RSP));
+      IMov(Reg(R9), RegOffset(word_size * 5, RSP));
+      ICall("label");
+      IPop(Reg(R9));
+      IPop(Reg(R8));
+      IPop(Reg(RCX));
+      IPop(Reg(RDX));
+      IPop(Reg(RSI));
+      IPop(Reg(RDI));
+    ]
+      (setup_call_to_func 6
+         [Reg(RSI); Reg(RDX); Reg(RCX); Reg(R8); Reg(R9); Reg(RDI)]
+         "label") ~printer:to_asm);
 ]
 
 let tests = (
@@ -409,5 +706,5 @@ let tests = (
 let suite = "suite">:::tests
 
 let () =
-  run_test_tt_main ("all_tests">:::[suite;  old_tests; input_file_test_suite ()])
+  run_test_tt_main ("all_tests">:::[suite; old_tests; input_file_test_suite ()])
 ;;

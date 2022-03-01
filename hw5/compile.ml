@@ -332,8 +332,12 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
  * calling the given function, and cleaning up the stack after 
  *)
 let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : string) : (instruction list) =
-  let leftover_args = max ((((List.length args) - 5) / 2) * 2) 0 in
-  let should_stack_align = ((leftover_args + num_regs_to_save) mod 2) != 0 in
+  let stack_args = max ((List.length args) - 6) 0 in
+  let should_stack_align = ((stack_args + num_regs_to_save) mod 2) != 0 in
+  let cleanup_stack = if should_stack_align 
+    then Int64.of_int ((stack_args + 1) * word_size)
+    else Int64.of_int (stack_args * word_size)
+  in
   (* Backs up ALL registers *)
   let rec backup_caller_saved_registers (rem_args : int) (registers : reg list) : (instruction list) =
     if rem_args = 0
@@ -387,8 +391,7 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : strin
   @ (setup_args args first_six_args_registers) 
   @ [ICall(label)]
   (* pop off values added to the stack *)
-  @ (if leftover_args = 0 then [] else [IAdd(Reg(RSP), Const((Int64.of_int (leftover_args * word_size))))])
-  @ (if should_stack_align then [IPop(Reg(RSI))] else [])
+  @ (if Int64.equal cleanup_stack 0L then [] else [IAdd(Reg(RSP), Const(cleanup_stack))])
   @ (restore_caller_saved_registers ((List.length first_six_args_registers) - num_regs_to_save) (List.rev first_six_args_registers))
 ;;
 

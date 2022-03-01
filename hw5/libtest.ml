@@ -314,6 +314,7 @@ let old_tests =
          "label") ~printer:to_asm);
   "setup_call_to_func_4">::(fun _ -> 
     assert_equal [
+      IPush(Const(0L));
       IMov(Reg(RDI), Const(1L));
       IMov(Reg(RSI), Const(2L));
       IMov(Reg(RDX), Const(3L));
@@ -343,6 +344,7 @@ let old_tests =
          "label") ~printer:to_asm);
   "setup_call_to_func_6">::(fun _ -> 
     assert_equal [
+      IPush(Const(0L));
       IMov(Reg(RDI), Const(1L));
       IMov(Reg(RSI), Const(2L));
       IMov(Reg(RDX), Const(3L));
