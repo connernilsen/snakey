@@ -167,6 +167,20 @@ test(1, 2)"
     (print_te 
        [UnboundFun("test",
                    (create_ss "unbound_fun" 1 0 1 6))]);
+  te "function_as_arg"
+    "def a(b):
+      b
+     def b(a):
+      a
+    b(a)"
+    (print_te [
+        UnboundId("a", create_ss "function_as_arg" 5 6 5 7);
+      ]);
+  te "let_call"
+    "let a = 1 in a(1)"
+    (print_te [
+        UnboundFun("a", create_ss "let_call" 1 13 1 17);
+      ]);
   te "arity_less"
     "def test(x): x test()"
     (print_te 
@@ -227,7 +241,7 @@ test(1, 2)"
         UnboundId("a", create_ss "nested_errors" 6 20 6 21);
         UnboundFun("hello", create_ss "nested_errors" 6 26 6 34);
         UnboundId("b", create_ss "nested_errors" 6 32 6 33);
-      ])
+      ]);
 ]
 
 let integration_tests = [
