@@ -191,16 +191,33 @@ test(1, 2)"
       5
     our_code_starts_here()"
     "5";
-  te "ocsh_dup_error"
-    "def our_code_starts_here():
-      5 || 1
-    our_code_starts_here()"
-    "5";
   te "print_dup"
     "def print():
       5
     print()"
     (print_te [ParseError("Parse error at line 1, col 9: token `print`")]);
+  te "func_invalid_bind"
+    "def test(1):
+      1
+    test(2)"
+    (print_te [ParseError("Parse error at line 1, col 10: token `1`")]);
+  te "nested_errors"
+    "def test(abc):
+      if add1(a * b):
+        a
+      else:
+        b
+    let a = test(1, a) in hello(b)"
+    (print_te [
+        UnboundId("a", create_ss "nested_errors" 2 14 2 15);
+        UnboundId("b", create_ss "nested_errors" 2 18 2 19);
+        UnboundId("a", create_ss "nested_errors" 3 8 3 9);
+        UnboundId("b", create_ss "nested_errors" 5 8 5 9);
+        Arity(1, 2, create_ss "nested_errors" 6 12 6 22);
+        UnboundId("a", create_ss "nested_errors" 6 20 6 21);
+        UnboundFun("hello", create_ss "nested_errors" 6 26 6 34);
+        UnboundId("b", create_ss "nested_errors" 6 32 6 33);
+      ])
 ]
 
 let integration_tests = [
@@ -318,6 +335,15 @@ let integration_tests = [
           f1(b, c, a + 1, i + 1)
     f1(0, 0, 0, 0)"
     "30";
+  t "function_def_in_let"
+    "def run(val):
+      let run = val in print(run)
+    let run = 5 in run(run)"
+    "5\n5";
+  t "function_def_in_let_2"
+    "def run(run): print(run)
+    let run = 5 in run(run)"
+    "5\n5";
 ]
 
 let arg_envt_printer args =
