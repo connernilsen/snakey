@@ -115,6 +115,17 @@ let rec find_dups_by (l : 'a list) (eq : ('a -> 'a -> bool)) : ('a * 'a) list =
 (* IMPLEMENT EVERYTHING BELOW *)
 
 let rename (e : tag program) : tag program =
+  let rec get_fun_env (decls : tag decl list) : (string * string) list =
+    match decls with 
+    | [] -> []
+    | DFun(name, _, _, tag) :: rest ->
+      let renamed = (sprintf "%s#%n" name tag) in 
+      (name, renamed) :: get_fun_env rest 
+  in 
+  let fun_env = match e with
+    | Program(decls, expr, tag) -> 
+      get_fun_env decls 
+  in
   let rec help (env : (string * string) list) (e : tag expr) : tag expr =
     match e with
     | EId(x, tag) -> 
@@ -134,7 +145,8 @@ let rename (e : tag program) : tag program =
     | EBool(b, tag) -> EBool(b, tag)
     (* Todo: maybe add character start/end so their functions don't overlap *)
     | EApp(funname, args, tag) -> 
-      EApp(funname, List.map (help env) args, tag)
+      let new_name = (find fun_env funname) in
+      EApp(new_name, List.map (help env) args, tag)
   (* Renames all bindings in a let string and returns them with new env *)
   and let_helper (env : (string * string) list) (binds : tag bind list) : (tag bind list * (string * string) list) =
     match binds with
@@ -156,9 +168,10 @@ let rename (e : tag program) : tag program =
     (* Todo: We don't need to rename decls since their names have to be unique, right? *)
     match e with 
     | DFun(name, args, body, tag) ->
+      let new_name = (find fun_env name) in
       let new_args, env = (rename_decl_args ([], []) args) in
       let new_body = (help env body) in 
-      DFun(name, new_args, new_body, tag)
+      DFun(new_name, new_args, new_body, tag)
   in
   match e with
   | Program(decls, expr, tag) -> 

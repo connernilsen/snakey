@@ -29,26 +29,6 @@ let tanf_improved (name : string) (program : string) (expected : string) = name>
 let teq name actual expected = name>::fun _ ->
   assert_equal expected actual ~printer:(fun s -> s);;
 
-(* naive_stack_allocation equality tests *)
-let tsae (name : string) (prog : string) (ex_envt : arg envt) = name>:: fun _ ->
-    let out = 
-      Ok(parse_string name prog, [])
-      |> (add_err_phase well_formed is_well_formed)
-      |> (add_phase tagged tag)
-      |> (add_phase renamed rename)
-      |> (add_phase anfed (fun p -> atag (anf p)))
-      |> (add_phase locate_bindings naive_stack_allocation)
-    in 
-    match out with 
-    | Ok((fin_prog, act_envt), _) ->
-      assert_equal ex_envt act_envt ~printer:(fun env ->
-          (String.concat ", " 
-            (List.map (fun (name, arg) ->
-                sprintf "%s: %s" name (arg_to_asm arg)) env)
-          ^ (string_of_aprogram fin_prog)))
-    | _ -> assert_failure "Invalid program"
-;;
-
 let tanf_tests = [
   tanf_improved "let_in_prim"
     "add1(let x = 5 in x)"
@@ -206,7 +186,21 @@ test(1, 2)"
     "-4611686018427387905" 
     (print_te [Overflow(-4611686018427387905L,
                         (create_ss "underflow" 1 0 1 20))]);
-  (* TODO: more wf tests *)
+  t "ocsh_dup"
+    "def our_code_starts_here():
+      5
+    our_code_starts_here()"
+    "5";
+  te "ocsh_dup_error"
+    "def our_code_starts_here():
+      5 || 1
+    our_code_starts_here()"
+    "5";
+  te "print_dup"
+    "def print():
+      5
+    print()"
+    (print_te [ParseError("Parse error at line 1, col 9: token `print`")]);
 ]
 
 let integration_tests = [
@@ -310,6 +304,20 @@ let integration_tests = [
         f1(b, n, i)
     f2(5, false, 0)"
     "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\ntrue";
+    tvg "valgrind_swap_tail_recursive"
+    "def f1(a, b, c, i):
+      if (a == 10) && (b == a) && (c == a):
+        i
+      else:
+        if (a > 10) || (b > 10) || (c > 10):
+          let x = print(a),
+              y = print(b),
+              z = print(c) in 
+            print(print(i) || 2)
+        else:
+          f1(b, c, a + 1, i + 1)
+    f1(0, 0, 0, 0)"
+    "30";
 ]
 
 let arg_envt_printer args =
@@ -365,53 +373,11 @@ let get_func_call_params_tests = [
         ~printer:arg_envt_printer);
 ]
 
-let naive_stack_allocation_tests = [
-  tsae "mutually_recursive_tsae"
-    "def abs_dec(num):
-      if num == 0:
-        0
-      else:
-        if num < 0:
-          num + 1
-        else:
-          num - 1
-    def t1(print_neg, num):
-      if print_neg:
-        t2(print(num * -1))
-      else:
-        t2(print(num))
-    def t2(val):
-      let dec_num = abs_dec(val) in
-      if dec_num == 0:
-        val > 0 
-      else:
-        let neg = t1(true, dec_num),
-            pos = t1(false, dec_num) in 
-            neg && pos
-    t1(false, 4)"
-    [];
-  tsae "reuse_reg_args_not_tail_recursive_tsae"
-    "def f1(b, n):
-      let x = print(b),
-          y = print(n) in 
-        isnum(n) && isbool(b) 
-        && isnum(y) && isbool(x)
-    def f2(n, b):
-      let x = print(f1(b, n)),
-          y = print(n),
-          z = print(b) in 
-        x && isnum(y) && isbool(z)
-        && isnum(n) && isbool(b)
-    f2(5, false)"
-    [];
-]
-
 let tests = (
   (* tanf_tests @ *)
   is_well_formed_tests
   @ get_func_call_params_tests
   @ integration_tests
-  @ naive_stack_allocation_tests
 )
 
 let suite = "suite">:::tests
