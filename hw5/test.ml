@@ -9,24 +9,29 @@ open Errors
 open Libtest
 open Phases
 
-let t name program expected = name>::test_run program name expected;;
+let check_name (name : string) : string =
+  if String.contains name ' '
+  then failwith (sprintf "Test name cannot contain ' ': %s" name)
+  else name
 
-let ta name program_and_env expected = name>::test_run_anf program_and_env name expected;;
+let t name program expected = (check_name name)>::test_run program name expected;;
 
-let te name program expected_err = name>::test_err program name expected_err;;
+let ta name program_and_env expected = (check_name name)>::test_run_anf program_and_env name expected;;
 
-let tvg name program expected = name>::test_run_valgrind program name expected;;
+let te name program expected_err = (check_name name)>::test_err program name expected_err;;
+
+let tvg name program expected = (check_name name)>::test_run_valgrind program name expected;;
   
-let tanf name program expected = name>::fun _ ->
+let tanf name program expected = (check_name name)>::fun _ ->
   assert_equal expected (anf (tag program)) ~printer:string_of_aprogram;;
 
 (* Transforms a program into ANF, and compares the output to expected *)
-let tanf_improved (name : string) (program : string) (expected : string) = name>:: fun _ ->
+let tanf_improved (name : string) (program : string) (expected : string) = (check_name name)>:: fun _ ->
     assert_equal (expected ^ "\n") (string_of_aprogram (anf (rename (tag (parse_string name program))))) ~printer:(fun s->s);
     (* check_scope_helper (fun _-> "ignored") (parse_string name program) []; *)
 ;;
 
-let teq name actual expected = name>::fun _ ->
+let teq name actual expected = (check_name name)>::fun _ ->
   assert_equal expected actual ~printer:(fun s -> s);;
 
 let tanf_tests = [
@@ -89,35 +94,35 @@ let tanf_tests = [
                 "(alet unary_12 = add1(x#21) in (unary_12 + 5))) in " ^ 
                   "(alet y#7 = sub1(if_9) in " ^ 
                     "(alet binop_4 = (x#21 + y#7) in sub1(binop_4)))))))");
-  tanf_improved "expr basic"
+  tanf_improved "expr_basic"
     ("def f() : 1\n1")
-    ("(fun f#2(): 1)\n1");
+    ("(fun f$2(): 1)\n1");
   tanf_improved "expr_call"
     ("def f() : 1\nf()")
-    ("(fun f#2(): 1)\n(f#2())");
+    ("(fun f$2(): 1)\n(f$2())");
   tanf_improved "expr_call_w_imm_args"
     ("def f(a, b) : 1\n(f(1, 2))")
-    ("(fun f#4(a#6, b#7): 1)\n(f#4(1, 2))");
+    ("(fun f$4(a#6, b#7): 1)\n(f$4(1, 2))");
   tanf_improved "expr_call_w_compound_args"
     ("def f(a, b) : 1\nf(add1(1), 2)")
-    ("(fun f#5(a#7, b#8): 1)\n(alet unary_2 = add1(1) in (f#5(unary_2, 2)))");
+    ("(fun f$5(a#7, b#8): 1)\n(alet unary_2 = add1(1) in (f$5(unary_2, 2)))");
   tanf_improved "expr_call_w_multiple_compound_args"
     ("def f(a, b) : 1\nf(add1(1), add1(1))")
-    ("(fun f#6(a#8, b#9): 1)\n(alet unary_2 = add1(1) in (alet unary_4 = add1(1) in (f#6(unary_2, unary_4))))");
+    ("(fun f$6(a#8, b#9): 1)\n(alet unary_2 = add1(1) in (alet unary_4 = add1(1) in (f$6(unary_2, unary_4))))");
   tanf_improved "multiple_expr_call_w_multiple_compound_args"
     ("def f(a, b) : 1\ndef g(a, b, c) : a == b\nlet c = f(add1(1), add1(1)), d = g(add1(2), add1(3), 4 + 3) in d")
-    ("(fun f#18(a#20, b#21): 1)\n" ^
-    "(fun g#22(a#26, b#27, c#28): (a#26 == b#27))\n" ^
-    "(alet unary_5 = add1(1) in (alet unary_7 = add1(1) in (alet c#3 = (f#18(unary_5, unary_7)) in (alet unary_11 = add1(2) in (alet unary_13 = add1(3) in (alet binop_15 = (4 + 3) in (alet d#9 = (g#22(unary_11, unary_13, binop_15)) in d#9)))))))");
+    ("(fun f$18(a#20, b#21): 1)\n" ^
+    "(fun g$22(a#26, b#27, c#28): (a#26 == b#27))\n" ^
+    "(alet unary_5 = add1(1) in (alet unary_7 = add1(1) in (alet c#3 = (f$18(unary_5, unary_7)) in (alet unary_11 = add1(2) in (alet unary_13 = add1(3) in (alet binop_15 = (4 + 3) in (alet d#9 = (g$22(unary_11, unary_13, binop_15)) in d#9)))))))");
   tanf_improved "expr_within_expr"
     ("def f(a) : a\ndef g(b) : add1(b)\nf(g(1))")
-    ("(fun f#4(a#6): a#6)\n(fun g#7(b#10): add1(b#10))\n(alet app_2 = (g#7(1)) in (f#4(app_2)))");
+    ("(fun f$4(a#6): a#6)\n(fun g$7(b#10): add1(b#10))\n(alet app_2 = (g$7(1)) in (f$4(app_2)))");
   tanf_improved "expr_within_expr_within_expr"
     ("def f(a) : a\ndef g(b) : add1(b)\ndef h(b) : b\nh(f(g(1)))")
-    ("(fun f#5(a#7): a#7)\n(fun g#8(b#11): add1(b#11))\n(fun h#12(b#14): b#14)\n(alet app_3 = (g#8(1)) in (alet app_2 = (f#5(app_3)) in (h#12(app_2))))");
+    ("(fun f$5(a#7): a#7)\n(fun g$8(b#11): add1(b#11))\n(fun h$12(b#14): b#14)\n(alet app_3 = (g$8(1)) in (alet app_2 = (f$5(app_3)) in (h$12(app_2))))");
   tanf_improved "infinite_loop"
     ("def f(a) : g(a)\ndef g(a) : f(a)\ng(1)")
-    ("(fun f#3(a#6): (g#7(a#6)))\n(fun g#7(a#10): (f#3(a#10)))\n(g#7(1))");
+    ("(fun f$3(a#6): (g$7(a#6)))\n(fun g$7(a#10): (f$3(a#10)))\n(g$7(1))");
 ]
 
 let create_ss (file : string) (start_l : int) (start_c : int) (end_l : int) (end_c : int) : sourcespan =
@@ -347,10 +352,14 @@ let integration_tests = [
     "def run(run): print(run)
     let run = 5 in run(run)"
     "5\n5";
-  t "short_circuit_def"
+  t "short_circuit_def_1"
     "def run(run): print(run)
     false && run(6)"
     "false";
+  t "short_circuit_def_2"
+    "def run(run): print(run)
+    true || run(6)"
+    "true";
 ]
 
 let arg_envt_printer args =

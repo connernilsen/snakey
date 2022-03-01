@@ -119,7 +119,7 @@ let rename (e : tag program) : tag program =
     match decls with 
     | [] -> []
     | DFun(name, _, _, tag) :: rest ->
-      let renamed = (sprintf "%s#%n" name tag) in 
+      let renamed = (sprintf "%s$%n" name tag) in 
       (name, renamed) :: get_fun_env rest 
   in 
   let fun_env = match e with
