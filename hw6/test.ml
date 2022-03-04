@@ -7,18 +7,60 @@ open Exprs
 open Phases
 open Errors
 
-let t name program input expected = name>::test_run ~args:[] ~std_input:input program name expected;;
-let ta name program input expected = name>::test_run_anf ~args:[] ~std_input:input program name expected;;
-let tgc name heap_size program input expected = name>::test_run ~args:[string_of_int heap_size] ~std_input:input program name expected;;
-let tvg name program input expected = name>::test_run_valgrind ~args:[] ~std_input:input program name expected;;
-let tvgc name heap_size program input expected = name>::test_run_valgrind ~args:[string_of_int heap_size] ~std_input:input program name expected;;
-let terr name program input expected = name>::test_err ~args:[] ~std_input:input program name expected;;
-let tgcerr name heap_size program input expected = name>::test_err ~args:[string_of_int heap_size] ~std_input:input program name expected;;
-let tanf name program input expected = name>::fun _ ->
+let check_name (name : string) : string =
+  if String.contains name ' '
+  then failwith (sprintf "Test name cannot contain ' ': %s" name)
+  else name
+
+let t name program input expected = (check_name name)>::test_run ~args:[] ~std_input:input program name expected;;
+let ta name program input expected = (check_name name)>::test_run_anf ~args:[] ~std_input:input program name expected;;
+let tgc name heap_size program input expected = (check_name name)>::test_run ~args:[string_of_int heap_size] ~std_input:input program name expected;;
+let tvg name program input expected = (check_name name)>::test_run_valgrind ~args:[] ~std_input:input program name expected;;
+let tvgc name heap_size program input expected = (check_name name)>::test_run_valgrind ~args:[string_of_int heap_size] ~std_input:input program name expected;;
+let terr name program input expected = (check_name name)>::test_err ~args:[] ~std_input:input program name expected;;
+let tgcerr name heap_size program input expected = (check_name name)>::test_err ~args:[string_of_int heap_size] ~std_input:input program name expected;;
+let tanf name program input expected = (check_name name)>::fun _ ->
   assert_equal expected (anf (tag program)) ~printer:string_of_aprogram;;
 
-let teq name actual expected = name>::fun _ ->
+let teq name actual expected = (check_name name)>::fun _ ->
   assert_equal expected actual ~printer:(fun s -> s);;
+
+let tdesugar (name : string) (program : string) (expected : string) = (check_name name)>:: fun _ ->
+    assert_equal (expected ^ "\n") (string_of_program (desugar (tag (parse_string name program)))) ~printer:(fun s->s);;
+
+let desugar_tests = [
+  tdesugar "desugar_and"
+  "true && false"
+  "\n(if true: (if false: true else: false) else: false)";
+  tdesugar "desugar_or"
+  "true || false"
+  "\n(if true: true else: (if false: true else: false))";
+  tdesugar "desugar_nested_or"
+  "true || true || false"
+  "\n(if (if true: true else: (if true: true else: false)): true else: (if false: true else: false))";
+  tdesugar "desugar_nested_and"
+  "true && true && false"
+  "\n(if (if true: (if true: true else: false) else: false): (if false: true else: false) else: false)";
+  tdesugar "desugar_print"
+  "true || print(1)"
+  "\n(if true: true else: (if print(1): true else: false))";
+  tdesugar "desugar_complex"
+  "def f1(b, n):
+      let x = print(b),
+          y = print(n) in 
+        isnum(n) && isbool(b) 
+  def f2(n, b):
+    let x = print(f1(b, n)),
+        y = print(n),
+        z = print(b) in 
+      x && isnum(y) && isbool(z)
+  f2(5, false)"
+  "(def f1(b, n):
+  (let x = print(b), y = print(n) in (if isnum(n): (if isbool(b): true else: false) else: false)))
+(def f2(n, b):
+  (let x = print((f1(b, n))), y = print(n), z = print(b) in (if (if x: (if isnum(y): true else: false) else: false): (if isbool(z): true else: false) else: false)))
+(f2(5, false))";
+    ]
 
 let pair_tests = [
   t "tup1" "let t = (4, (5, 6)) in
@@ -57,7 +99,9 @@ let input = [
 
 let suite =
 "suite">:::
- pair_tests @ input
+ (* pair_tests @ 
+ input @ *)
+ desugar_tests
 
 
 
