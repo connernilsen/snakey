@@ -31,7 +31,7 @@ let name_of_op1 op =
   | IsBool -> "IsBool"
   | IsTuple -> "IsTuple"
 
-let string_of_op2 op =
+let string_of_op2 (op: prim2) =
   match op with
   | Plus -> "+"
   | Minus -> "-"
@@ -43,7 +43,17 @@ let string_of_op2 op =
   | GreaterEq -> ">="
   | LessEq -> "<="
   | Eq -> "=="
-let name_of_op2 op =
+let string_of_sop2 (op: sprim2) =
+  match op with
+  | SPlus -> "+"
+  | SMinus -> "-"
+  | STimes -> "*"
+  | SGreater -> ">"
+  | SLess -> "<"
+  | SGreaterEq -> ">="
+  | SLessEq -> "<="
+  | SEq -> "=="
+let name_of_op2 (op: prim2) =
   match op with
   | Plus -> "Plus"
   | Minus -> "Minus"
@@ -146,7 +156,7 @@ and string_of_cexpr_with (print_a : 'a -> string) (c : 'a cexpr) : string =
   | CPrim1(op, e, a) ->
      sprintf "%s(%s)%s" (string_of_op1 op) (string_of_immexpr e) (print_a a)
   | CPrim2(op, left, right, a) ->
-     sprintf "(%s %s %s)%s" (string_of_immexpr left) (string_of_op2 op) (string_of_immexpr right) (print_a a)
+     sprintf "(%s %s %s)%s" (string_of_immexpr left) (string_of_sop2 op) (string_of_immexpr right) (print_a a)
   | CIf(cond, thn, els, a) ->
      sprintf "(if %s: %s else: %s)%s"
              (string_of_immexpr cond)

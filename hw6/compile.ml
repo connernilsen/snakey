@@ -215,6 +215,17 @@ let deepest_stack e env =
 
 (* IMPLEMENT EVERYTHING BELOW *)
 
+let prim2_to_sprim2 (p : prim2): sprim2 =
+  match p with
+  | And | Or -> raise (InternalCompilerError (sprintf "prim2 %s not allowed in desugared expr" (name_of_op2 p)))
+  | Plus -> SPlus
+  | Minus -> SMinus
+  | Times -> STimes
+  | Greater -> SGreater
+  | GreaterEq -> SGreaterEq
+  | Less -> SLess
+  | LessEq -> SLessEq
+  | Eq -> SEq
 
 let anf (p : tag program) : unit aprogram =
   let rec helpP (p : tag program) : unit aprogram =
@@ -236,9 +247,9 @@ let anf (p : tag program) : unit aprogram =
        let (arg_imm, arg_setup) = helpI arg in
        (CPrim1(op, arg_imm, ()), arg_setup)
     | EPrim2(op, left, right, _) ->
-       let (left_imm, left_setup) = helpI left in
-       let (right_imm, right_setup) = helpI right in
-       (CPrim2(op, left_imm, right_imm, ()), left_setup @ right_setup)
+      let (left_imm, left_setup) = helpI left in
+      let (right_imm, right_setup) = helpI right in
+      (CPrim2(prim2_to_sprim2 op, left_imm, right_imm, ()), left_setup @ right_setup)
     | EIf(cond, _then, _else, _) ->
        let (cond_imm, cond_setup) = helpI cond in
        (CIf(cond_imm, helpA _then, helpA _else, ()), cond_setup)
@@ -282,7 +293,7 @@ let anf (p : tag program) : unit aprogram =
        let tmp = sprintf "binop_%d" tag in
        let (left_imm, left_setup) = helpI left in
        let (right_imm, right_setup) = helpI right in
-       (ImmId(tmp, ()), left_setup @ right_setup @ [(tmp, CPrim2(op, left_imm, right_imm, ()))])
+       (ImmId(tmp, ()), left_setup @ right_setup @ [(tmp, CPrim2(prim2_to_sprim2 op, left_imm, right_imm, ()))])
     | EIf(cond, _then, _else, tag) ->
        let tmp = sprintf "if_%d" tag in
        let (cond_imm, cond_setup) = helpI cond in
@@ -710,22 +721,22 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
       @ [IJo(label_OVERFLOW)]
     in
     begin match op with
-      | Plus -> 
+      | SPlus -> 
         (generate_arith_func e1_reg e2_reg [IAdd(Reg(RAX), Reg(R10))])
-      | Minus -> 
+      | SMinus -> 
         (generate_arith_func e1_reg e2_reg [ISub(Reg(RAX), Reg(R10))])
-      | Times -> 
+      | STimes -> 
         (generate_arith_func e1_reg e2_reg 
            [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), Reg(R10))])
-      | Greater -> 
+      | SGreater -> 
         (generate_cmp_func e1_reg e2_reg (fun l -> IJg(l)) tag)
-      | GreaterEq -> 
+      | SGreaterEq -> 
         (generate_cmp_func e1_reg e2_reg (fun l -> IJge(l)) tag)
-      | Less -> 
+      | SLess -> 
         (generate_cmp_func e1_reg e2_reg (fun l -> IJl(l)) tag)
-      | LessEq ->
+      | SLessEq ->
         (generate_cmp_func e1_reg e2_reg (fun l -> IJle(l)) tag)
-      | Eq ->
+      | SEq ->
         let label_done = (sprintf "%s%n" label_DONE tag) in
         [IMov(Reg(RAX), e1_reg); IMov(Reg(R10), e2_reg); 
          ICmp(Reg(RAX), Reg(R10)); IMov(Reg(RAX), const_true);
