@@ -333,6 +333,7 @@ let run_if should_run f =
 ;;
 
 (* Add a desugaring phase somewhere in here *)
+(* Todo: Add comment explaining (1) why you chose the particular ordering of desguaring relative to the other phases that you did, and (2) what syntactic invariants each phase of your compiler expects. You may want to enforce those invariants by throwing InternalCompilerErrors if they’re violated. *)
 let compile_to_string (prog : sourcespan program pipeline) : string pipeline =
   prog
   |> (add_err_phase well_formed is_well_formed)
