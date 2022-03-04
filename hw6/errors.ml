@@ -16,7 +16,7 @@ exception Unsupported of string * sourcespan
 exception InternalCompilerError of string (* Major failure: message to show *)
 
 
-  
+
 
 (* Stringifies a list of compilation errors *)
 let print_errors (exns : exn list) : string list =
@@ -24,32 +24,32 @@ let print_errors (exns : exn list) : string list =
       match e with
       | ParseError msg -> msg
       | NotYetImplemented msg ->
-         "Not yet implemented: " ^ msg
+        "Not yet implemented: " ^ msg
       | Unsupported(msg, loc) ->
-         sprintf "Unsupported: %s at <%s>" msg (string_of_sourcespan loc)
+        sprintf "Unsupported: %s at <%s>" msg (string_of_sourcespan loc)
       | InternalCompilerError msg ->
-         "Internal Compiler Error: " ^ msg
+        "Internal Compiler Error: " ^ msg
       | UnboundId(x, loc) ->
-         sprintf "The identifier %s, used at <%s>, is not in scope" x (string_of_sourcespan loc)
+        sprintf "The identifier %s, used at <%s>, is not in scope" x (string_of_sourcespan loc)
       | UnboundFun(x, loc) ->
-         sprintf "The function name %s, used at <%s>, is not in scope" x (string_of_sourcespan loc)
+        sprintf "The function name %s, used at <%s>, is not in scope" x (string_of_sourcespan loc)
       | ShadowId(x, loc, existing) ->
-         sprintf "The identifier %s, defined at <%s>, shadows one defined at <%s>"
-                 x (string_of_sourcespan loc) (string_of_sourcespan existing)
+        sprintf "The identifier %s, defined at <%s>, shadows one defined at <%s>"
+          x (string_of_sourcespan loc) (string_of_sourcespan existing)
       | DuplicateId(x, loc, existing) ->
-         sprintf "The identifier %s, redefined at <%s>, duplicates one at <%s>"
-                 x (string_of_sourcespan loc) (string_of_sourcespan existing)
+        sprintf "The identifier %s, redefined at <%s>, duplicates one at <%s>"
+          x (string_of_sourcespan loc) (string_of_sourcespan existing)
       | DuplicateFun(x, loc, existing) ->
-         sprintf "The function name %s, redefined at <%s>, duplicates one at <%s>"
-                 x (string_of_sourcespan loc) (string_of_sourcespan existing)
+        sprintf "The function name %s, redefined at <%s>, duplicates one at <%s>"
+          x (string_of_sourcespan loc) (string_of_sourcespan existing)
       | Overflow(num, loc) ->
-         sprintf "The number literal %Ld, used at <%s>, is not supported in this language"
-                 num (string_of_sourcespan loc)
+        sprintf "The number literal %Ld, used at <%s>, is not supported in this language"
+          num (string_of_sourcespan loc)
       | Arity(expected, actual, loc) ->
-         sprintf "The function called at <%s> expected an arity of %d, but received %d arguments"
-                 (string_of_sourcespan loc) expected actual
+        sprintf "The function called at <%s> expected an arity of %d, but received %d arguments"
+          (string_of_sourcespan loc) expected actual
       | _ ->
-         sprintf "%s" (Printexc.to_string e)
+        sprintf "%s" (Printexc.to_string e)
     ) exns
 ;;
 

@@ -22,20 +22,20 @@ let parse (name : string) lexbuf : sourcespan program  =
     Parser.program Lexer.token lexbuf
   with
   | (Failure msg) as exn ->
-     if msg = "lexing: empty token" then
-       raise (ParseError (sprintf "Lexical error at %s" (string_of_position lexbuf.lex_curr_p)))
-     else
-       let bt = Printexc.get_raw_backtrace () in
-       Printexc.raise_with_backtrace exn bt (* make sure we throw with the same stack trace *)
+    if msg = "lexing: empty token" then
+      raise (ParseError (sprintf "Lexical error at %s" (string_of_position lexbuf.lex_curr_p)))
+    else
+      let bt = Printexc.get_raw_backtrace () in
+      Printexc.raise_with_backtrace exn bt (* make sure we throw with the same stack trace *)
   | Parsing.Parse_error ->
-     begin
-       let curr = lexbuf.Lexing.lex_curr_p in
-       let line = curr.Lexing.pos_lnum in
-       let cnum = curr.Lexing.pos_cnum - curr.Lexing.pos_bol in
-       let tok = Lexing.lexeme lexbuf in
-       raise (ParseError (sprintf "Parse error at line %d, col %d: token `%s`"
-                            line cnum tok))
-     end
+    begin
+      let curr = lexbuf.Lexing.lex_curr_p in
+      let line = curr.Lexing.pos_lnum in
+      let cnum = curr.Lexing.pos_cnum - curr.Lexing.pos_bol in
+      let tok = Lexing.lexeme lexbuf in
+      raise (ParseError (sprintf "Parse error at line %d, col %d: token `%s`"
+                           line cnum tok))
+    end
 
 (* Read a file into a string *)
 let string_of_file (file_name : string) : string =
@@ -56,8 +56,8 @@ let compile_string_to_string  (name : string) (input : string) : string pipeline
   (Ok(input, [])
    |> add_phase source (fun x -> x)
    |> add_err_phase parsed (fun input ->
-          try Ok(parse_string name input)
-          with err -> Error([err])))
+       try Ok(parse_string name input)
+       with err -> Error([err])))
   |> compile_to_string;;
 
 let compile_file_to_string (name : string) (input_file : string) : string pipeline =
@@ -81,9 +81,9 @@ let run_no_vg (program_name : string) args std_input : (string, string) result =
     | WEXITED 0 -> Ok(string_of_file rstdout_name)
     | WEXITED n -> Error(sprintf "Error %d: %s" n (string_of_file rstderr_name))
     | WSIGNALED n ->
-       Error(sprintf "Signalled with %d while running %s." n program_name)
+      Error(sprintf "Signalled with %d while running %s." n program_name)
     | WSTOPPED n ->
-       Error(sprintf "Stopped with signal %d while running %s." n program_name) in
+      Error(sprintf "Stopped with signal %d while running %s." n program_name) in
   List.iter close [rstdout; rstderr; rstdin];
   List.iter unlink [rstdout_name; rstderr_name];
   result
@@ -103,9 +103,9 @@ let run_vg (program_name : string) args std_input : (string, string) result =
     | WEXITED 0, false -> Error("Stdout: " ^ (string_of_file rstdout_name) ^ "\n" ^ "Valgrind: \n" ^ vg_str)
     | WEXITED n, _ -> Error(sprintf "Error %d: %s" n vg_str)
     | WSIGNALED n, _ ->
-       Error(sprintf "Signalled with %d while running %s." n program_name)
+      Error(sprintf "Signalled with %d while running %s." n program_name)
     | WSTOPPED n, _ ->
-       Error(sprintf "Stopped with signal %d while running %s." n program_name) in
+      Error(sprintf "Stopped with signal %d while running %s." n program_name) in
   List.iter close [rstdout; rstderr; rstdin];
   List.iter unlink [rstdout_name; rstderr_name];
   result
@@ -120,19 +120,19 @@ let run_asm (asm_string : string) (out : string) (runner : string -> string list
 
   let try_running = match status with
     | WEXITED 0 ->
-       Ok(string_of_file bstdout_name)
+      Ok(string_of_file bstdout_name)
     | WEXITED n ->
-       Error(sprintf "Finished with error while building %s:\nStderr:\n%s\nStdout:\n%s" out
-               (string_of_file bstderr_name) (string_of_file bstdout_name))
+      Error(sprintf "Finished with error while building %s:\nStderr:\n%s\nStdout:\n%s" out
+              (string_of_file bstderr_name) (string_of_file bstdout_name))
     | WSIGNALED n ->
-       Error(sprintf "Signalled with %d while building %s." n out)
+      Error(sprintf "Signalled with %d while building %s." n out)
     | WSTOPPED n ->
-       Error(sprintf "Stopped with signal %d while building %s." n out) in
+      Error(sprintf "Stopped with signal %d while building %s." n out) in
 
   let result = match try_running with
     | Error(_) -> try_running
     | Ok(msg) ->
-       runner out args std_input in
+      runner out args std_input in
 
   List.iter close [bstdout; bstderr; bstdin];
   List.iter unlink [bstdout_name; bstderr_name];
@@ -146,7 +146,7 @@ let run p out runner args std_input =
   match maybe_asm_string with
   | Error(errs, _) -> Error(ExtString.String.join "\n" (print_errors errs))
   | Ok(asm_string, _) ->
-     run_asm asm_string out runner args std_input
+    run_asm asm_string out runner args std_input
 
 let run_anf p out runner args std_input =
   let maybe_asm_string =
@@ -157,21 +157,21 @@ let run_anf p out runner args std_input =
   match maybe_asm_string with
   | Error(errs) -> Error(ExtString.String.join "\n" (print_errors errs))
   | Ok(asm_string) ->
-     run_asm asm_string out runner args std_input
+    run_asm asm_string out runner args std_input
 
 
 type compile_opts = { valgrind: bool; infer: bool; check: bool; heap_size: int option }
 
 let starts_with target src =
   String.length src >= String.length target &&
-    String.sub src 0 (String.length target) = target
+  String.sub src 0 (String.length target) = target
 ;;
 let read_options filename : compile_opts =
   let opts =
     if Sys.file_exists filename then String.split_on_char '\n' (string_of_file filename) else [] in
   let heap_size = match (List.find_opt (starts_with "heap ") opts) with
-                         | None -> None
-                         | Some str -> Some (Scanf.sscanf str "heap %d" (fun h -> h)) in
+    | None -> None
+    | Some str -> Some (Scanf.sscanf str "heap %d" (fun h -> h)) in
   { valgrind = List.mem "valgrind" opts;
     infer = List.mem "infer" opts;
     check = List.mem "check" opts;
@@ -215,10 +215,10 @@ let test_err ?should_infer:(should_infer=false) ?should_check:(should_check=fals
     result
     ~printer:result_printer
     ~cmp: (fun check result ->
-      match check, result with
-      | Error(expect_msg), Error(actual_message) -> String.exists actual_message expect_msg
-      | _ -> false
-    )
+        match check, result with
+        | Error(expect_msg), Error(actual_message) -> String.exists actual_message expect_msg
+        | _ -> false
+      )
 
 
 let test_run_input filename ?args:(args=[]) expected test_ctxt =
@@ -247,10 +247,10 @@ let test_does_run filename test_ctxt =
   let runner = if opts.valgrind then test_run_valgrind else test_run in
   runner ~args:args ~std_input:input prog ("do_pass/" ^ filename) output test_ctxt
     ~cmp: (fun check result ->
-      match check, result with
-      | Ok(expect_msg), Ok(actual_message) -> String.exists actual_message expect_msg
-      | _ -> false
-    )
+        match check, result with
+        | Ok(expect_msg), Ok(actual_message) -> String.exists actual_message expect_msg
+        | _ -> false
+      )
 
 let test_does_err filename test_ctxt =
   let filename = Filename.remove_extension filename in
@@ -286,7 +286,7 @@ let test_doesnt_run filename test_ctxt =
     with err -> Error(Printexc.to_string err) in
   match result with
   | Ok(unexpected) ->
-     assert_failure (sprintf "Expected program to fail, but it didn't:\nReceived: %s" unexpected)
+    assert_failure (sprintf "Expected program to fail, but it didn't:\nReceived: %s" unexpected)
   | Error _ -> assert_bool (sprintf "Program %s currently fails (as expected for now)" filename) true
 
 
@@ -310,7 +310,7 @@ let test_doesnt_err filename test_ctxt =
   match result with
   | Ok _ -> assert_bool (sprintf "Program %s currently runs (as expected for now)" filename) true
   | Error(errmsg) ->
-     assert_failure (sprintf "Expected program to succeed, but it didn't:\nReceived: %s" errmsg)
+    assert_failure (sprintf "Expected program to succeed, but it didn't:\nReceived: %s" errmsg)
 
 
 let input_file_test_suite () =
@@ -319,8 +319,8 @@ let input_file_test_suite () =
       List.filter (fun f -> Filename.check_suffix f ext) (Array.to_list (Sys.readdir dir))
     with _ -> [] in
   "input-file-suite">:::[
-      "do_pass"  >:::(List.map (fun f -> f>::test_does_run f)   (safe_readdir "input/do_pass"   ".egg"));
-      "do_err"   >:::(List.map (fun f -> f>::test_does_err f)   (safe_readdir "input/do_err"    ".egg"));
-      "dont_pass">:::(List.map (fun f -> f>::test_doesnt_run f) (safe_readdir "input/dont_pass" ".egg"));
-      "dont_err" >:::(List.map (fun f -> f>::test_doesnt_err f) (safe_readdir "input/dont_err"  ".egg"))
-    ]
+    "do_pass"  >:::(List.map (fun f -> f>::test_does_run f)   (safe_readdir "input/do_pass"   ".egg"));
+    "do_err"   >:::(List.map (fun f -> f>::test_does_err f)   (safe_readdir "input/do_err"    ".egg"));
+    "dont_pass">:::(List.map (fun f -> f>::test_doesnt_run f) (safe_readdir "input/dont_pass" ".egg"));
+    "dont_err" >:::(List.map (fun f -> f>::test_doesnt_err f) (safe_readdir "input/dont_err"  ".egg"))
+  ]

@@ -4,7 +4,7 @@ open Phases
 open Exprs
 open Assembly
 open Errors
-       
+
 type 'a envt = (string * 'a) list
 
 let rec is_anf (e : 'a expr) : bool =
@@ -12,8 +12,8 @@ let rec is_anf (e : 'a expr) : bool =
   | EPrim1(_, e, _) -> is_imm e
   | EPrim2(_, e1, e2, _) -> is_imm e1 && is_imm e2
   | ELet(binds, body, _) ->
-     List.for_all (fun (_, e, _) -> is_anf e) binds
-     && is_anf body
+    List.for_all (fun (_, e, _) -> is_anf e) binds
+    && is_anf body
   | EIf(cond, thn, els, _) -> is_imm cond && is_anf thn && is_anf els
   | _ -> is_imm e
 and is_imm e =
@@ -68,12 +68,12 @@ let rec find ls x =
   match ls with
   | [] -> raise (InternalCompilerError (sprintf "Name %s not found" x))
   | (y,v)::rest ->
-     if y = x then v else find rest x
+    if y = x then v else find rest x
 let rec find_opt ls x =
   match ls with
   | [] -> None
   | (y,v)::rest ->
-     if y = x then Some v else find_opt rest x
+    if y = x then Some v else find_opt rest x
 
 let count_vars e =
   let rec helpA e =
@@ -93,21 +93,21 @@ let rec replicate x i =
 
 let rec find_decl (ds : 'a decl list) (name : string) : 'a decl option =
   match ds with
-    | [] -> None
-    | (DFun(fname, _, _, _) as d)::ds_rest ->
-      if name = fname then Some(d) else find_decl ds_rest name
+  | [] -> None
+  | (DFun(fname, _, _, _) as d)::ds_rest ->
+    if name = fname then Some(d) else find_decl ds_rest name
 
 let rec find_one (l : 'a list) (elt : 'a) : bool =
   match l with
-    | [] -> false
-    | x::xs -> (elt = x) || (find_one xs elt)
+  | [] -> false
+  | x::xs -> (elt = x) || (find_one xs elt)
 
 let rec find_dup (l : 'a list) : 'a option =
   match l with
-    | [] -> None
-    | [x] -> None
-    | x::xs ->
-      if find_one xs x then Some(x) else find_dup xs
+  | [] -> None
+  | [x] -> None
+  | x::xs ->
+    if find_one xs x then Some(x) else find_dup xs
 ;;
 
 type funenvt = call_type envt;;
@@ -121,41 +121,41 @@ let rename_and_tag (p : tag program) : tag program =
   let rec rename (env : string envt) p =
     match p with
     | Program(decls, body, tag) ->
-       let rec addToEnv funenv decl =
-         match decl with
-         | DFun(name, _, _, _) -> (name, Snake)::funenv in
-       let initial_funenv = List.map (fun (name, ct) -> (name, ct)) initial_fun_env in
-       let funenv = List.fold_left addToEnv initial_funenv decls in
-       Program(List.map (helpD funenv env) decls, helpE funenv env body, tag)
+      let rec addToEnv funenv decl =
+        match decl with
+        | DFun(name, _, _, _) -> (name, Snake)::funenv in
+      let initial_funenv = List.map (fun (name, ct) -> (name, ct)) initial_fun_env in
+      let funenv = List.fold_left addToEnv initial_funenv decls in
+      Program(List.map (helpD funenv env) decls, helpE funenv env body, tag)
   and helpD funenv env decl =
     match decl with
     | DFun(name, args, body, tag) ->
-       let (newArgs, env') = helpBS env args in
-       DFun(name, newArgs, helpE funenv env' body, tag)
+      let (newArgs, env') = helpBS env args in
+      DFun(name, newArgs, helpE funenv env' body, tag)
   and helpB env b =
     match b with
     | BBlank tag -> (b, env)
     | BName(name, allow_shadow, tag) ->
-       let name' = sprintf "%s_%d" name tag in
-       (BName(name', allow_shadow, tag), (name, name') :: env)
+      let name' = sprintf "%s_%d" name tag in
+      (BName(name', allow_shadow, tag), (name, name') :: env)
     | BTuple(binds, tag) ->
-       let (binds', env') = helpBS env binds in
-       (BTuple(binds', tag), env')
+      let (binds', env') = helpBS env binds in
+      (BTuple(binds', tag), env')
   and helpBS env (bs : tag bind list) =
     match bs with
     | [] -> ([], env)
     | b::bs ->
-       let (b', env') = helpB env b in
-       let (bs', env'') = helpBS env' bs in
-       (b'::bs', env'')
+      let (b', env') = helpB env b in
+      let (bs', env'') = helpBS env' bs in
+      (b'::bs', env'')
   and helpBG funenv env (bindings : tag binding list) =
     match bindings with
     | [] -> ([], env)
     | (b, e, a)::bindings ->
-       let (b', env') = helpB env b in
-       let e' = helpE funenv env e in
-       let (bindings', env'') = helpBG funenv env' bindings in
-       ((b', e', a)::bindings', env'')
+      let (b', env') = helpB env b in
+      let e' = helpE funenv env e in
+      let (bindings', env'') = helpBG funenv env' bindings in
+      ((b', e', a)::bindings', env'')
   and helpE funenv env e =
     match e with
     | ESeq(e1, e2, tag) -> ESeq(helpE funenv env e1, helpE funenv env e2, tag)
@@ -169,16 +169,16 @@ let rename_and_tag (p : tag program) : tag program =
     | EBool _ -> e
     | ENil _ -> e
     | EId(name, tag) ->
-       (try
+      (try
          EId(find env name, tag)
        with Not_found -> e)
     | EApp(name, args, native, tag) ->
-       let call_type = match find_opt funenv name with None -> native | Some ct -> ct in
-       EApp(name, List.map (helpE funenv env) args, call_type, tag)
+      let call_type = match find_opt funenv name with None -> native | Some ct -> ct in
+      EApp(name, List.map (helpE funenv env) args, call_type, tag)
     | ELet(binds, body, tag) ->
-       let (binds', env') = helpBG funenv env binds in
-       let body' = helpE funenv env' body in
-       ELet(binds', body', tag)
+      let (binds', env') = helpBG funenv env binds in
+      let body' = helpE funenv env' body in
+      ELet(binds', body', tag)
   in (rename [] p)
 ;;
 
@@ -236,23 +236,23 @@ let anf (p : tag program) : unit aprogram =
   and helpD (d : tag decl) : unit adecl =
     match d with
     | DFun(name, args, body, _) ->
-       let args = List.map (fun a ->
-                      match a with
-                      | BName(a, _, _) -> a
-                      | _ -> raise (NotYetImplemented("Finish this"))) args in
-       ADFun(name, args, helpA body, ())
+      let args = List.map (fun a ->
+          match a with
+          | BName(a, _, _) -> a
+          | _ -> raise (NotYetImplemented("Finish this"))) args in
+      ADFun(name, args, helpA body, ())
   and helpC (e : tag expr) : (unit cexpr * (string * unit cexpr) list) = 
     match e with
     | EPrim1(op, arg, _) ->
-       let (arg_imm, arg_setup) = helpI arg in
-       (CPrim1(op, arg_imm, ()), arg_setup)
+      let (arg_imm, arg_setup) = helpI arg in
+      (CPrim1(op, arg_imm, ()), arg_setup)
     | EPrim2(op, left, right, _) ->
       let (left_imm, left_setup) = helpI left in
       let (right_imm, right_setup) = helpI right in
       (CPrim2(prim2_to_sprim2 op, left_imm, right_imm, ()), left_setup @ right_setup)
     | EIf(cond, _then, _else, _) ->
-       let (cond_imm, cond_setup) = helpI cond in
-       (CIf(cond_imm, helpA _then, helpA _else, ()), cond_setup)
+      let (cond_imm, cond_setup) = helpI cond in
+      (CIf(cond_imm, helpA _then, helpA _else, ()), cond_setup)
     | ELet([], body, _) -> helpC body
     | ELet(_::_, body, _) -> raise (NotYetImplemented "Finish this")
     (* | ELet(((bind, _, _), exp, _)::rest, body, pos) ->
@@ -260,8 +260,8 @@ let anf (p : tag program) : unit aprogram =
      *    let (body_ans, body_setup) = helpC (ELet(rest, body, pos)) in
      *    (body_ans, exp_setup @ [(bind, exp_ans)] @ body_setup) *)
     | EApp(funname, args, ct, _) ->
-       let (new_args, new_setup) = List.split (List.map helpI args) in
-       (CApp(funname, new_args, ct, ()), List.concat new_setup)
+      let (new_args, new_setup) = List.split (List.map helpI args) in
+      (CApp(funname, new_args, ct, ()), List.concat new_setup)
     | ETuple(e, _) -> 
       let id_setup = List.map helpI e in 
       let ids = (List.map (fun (id, _) -> id) id_setup) in
@@ -286,22 +286,22 @@ let anf (p : tag program) : unit aprogram =
     | EId(name, _) -> (ImmId(name, ()), [])
 
     | EPrim1(op, arg, tag) ->
-       let tmp = sprintf "unary_%d" tag in
-       let (arg_imm, arg_setup) = helpI arg in
-       (ImmId(tmp, ()), arg_setup @ [(tmp, CPrim1(op, arg_imm, ()))])
+      let tmp = sprintf "unary_%d" tag in
+      let (arg_imm, arg_setup) = helpI arg in
+      (ImmId(tmp, ()), arg_setup @ [(tmp, CPrim1(op, arg_imm, ()))])
     | EPrim2(op, left, right, tag) ->
-       let tmp = sprintf "binop_%d" tag in
-       let (left_imm, left_setup) = helpI left in
-       let (right_imm, right_setup) = helpI right in
-       (ImmId(tmp, ()), left_setup @ right_setup @ [(tmp, CPrim2(prim2_to_sprim2 op, left_imm, right_imm, ()))])
+      let tmp = sprintf "binop_%d" tag in
+      let (left_imm, left_setup) = helpI left in
+      let (right_imm, right_setup) = helpI right in
+      (ImmId(tmp, ()), left_setup @ right_setup @ [(tmp, CPrim2(prim2_to_sprim2 op, left_imm, right_imm, ()))])
     | EIf(cond, _then, _else, tag) ->
-       let tmp = sprintf "if_%d" tag in
-       let (cond_imm, cond_setup) = helpI cond in
-       (ImmId(tmp, ()), cond_setup @ [(tmp, CIf(cond_imm, helpA _then, helpA _else, ()))])
+      let tmp = sprintf "if_%d" tag in
+      let (cond_imm, cond_setup) = helpI cond in
+      (ImmId(tmp, ()), cond_setup @ [(tmp, CIf(cond_imm, helpA _then, helpA _else, ()))])
     | EApp(funname, args, ct, tag) ->
-       let tmp = sprintf "app_%d" tag in
-       let (new_args, new_setup) = List.split (List.map helpI args) in
-       (ImmId(tmp, ()), (List.concat new_setup) @ [(tmp, CApp(funname, new_args, ct, ()))])
+      let tmp = sprintf "app_%d" tag in
+      let (new_args, new_setup) = List.split (List.map helpI args) in
+      (ImmId(tmp, ()), (List.concat new_setup) @ [(tmp, CApp(funname, new_args, ct, ()))])
     | ELet([], body, _) -> helpI body
     | ELet(_::_, body, _) -> raise (NotYetImplemented "Finish this")
     (* | ELet(((bind, _, _), exp, _)::rest, body, pos) ->
@@ -344,7 +344,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
   in
   match p with
   | Program(decls, body, _) ->
-     Error([NotYetImplemented "Implement well-formedness checking for programs"])
+    Error([NotYetImplemented "Implement well-formedness checking for programs"])
 ;;
 
 
@@ -352,8 +352,8 @@ let desugar (p : tag program) : unit program =
   let gensym =
     let next = ref 0 in
     (fun name ->
-      next := !next + 1;
-      sprintf "%s_%d" name (!next)) in
+       next := !next + 1;
+       sprintf "%s_%d" name (!next)) in
   let rec helpE (e : tag expr) : unit expr (* other parameters may be needed here *) =
     match e with 
     | ESeq(e1, e2, _) -> raise (NotYetImplemented "Finish the remaining cases")
@@ -361,38 +361,38 @@ let desugar (p : tag program) : unit program =
     | EGetItem(item, idx, _) -> EGetItem(helpE item, helpE idx, ())
     | ESetItem(item, idx, set, _) -> ESetItem(helpE item, helpE idx, helpE set, ())
     | ELet(binds, body, _) -> raise (NotYetImplemented "Finish the remaining cases")
-       (* ELet(List.map (fun (name, expr, _) -> (name, helpE expr, ())) binds, helpE body, ()) *)
+    (* ELet(List.map (fun (name, expr, _) -> (name, helpE expr, ())) binds, helpE body, ()) *)
     | EPrim1(op, e, _) ->
-       EPrim1(op, helpE e, ())
+      EPrim1(op, helpE e, ())
     | EPrim2(op, e1, e2, a) ->
       begin
-       match op with
-       | And -> EIf(
-          helpE e1,
-          EIf(
-            helpE e2,
-            EBool(true, ()),
+        match op with
+        | And -> EIf(
+            helpE e1,
+            EIf(
+              helpE e2,
+              EBool(true, ()),
+              EBool(false, ()),
+              ()
+            ),
             EBool(false, ()),
             ()
-          ),
-          EBool(false, ()),
-          ()
-        )
-       | Or -> EIf(
-          helpE e1,
-          EBool(true, ()),
-          EIf(
-          helpE e2,
-          EBool(true, ()),
-          EBool(false, ()),
-          ()
-          ),
-        ()
-        )
+          )
+        | Or -> EIf(
+            helpE e1,
+            EBool(true, ()),
+            EIf(
+              helpE e2,
+              EBool(true, ()),
+              EBool(false, ()),
+              ()
+            ),
+            ()
+          )
         | p -> EPrim2(p, helpE e1, helpE e2, ())
       end
     | EIf(cond, thn, els, _) ->
-       EIf(helpE cond, helpE thn, helpE els, ())
+      EIf(helpE cond, helpE thn, helpE els, ())
     | ENumber(n, _) -> ENumber(n, ())
     | EBool(b, _) -> EBool(b, ())
     | ENil(_) -> raise (NotYetImplemented "Finish the remaining cases")
@@ -401,16 +401,16 @@ let desugar (p : tag program) : unit program =
   and helpD (d : tag decl) : unit decl (* other parameters may be needed here *) =
     match d with
     | DFun(_, _, _, _) -> raise (NotYetImplemented "Finish the remaining cases")
-      (* DFun(name, List.map (fun (name, _) -> (name, ())) args, helpE body, ()) *)
+    (* DFun(name, List.map (fun (name, _) -> (name, ())) args, helpE body, ()) *)
   in
   match p with
   | Program(decls, body, _) ->
-      Program(List.map helpD decls, helpE body, ())
+    Program(List.map helpD decls, helpE body, ())
 ;;
 
 (* sets up a function call (x64) by putting args in the proper registers/stack positions, 
  * calling the given function, and cleaning up the stack after 
- *)
+*)
 let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : string) : (instruction list) =
   (* how many call args must go on the stack *)
   let stack_args = max ((List.length args) - 6) 0 in
@@ -420,7 +420,7 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : strin
   (* how many args should be popped off the stack before possible register 
    * restoration? *)
   let cleanup_stack = if should_stack_align 
-    (* if stack alignment was needed, then pop off pushed args + the extra align value *)
+  (* if stack alignment was needed, then pop off pushed args + the extra align value *)
     then Int64.of_int ((stack_args + 1) * word_size)
     (* otherwise, just pop off pushed args *)
     else Int64.of_int (stack_args * word_size)
@@ -448,7 +448,7 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : strin
   in
   (* sets up args by putting them in the first 6 registers needed for a call
    * and placing any remaining values on the stack 
-   *)
+  *)
   let rec setup_args (args : arg list) (registers : reg list) : (instruction list) =
     (* assoc list of args to their position in the call regs list *)
     let reg_assoc_list = List.mapi (fun pos value -> (value, pos + 1)) first_six_args_registers in
@@ -456,10 +456,10 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : strin
      * reverses the args list before pushing on the stack so they're in the right order *)
     let use_reg (next_arg : arg) (rest_args : arg list) : instruction list =
       match registers with 
-        | [] -> IPush(next_arg) :: (setup_args rest_args registers)
-        | last_reg :: [] -> 
-          IMov(Reg(last_reg), next_arg) :: (setup_args (List.rev rest_args) [])
-        | next_reg :: rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
+      | [] -> IPush(next_arg) :: (setup_args rest_args registers)
+      | last_reg :: [] -> 
+        IMov(Reg(last_reg), next_arg) :: (setup_args (List.rev rest_args) [])
+      | next_reg :: rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
     in
     (* if a value being passed into the next function is an arg passed into this
      * function by a register, then convert that reference to 
@@ -557,7 +557,7 @@ let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =
   | AProgram(decls, expr, _) ->
     (prog, 
      ((get_decl_envts decls)
-     @ (get_aexpr_envt expr 1)))
+      @ (get_aexpr_envt expr 1)))
 ;;
 
 (* creates a jump instruction to to_instr if testing the value in RAX with mask 
@@ -644,7 +644,7 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
       | Add1 -> 
         IMov(Reg(RAX), e_reg) ::
         (num_tag_check label_ARITH_NOT_NUM 
-          [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(2L))); IJo(label_OVERFLOW)])
+           [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(2L))); IJo(label_OVERFLOW)])
       | Sub1 -> 
         IMov(Reg(RAX), e_reg) ::
         (num_tag_check label_ARITH_NOT_NUM 
@@ -661,27 +661,27 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
           ILabel(label_not_bool);
           IMov(Reg(RAX), const_false);
           ILabel(label_done);
-          ]
+        ]
       | IsNum ->
         let label_not_num = (sprintf "%s%n" label_IS_NOT_NUM tag) in 
         let label_done = (sprintf "%s%n" label_DONE tag) in
         IMov(Reg(RAX), e_reg) :: 
         (* check if value is a num, and if not, then jump to label_not_num *)
         (num_tag_check label_not_num 
-          [
-            IMov(Reg(RAX), const_true);
-            IJmp(label_done);
-            ILabel(label_not_num);
-            IMov(Reg(RAX), const_false);
-            ILabel(label_done);
-          ])
+           [
+             IMov(Reg(RAX), const_true);
+             IJmp(label_done);
+             ILabel(label_not_num);
+             IMov(Reg(RAX), const_false);
+             ILabel(label_done);
+           ])
       | Not -> 
         IMov(Reg(RAX), e_reg) ::
         (bool_tag_check e_reg label_NOT_BOOL)
         @ [ 
           IMov(Reg(R10), bool_mask);
           IXor(Reg(RAX), Reg(R10));
-          ]
+        ]
       | PrintStack -> raise (NotYetImplemented "Fill in here")
     end
   | CPrim2(op, l, r, tag) ->
@@ -743,7 +743,7 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
          IJe(label_done); IMov(Reg(RAX), const_false);
          ILabel(label_done)]
     end
-    (* todo: figure out what to do with native call types vs not native *)
+  (* todo: figure out what to do with native call types vs not native *)
   | CApp(fun_name, args, _, _) -> (setup_call_to_func num_args (List.map (fun e -> compile_imm e env) args) fun_name)
   | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env)]
 and compile_imm e env =
@@ -762,18 +762,18 @@ let compile_decl (d : tag adecl) (env: arg envt) : instruction list =
 let compile_prog ((anfed : tag aprogram), (env: arg envt)) : string =
   match anfed with
   | AProgram(decls, body, _) ->
-     let comp_decls = raise (NotYetImplemented "... do stuff with decls ...") in
-     let (body_prologue, comp_body, body_epilogue) = raise (NotYetImplemented "... do stuff with body ...") in
-     
-     let heap_start = [
-         ILineComment("heap start");
-         IInstrComment(IMov(Reg(heap_reg), Reg(List.nth first_six_args_registers 0)), "Load heap_reg with our argument, the heap pointer");
-         IInstrComment(IAdd(Reg(heap_reg), Const(15L)), "Align it to the nearest multiple of 16");
-         IInstrComment(IAnd(Reg(heap_reg), HexConst(0xFFFFFFFFFFFFFFF0L)), "by adding no more than 15 to it")
-       ] in
-     let main = to_asm (body_prologue @ heap_start @ comp_body @ body_epilogue) in
-     
-     raise (NotYetImplemented "... combine comp_decls and main with any needed extra setup and error handling ...")
+    let comp_decls = raise (NotYetImplemented "... do stuff with decls ...") in
+    let (body_prologue, comp_body, body_epilogue) = raise (NotYetImplemented "... do stuff with body ...") in
+
+    let heap_start = [
+      ILineComment("heap start");
+      IInstrComment(IMov(Reg(heap_reg), Reg(List.nth first_six_args_registers 0)), "Load heap_reg with our argument, the heap pointer");
+      IInstrComment(IAdd(Reg(heap_reg), Const(15L)), "Align it to the nearest multiple of 16");
+      IInstrComment(IAnd(Reg(heap_reg), HexConst(0xFFFFFFFFFFFFFFF0L)), "by adding no more than 15 to it")
+    ] in
+    let main = to_asm (body_prologue @ heap_start @ comp_body @ body_epilogue) in
+
+    raise (NotYetImplemented "... combine comp_decls and main with any needed extra setup and error handling ...")
 
 (* Feel free to add additional phases to your pipeline.
    The final pipeline phase needs to return a string,
