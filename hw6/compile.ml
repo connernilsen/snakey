@@ -236,7 +236,21 @@ let anf (p : tag program) : unit aprogram =
     | EApp(funname, args, ct, _) ->
        let (new_args, new_setup) = List.split (List.map helpI args) in
        (CApp(funname, new_args, ct, ()), List.concat new_setup)
-    (* NOTE: You may need more cases here, for sequences and tuples *)
+    | ETuple(e, _) -> 
+      let id_setup = List.map helpI e in 
+      let ids = (List.map (fun (id, _) -> id) id_setup) in
+      let setups = (List.map (fun (_, setup) -> setup) id_setup) in 
+      (CTuple(ids, ()), List.flatten setups)
+    | EGetItem(tuple, index, _) -> 
+      let (tuple_id, tuple_setup) = helpI tuple 
+      and (index_id, index_setup) = helpI index in 
+      (CGetItem(tuple_id, index_id, ()), tuple_setup @ index_setup)
+    | ESetItem(tuple, index, set, _) -> 
+      let (tuple_id, tuple_setup) = helpI tuple 
+      and (index_id, index_setup) = helpI index
+      and (set_id, set_setup) = helpI set in 
+      (CSetItem(tuple_id, index_id, set_id, ()), tuple_setup @ index_setup @ set_setup)
+    | ESeq(exp1, exp2, _) -> raise (NotYetImplemented "Finish this")
     | _ -> let (imm, setup) = helpI e in (CImmExpr imm, setup)
 
   and helpI (e : tag expr) : (unit immexpr * (string * unit cexpr) list) =
@@ -268,7 +282,24 @@ let anf (p : tag program) : unit aprogram =
      *    let (exp_ans, exp_setup) = helpC exp in
      *    let (body_ans, body_setup) = helpI (ELet(rest, body, pos)) in
      *    (body_ans, exp_setup @ [(bind, exp_ans)] @ body_setup) *)
-    | _ -> raise (NotYetImplemented "Finish the remaining cases")
+    | ETuple(e, tag) -> 
+      let tmp = sprintf "tuple_%d" tag 
+      and id_setup = List.map helpI e in 
+      let ids = (List.map (fun (id, _) -> id) id_setup) 
+      and setups = (List.map (fun (_, setup) -> setup) id_setup) in 
+      (ImmId(tmp, ()), (List.flatten setups) @ [(tmp, CTuple(ids, ()))])
+    | EGetItem(tuple, index, tag) -> 
+      let tmp = sprintf "get_%d" tag 
+      and (tuple_id, tuple_setup) = helpI tuple 
+      and (index_id, index_setup) = helpI index in 
+      (ImmId(tmp, ()), tuple_setup @ index_setup @ [(tmp, CGetItem(tuple_id, index_id, ()))])
+    | ESetItem(tuple, index, set, tag) -> 
+      let tmp = sprintf "set_%d" tag 
+      and (tuple_id, tuple_setup) = helpI tuple 
+      and (index_id, index_setup) = helpI index
+      and (set_id, set_setup) = helpI set in 
+      (ImmId(tmp, ()), tuple_setup @ index_setup @ set_setup @ [(tmp, CSetItem(tuple_id, index_id, set_id, ()))])
+    | ESeq(exp1, exp2, _) -> raise (NotYetImplemented "Finish this")
   and helpA e : unit aexpr = 
     let (ans, ans_setup) = helpC e in
     List.fold_right (fun (bind, exp) body -> ALet(bind, exp, body, ())) ans_setup (ACExpr ans)
@@ -297,12 +328,12 @@ let desugar (p : tag program) : unit program =
     (fun name ->
       next := !next + 1;
       sprintf "%s_%d" name (!next)) in
-  let rec helpE (e : tag expr) (* other parameters may be needed here *) =
+  let rec helpE (e : tag expr) : unit expr (* other parameters may be needed here *) =
     match e with 
     | ESeq(e1, e2, _) -> raise (NotYetImplemented "Finish the remaining cases")
-    | ETuple(e, _) -> raise (NotYetImplemented "Finish the remaining cases")
-    | EGetItem(_, _, _) -> raise (NotYetImplemented "Finish the remaining cases")
-    | ESetItem(_, _, _, _) -> raise (NotYetImplemented "Finish the remaining cases")
+    | ETuple(e, _) -> ETuple(List.map helpE e, ())
+    | EGetItem(item, idx, _) -> EGetItem(helpE item, helpE idx, ())
+    | ESetItem(item, idx, set, _) -> ESetItem(helpE item, helpE idx, helpE set, ())
     | ELet(binds, body, _) -> raise (NotYetImplemented "Finish the remaining cases")
        (* ELet(List.map (fun (name, expr, _) -> (name, helpE expr, ())) binds, helpE body, ()) *)
     | EPrim1(op, e, _) ->
@@ -341,7 +372,7 @@ let desugar (p : tag program) : unit program =
     | ENil(_) -> raise (NotYetImplemented "Finish the remaining cases")
     | EId(id, _) -> EId(id, ())
     | EApp(_, _, _, _) -> raise (NotYetImplemented "Finish the remaining cases")
-  and helpD (d : tag decl) (* other parameters may be needed here *) =
+  and helpD (d : tag decl) : unit decl (* other parameters may be needed here *) =
     match d with
     | DFun(_, _, _, _) -> raise (NotYetImplemented "Finish the remaining cases")
       (* DFun(name, List.map (fun (name, _) -> (name, ())) args, helpE body, ()) *)
