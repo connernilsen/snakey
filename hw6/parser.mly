@@ -133,12 +133,8 @@ declgroup :
   | decl { [$1] }
   | decl ANDDEF declgroup { $1::$3 }
 
-
-decls :
-  | { [] }
-  | declgroup decls { $1::$2 }
-
 program :
-  | decls expr EOF { Program($1, $2, full_span()) }
+  | declgroup expr EOF { Program($1, $2, full_span()) }
+  | expr EOF { Program([], $1, full_span()) }
 
 %%

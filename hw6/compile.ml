@@ -106,13 +106,12 @@ let rename_and_tag (p : tag program) : tag program =
   let rec rename (env : string envt) p =
     match p with
     | Program(decls, body, tag) ->
-       let rec helpDG funenv dg =
-         List.fold_left (fun funenv decl ->
-             match decl with
-             | DFun(name, _, _, _) -> (name, Snake)::funenv) funenv dg in
+       let rec addToEnv funenv decl =
+         match decl with
+         | DFun(name, _, _, _) -> (name, Snake)::funenv in
        let initial_funenv = List.map (fun (name, ct) -> (name, ct)) initial_fun_env in
-       let funenv = List.fold_left helpDG initial_funenv decls in
-       Program(List.map (fun g -> List.map (helpD funenv env) g) decls, helpE funenv env body, tag)
+       let funenv = List.fold_left addToEnv initial_funenv decls in
+       Program(List.map (helpD funenv env) decls, helpE funenv env body, tag)
   and helpD funenv env decl =
     match decl with
     | DFun(name, args, body, tag) ->
@@ -169,6 +168,35 @@ let rename_and_tag (p : tag program) : tag program =
 ;;
 
 
+(* Returns the stack-index (in words) of the deepest stack index used for any 
+   of the variables in this expression *)
+let deepest_stack e env =
+  let rec helpA e =
+    match e with
+    | ALet(name, bind, body, _) -> List.fold_left max 0 [name_to_offset name; helpC bind; helpA body]
+    | ACExpr e -> helpC e
+  and helpC e =
+    match e with
+    | CIf(c, t, f, _) -> List.fold_left max 0 [helpI c; helpA t; helpA f]
+    | CPrim1(_, i, _) -> helpI i
+    | CPrim2(_, i1, i2, _) -> max (helpI i1) (helpI i2)
+    | CApp(_, args, _, _) -> List.fold_left max 0 (List.map helpI args)
+    | CTuple(elms, _) -> List.fold_left max 0 (List.map helpI elms)
+    | CGetItem(tup, idx, _) -> max (helpI tup) (helpI idx)
+    | CSetItem(tup, idx, newval, _) -> List.fold_left max 0 [helpI tup; helpI idx; helpI newval]
+    | CImmExpr i -> helpI i
+  and helpI i =
+    match i with
+    | ImmNum _ -> 0
+    | ImmBool _ -> 0
+    | ImmNil _ -> 0
+    | ImmId(name, _) -> name_to_offset name
+  and name_to_offset name =
+    match (find env name) with
+    | RegOffset(bytes, RBP) -> bytes / (-1 * word_size)  (* negative because stack direction *)
+    | _ -> 0
+  in max (helpA e) 0 (* if only parameters are used, helpA might return a negative value *)
+;;
 
 (* IMPLEMENT EVERYTHING BELOW *)
 
@@ -176,7 +204,7 @@ let rename_and_tag (p : tag program) : tag program =
 let anf (p : tag program) : unit aprogram =
   let rec helpP (p : tag program) : unit aprogram =
     match p with
-    | Program(decls, body, _) -> AProgram(List.concat(List.map helpG decls), helpA body, ())
+    | Program(decls, body, _) -> AProgram(List.map helpD decls, helpA body, ())
   and helpG (g : tag decl list) : unit adecl list =
     List.map helpD g
   and helpD (d : tag decl) : unit adecl =
@@ -317,13 +345,10 @@ let desugar (p : tag program) : unit program =
     match d with
     | DFun(_, _, _, _) -> raise (NotYetImplemented "Finish the remaining cases")
       (* DFun(name, List.map (fun (name, _) -> (name, ())) args, helpE body, ()) *)
-  and helpG (g : tag decl list) (* other parameters may be needed here *) =
-    (* todo: figure out what this means *)
-    List.map helpD g
   in
   match p with
   | Program(decls, body, _) ->
-      Program(List.map helpG decls, helpE body, ())
+      Program(List.map helpD decls, helpE body, ())
 ;;
 
 let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =

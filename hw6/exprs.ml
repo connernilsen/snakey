@@ -61,7 +61,7 @@ type 'a decl =
   | DFun of string * 'a bind list * 'a expr * 'a
                                                             
 type 'a program =
-  | Program of 'a decl list list * 'a expr * 'a
+  | Program of 'a decl list * 'a expr * 'a
 
 type 'a immexpr = (* immediate expressions *)
   | ImmNum of int64 * 'a
@@ -147,9 +147,9 @@ and map_tag_D (f : 'a -> 'b) d =
      DFun(name, tag_args, tag_body, tag_fun)
 and map_tag_P (f : 'a -> 'b) p =
   match p with
-  | Program(declgroups, body, a) ->
+  | Program(decls, body, a) ->
      let tag_a = f a in
-     let tag_decls = List.map (fun group -> List.map (map_tag_D f) group) declgroups in
+     let tag_decls = List.map (map_tag_D f) decls in
      let tag_body = map_tag_E f body in
      Program(tag_decls, tag_body, tag_a)
 
@@ -179,7 +179,7 @@ let prog_and_tag (p : 'a program) : ('a * tag) program =
 let rec untagP (p : 'a program) : unit program =
   match p with
   | Program(decls, body, _) ->
-     Program(List.map (fun group -> List.map untagD group) decls, untagE body, ())
+     Program(List.map untagD decls, untagE body, ())
 and untagE e =
   match e with
   | ESeq(e1, e2, _) -> ESeq(untagE e1, untagE e2, ())

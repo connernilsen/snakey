@@ -118,9 +118,7 @@ let string_of_decl (d : 'a decl) : string =
 let string_of_program_with (print_a : 'a -> string) (p : 'a program) : string =
   match p with
   | Program(decls, body, a) ->
-     let help group =
-       ExtString.String.join "\nand " (List.map (string_of_decl_with print_a) group) in
-     (ExtString.String.join "\n\n" (List.map help decls)) ^ "\n" ^
+     (ExtString.String.join "\n\n" (List.map (string_of_decl_with print_a) decls)) ^ "\n" ^
        (string_of_expr_with print_a body) ^ "\n" ^ (print_a a)
 let string_of_program (p : 'a program) : string =
   string_of_program_with (fun _ -> "") p
@@ -319,7 +317,7 @@ let format_declgroup (fmt : Format.formatter) (print_a : 'a -> string) (d : 'a d
 let format_program (fmt : Format.formatter) (print_a : 'a -> string) (p : 'a program) : unit =
   match p with
   | Program(decls, body, a) ->
-     print_list fmt (fun fmt -> format_declgroup fmt print_a) decls (fun fmt -> pp_print_break fmt 1 0);
+     print_list fmt (fun fmt -> format_decl fmt print_a) decls (fun fmt -> pp_print_break fmt 1 0);
      pp_print_break fmt 1 0;
      format_expr fmt print_a body
 ;;
