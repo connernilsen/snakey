@@ -161,9 +161,6 @@ let rename_and_tag (p : tag program) : tag program =
     | EApp(name, args, native, tag) ->
        let call_type = match find_opt funenv name with None -> native | Some ct -> ct in
        EApp(name, List.map (helpE funenv env) args, call_type, tag)
-    | EApp(name, args, native, tag) ->
-       let call_type = match find_opt funenv name with None -> native | Some ct -> ct in
-       EApp(name, List.map (helpE funenv env) args, call_type, tag)
     | ELet(binds, body, tag) ->
        let (binds', env') = helpBG funenv env binds in
        let body' = helpE funenv env' body in
@@ -266,22 +263,67 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
 ;;
 
 
-let desugar (p : sourcespan program) : sourcespan program =
+let desugar (p : tag program) : unit program =
   let gensym =
     let next = ref 0 in
     (fun name ->
       next := !next + 1;
       sprintf "%s_%d" name (!next)) in
-  let rec helpE (e : sourcespan expr) (* other parameters may be needed here *) =
-    Error([NotYetImplemented "Implement desugaring for expressions"])
-  and helpD (d : sourcespan decl) (* other parameters may be needed here *) =
-    Error([NotYetImplemented "Implement desugaring for definitions"])
-  and helpG (g : sourcespan decl list) (* other parameters may be needed here *) =
-    Error([NotYetImplemented "Implement desugaring for definition groups"])
+  let rec helpE (e : tag expr) (* other parameters may be needed here *) =
+    match e with 
+    | ESeq(e1, e2, _) -> raise (NotYetImplemented "Finish the remaining cases")
+    | ETuple(e, _) -> raise (NotYetImplemented "Finish the remaining cases")
+    | EGetItem(_, _, _) -> raise (NotYetImplemented "Finish the remaining cases")
+    | ESetItem(_, _, _, _) -> raise (NotYetImplemented "Finish the remaining cases")
+    | ELet(binds, body, _) -> raise (NotYetImplemented "Finish the remaining cases")
+       (* ELet(List.map (fun (name, expr, _) -> (name, helpE expr, ())) binds, helpE body, ()) *)
+    | EPrim1(op, e, _) ->
+       EPrim1(op, helpE e, ())
+    | EPrim2(op, e1, e2, a) ->
+      begin
+       match op with
+       | And -> EIf(
+          helpE e1,
+          EIf(
+            helpE e2,
+            EBool(true, ()),
+            EBool(false, ()),
+            ()
+          ),
+          EBool(false, ()),
+          ()
+        )
+       | Or -> EIf(
+          helpE e1,
+          EBool(true, ()),
+          EIf(
+          helpE e2,
+          EBool(true, ()),
+          EBool(false, ()),
+          ()
+          ),
+        ()
+        )
+        | p -> EPrim2(p, helpE e1, helpE e2, ())
+      end
+    | EIf(cond, thn, els, _) ->
+       EIf(helpE cond, helpE thn, helpE els, ())
+    | ENumber(n, _) -> ENumber(n, ())
+    | EBool(b, _) -> EBool(b, ())
+    | ENil(_) -> raise (NotYetImplemented "Finish the remaining cases")
+    | EId(id, _) -> EId(id, ())
+    | EApp(_, _, _, _) -> raise (NotYetImplemented "Finish the remaining cases")
+  and helpD (d : tag decl) (* other parameters may be needed here *) =
+    match d with
+    | DFun(_, _, _, _) -> raise (NotYetImplemented "Finish the remaining cases")
+      (* DFun(name, List.map (fun (name, _) -> (name, ())) args, helpE body, ()) *)
+  and helpG (g : tag decl list) (* other parameters may be needed here *) =
+    (* todo: figure out what this means *)
+    List.map helpD g
   in
   match p with
   | Program(decls, body, _) ->
-      raise (NotYetImplemented "Implement desugaring for programs")
+      Program(List.map helpG decls, helpE body, ())
 ;;
 
 let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =
@@ -339,6 +381,8 @@ let compile_to_string (prog : sourcespan program pipeline) : string pipeline =
   |> (add_err_phase well_formed is_well_formed)
   |> (add_phase tagged tag)
   |> (add_phase renamed rename_and_tag)
+  |> (add_phase desugared desugar)
+  |> (add_phase tagged tag)
   |> (add_phase anfed (fun p -> atag (anf p)))
   |> (add_phase locate_bindings naive_stack_allocation)
   |> (add_phase result compile_prog)
