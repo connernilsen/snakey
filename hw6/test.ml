@@ -167,6 +167,11 @@ let anf_tests = [
     ("(alet tuple_5 = (1, 2, 3) in (tuple_5[0]:= 2))");
 ]
 
+let basic_pair_tests = [
+  t "basic_pair" "(5, 6, 7)" "" "(5, 6, 7)";
+  t "basic_1" "(5, 6, 7)" "" "(5, 6, 7)";
+]
+
 let pair_tests = [
   t "tup1" "let t = (4, (5, 6)) in
             begin
@@ -204,10 +209,11 @@ let input = [
 
 let suite =
   "suite">:::
-  (* pair_tests @ 
-     input @ *)
-  desugar_tests @
-  anf_tests
+  (* input @ *)
+  (* desugar_tests @ *)
+  (* anf_tests @ *)
+  (* pair_tests @ *)
+  basic_pair_tests
 
 
 

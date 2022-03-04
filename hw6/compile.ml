@@ -110,6 +110,52 @@ let rec find_dup (l : 'a list) : 'a option =
     if find_one xs x then Some(x) else find_dup xs
 ;;
 
+let rec find_dups_by (l : 'a list) (eq : ('a -> 'a -> bool)) : ('a * 'a) list =
+  match l with
+  | [] -> []
+  | x :: [] -> []
+  | first :: rest -> let (dups, other) = (List.partition (eq first) rest) in
+    (List.map (fun dup -> (dup, first)) dups) @ (find_dups_by other eq)
+;;
+
+let rec find_dup_exns_by_binds (b : 'a bind list) : exn list =
+  let rec find_dups_by_bindings (b : 'a bind list) : ('a bind * 'a bind) list =
+    (find_dups_by b (fun b1 b2 -> match b1 with 
+      | BBlank(_) -> false
+      | BName(name, _, span) ->
+        begin
+        match b2 with 
+        | BBlank(_) -> false
+        | BName(name2, _, span2) -> name == name2
+        | BTuple(_, span2) -> raise (NotYetImplemented "implement tuple binding lookup. ")
+        end
+      | BTuple(_, span) -> raise (NotYetImplemented "implement duplicate tuple bindings. ")
+    ))
+  in (List.map 
+    (fun (bind1, bind2) -> 
+    begin
+      match bind1 with 
+      | BBlank(_) -> raise (InternalCompilerError "Duplicate _ bindings found. Impossible. ")
+      | BName(name, _, span) ->
+        begin
+        match bind2 with 
+        | BBlank(_) -> raise (InternalCompilerError "Duplicate _ bindings found. Impossible. ")
+        | BName(_, _, span2) -> DuplicateId(name, span, span2)
+        | BTuple(_, span2) -> raise (NotYetImplemented "implement tuple bindings. ")
+        end
+      | BTuple(_, span) -> raise (NotYetImplemented "implement duplicate tuple bindings. ")
+    end)
+    (find_dups_by_bindings b))
+
+let binds_to_env (binds : sourcespan bind list) : (string * sourcespan) list =
+  let bind_to_env (bind : sourcespan bind) (acc : (string * sourcespan) list) : (string * sourcespan) list =
+    match bind with 
+    | BBlank(_) -> acc
+    (* todo: deal with is_whatever? *)
+    | BName(name, _, pos) -> (name, pos)::acc
+    | BTuple(_, _) -> raise (NotYetImplemented "implement duplicate tuple bindings. ")
+  in List.fold_right bind_to_env binds []
+
 type funenvt = call_type envt;;
 let initial_fun_env : funenvt = [
   (* call_types indicate whether a given function is implemented by something in the runtime,
@@ -335,16 +381,94 @@ let anf (p : tag program) : unit aprogram =
 
 
 let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
-  let rec wf_E (e : sourcespan expr) (* other parameters may be needed here *) =
-    Error([NotYetImplemented "Implement well-formedness checking for expressions"])
-  and wf_D (d : sourcespan decl) (* other parameters may be needed here *) =
-    Error([NotYetImplemented "Implement well-formedness checking for definitions"])
-  and wf_G (g : sourcespan decl list) (* other parameters may be needed here *) =
-    Error([NotYetImplemented "Implement well-formedness checking for definition groups"])
-  in
+  let rec wf_E (e : sourcespan expr) (env : (string * sourcespan) list) (fun_env : int envt) : exn list =
+    match e with
+    | EBool _ -> []
+    | ENumber(n, loc) -> 
+      if n > (Int64.div Int64.max_int 2L) || n < (Int64.div Int64.min_int 2L)
+      then [Overflow(n, loc)]
+      else []
+    | EId (x, loc) ->
+      begin 
+      match (List.assoc_opt x env) with
+      | None -> [UnboundId(x, loc)]
+      | Some(_) -> []
+      end
+    | EPrim1(_, e, _) -> (wf_E e env fun_env)
+    | EPrim2(_, l, r, _) -> (wf_E l env fun_env) @ (wf_E r env fun_env)
+    | EIf(c, t, f, _) -> (wf_E c env fun_env) @ (wf_E t env fun_env) @ (wf_E f env fun_env)
+    | ELet(binds, body, _) ->
+      let (env2, _, errors) =
+        (List.fold_left
+          (fun (scope_env, shadow_env, found_errors) (x, e, loc) ->
+              let curr_errors = (wf_E e scope_env fun_env) @ found_errors in
+              begin
+              match x with 
+              | BBlank(loc) -> raise (NotYetImplemented "implement blank is well formed in let")
+              (* todo: call_type *)
+              | BName(name, _, loc) -> 
+                begin
+                match List.assoc_opt name shadow_env with
+                | None -> ((name, loc) :: scope_env, (name, loc) :: shadow_env, curr_errors)
+                | Some(existing) -> 
+                  (scope_env, shadow_env, DuplicateId(name, loc, existing) :: curr_errors)
+                end
+              | BTuple(_, _) -> raise (NotYetImplemented "implement tuple is well formed in let")
+              end)
+          (env, [], []) binds) in
+          errors @ (wf_E body env2 fun_env)
+      (* todo: figure out what call_type is for *)
+    | EApp(name, args, _, loc) -> 
+      let args_errors = List.flatten (List.map (fun expr -> wf_E expr env fun_env) args) in
+      begin
+      match (List.assoc_opt name fun_env) with
+      | Some(arity) ->
+        if (List.length args) != arity
+          then [Arity(arity, (List.length args), loc)] @ args_errors
+          else args_errors
+      | None -> [UnboundFun(name, loc)] @ args_errors
+      end
+    | ESeq(_, _, _) -> raise (NotYetImplemented "implement sequences")
+    | ETuple(_, _) -> raise (NotYetImplemented "implement tuples")
+    | EGetItem(_, _, _) -> raise (NotYetImplemented "implement sequences")
+    | ESetItem(_, _, _, _) -> raise (NotYetImplemented "implement sequences")
+  and wf_D (env : int envt) (d : sourcespan decl) : exn list =
+    match d with
+    | DFun(name, params, body, span) -> find_dup_exns_by_binds params @ (wf_E body (binds_to_env params) env)
+  and get_env (decls : sourcespan decl list) : int envt = 
+    (List.map (fun x -> 
+         begin 
+           match x with 
+           | DFun(name, args, _, _) -> 
+             (name, (List.length args)) 
+         end) decls)
+  and dup_d_errors (decls : sourcespan decl list) = 
+    List.map (fun x -> 
+        begin 
+          match x with 
+          | (DFun(name, _, _, span1), DFun(_, _, _, span2)) -> 
+            DuplicateFun(name, span1, span2) 
+        end) 
+      (find_dups_by decls 
+         (fun d1 d2 -> 
+            begin 
+              match (d1, d2) with 
+              | (DFun(n1, _, _, _), DFun(n2, _, _, _)) -> 
+                n1 = n2 
+            end))
+  and d_errors (decls : sourcespan decl list) (env: int envt) = 
+    List.flatten (List.map (wf_D env) decls) in 
   match p with
   | Program(decls, body, _) ->
-    Error([NotYetImplemented "Implement well-formedness checking for programs"])
+    let env = get_env decls in 
+    let dup_fun_errors = dup_d_errors decls in
+    let d_errs = d_errors decls env in
+    let e_errs = wf_E body [] env in 
+    begin
+      match dup_fun_errors @ d_errs @ e_errs with 
+      | [] -> Ok p
+      | e -> Error e
+    end
 ;;
 
 
