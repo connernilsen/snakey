@@ -32,7 +32,7 @@ type arg =
   | Const of int64
   | HexConst of int64
   | Reg of reg
-  | RegOffset of int * reg (* int is # words of offset *)
+  | RegOffset of int * reg (* int is # bytes of offset *)
   | RegOffsetReg of reg * reg * int * int
   | Sized of size * arg
   | LabelContents of string

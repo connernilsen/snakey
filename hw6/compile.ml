@@ -895,8 +895,22 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
   (* todo: figure out what to do with native call types vs not native *)
   | CApp(fun_name, args, _, _) -> (setup_call_to_func num_args (List.map (fun e -> compile_imm e env) args) fun_name)
   | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env)]
-  | CTuple(val1::_, _) -> [IMov(Reg(RAX), compile_imm val1 env)]
-  | CTuple(_, _) -> raise (NotYetImplemented "Fill in here")
+  | CTuple(vals, _) ->
+    let length = List.length vals 
+    in let size_bytes = (length + 1) * word_size in 
+    (* length at [0] *)
+    (IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int length)) :: 
+        (* items at [1:length + 1] *)
+        List.mapi (fun idx v -> IMov(Sized(QWORD_PTR, RegOffset((idx + 1) * word_size, heap_reg)), compile_imm v env)) vals
+        (* filler at [length + 1:16 byte alignment]?*)
+        @ [
+          (* Move result to result place *)
+          IMov(Reg(RAX), Reg(heap_reg));
+          IAdd(Reg(RAX), Const(tuple_tag));
+          (* mov heap_reg to new aligned heap_reg *)
+          IAdd(Reg(heap_reg), Const(15L));
+          IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
+          ])
   | CGetItem(tuple, idx, _) -> []
   | CSetItem(tuple, idx, set, _) -> []
 and compile_imm e env =

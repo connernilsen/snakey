@@ -169,8 +169,7 @@ let anf_tests = [
 ]
 
 let basic_pair_tests = [
-  t "basic_pair" "(5, 6, 7)" "" "(5, 6, 7)";
-  t "basic_1" "(5, 6, 7)" "" "(5, 6, 7)";
+  t "basic_pair" "(5, 6)" "" "(5, 6)";
 ]
 
 (* todo: is_tuple tests *)
