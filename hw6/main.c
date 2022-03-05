@@ -15,8 +15,9 @@ extern uint64_t *STACK_BOTTOM asm("STACK_BOTTOM");
 uint64_t *HEAP;
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001L;
-const uint64_t BOOL_TAG_MASK = 0x0000000000000007L;
-const uint64_t TUPLE_TAG_MASK = 0x0000000000000006L ;
+const uint64_t TAG_MASK = 0x0000000000000007L;
+const uint64_t BOOL_TAG = 0x0000000000000007L;
+const uint64_t TUPLE_TAG = 0x0000000000000001L;
 const uint64_t TRUE = 0xFFFFFFFFFFFFFFFFL;
 const uint64_t FALSE = 0x7FFFFFFFFFFFFFFFL;
 const uint64_t COMP_NOT_NUM = 1L;
@@ -39,11 +40,11 @@ int getValueType(SNAKEVAL val)
   {
     return NUM_TYPE;
   }
-  else if ((BOOL_TAG_MASK & val) == BOOL_TAG_MASK)
+  else if ((TAG_MASK & val) == BOOL_TAG)
   {
     return BOOL_TYPE;
   }
-  else if ((TUPLE_TAG_MASK & val) == TUPLE_TAG_MASK)
+  else if ((TAG_MASK & val) == TUPLE_TAG)
   {
     return TUPLE_TYPE;
   }
@@ -111,8 +112,21 @@ char *convertValueToStr(SNAKEVAL val, char debug)
     }
     break;
   case TUPLE_TYPE:
-    sprintf(valueStr, "tuple address: %ld", (int64_t)val);
+  {
+    int64_t *vals = (int64_t *)(val ^ TUPLE_TAG);
+    strcpy(valueStr, "(");
+    for (int i = 1; i < vals[0] + 1; i++)
+    {
+      char* next = convertValueToStr(vals[i], debug);
+      strcat(valueStr, next);
+      if (i != vals[0]) {
+        strcat(valueStr, ", ");
+      }
+      free(next);
+    }
+    strcat(valueStr, ")");
     break;
+  }
   default:
     sprintf(valueStr, "%#018lx", val);
   }

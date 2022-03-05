@@ -899,7 +899,7 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
     let length = List.length vals 
     in let size_bytes = (length + 1) * word_size in 
     (* length at [0] *)
-    (IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int length)) :: 
+    IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int length)) :: 
         (* items at [1:length + 1] *)
         List.mapi (fun idx v -> IMov(Sized(QWORD_PTR, RegOffset((idx + 1) * word_size, heap_reg)), compile_imm v env)) vals
         (* filler at [length + 1:16 byte alignment]?*)
@@ -910,7 +910,7 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
           (* mov heap_reg to new aligned heap_reg *)
           IAdd(Reg(heap_reg), Const(15L));
           IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
-          ])
+          ]
   | CGetItem(tuple, idx, _) -> []
   | CSetItem(tuple, idx, set, _) -> []
 and compile_imm e env =
@@ -929,11 +929,29 @@ let compile_decl (d : tag adecl) (env: arg envt) : instruction list =
 let compile_error_handler ((err_name : string), (err_code : int64)) : instruction list =
   ILabel(err_name) :: setup_call_to_func 0 [Const(err_code); Reg(RAX)] "error"
 
+let rec compile_ocsh (body : tag aexpr) (env: arg envt) : instruction list =
+  (* get max allocation needed as an even value, possibly rounded up *)
+  let stack_alloc_space = (((deepest_stack body env) + 1) / 2 ) * 2 in
+  [
+    ILabel("our_code_starts_here");
+    IPush(Reg(RBP));
+    IMov(Reg(RBP), Reg(RSP));
+    ISub(Reg(RSP), Const(Int64.of_int (stack_alloc_space * word_size)));
+    ILineComment("heap start");
+    IInstrComment(IMov(Reg(heap_reg), Reg(List.nth first_six_args_registers 0)), "Load heap_reg with our argument, the heap pointer");
+    IInstrComment(IAdd(Reg(heap_reg), Const(15L)), "Align it to the nearest multiple of 16");
+    IInstrComment(IAnd(Reg(heap_reg), HexConst(0xFFFFFFFFFFFFFFF0L)), "by adding no more than 15 to it")
+  ] @ (compile_aexpr body env 0 false) @ [
+    IMov(Reg(RSP), Reg(RBP));
+    IPop(Reg(RBP));
+    IRet;
+  ]
+
 let compile_prog ((anfed : tag aprogram), (env: arg envt)) : string =
   match anfed with
   | AProgram(decls, body, _) ->
     let comp_decls = (List.flatten (List.map (fun decl -> compile_decl decl env) decls)) in
-    let comp_body = compile_fun "our_code_starts_here" body [] env in 
+    let comp_body = compile_ocsh body env in 
     let body_epilogue = (List.flatten (List.map compile_error_handler [
              (label_COMP_NOT_NUM, err_COMP_NOT_NUM);
              (label_ARITH_NOT_NUM, err_ARITH_NOT_NUM);
@@ -941,13 +959,7 @@ let compile_prog ((anfed : tag aprogram), (env: arg envt)) : string =
              (label_OVERFLOW, err_OVERFLOW);
            ])) in
 
-    let heap_start = [
-      ILineComment("heap start");
-      IInstrComment(IMov(Reg(heap_reg), Reg(List.nth first_six_args_registers 0)), "Load heap_reg with our argument, the heap pointer");
-      IInstrComment(IAdd(Reg(heap_reg), Const(15L)), "Align it to the nearest multiple of 16");
-      IInstrComment(IAnd(Reg(heap_reg), HexConst(0xFFFFFFFFFFFFFFF0L)), "by adding no more than 15 to it")
-    ] in
-    let main = to_asm (heap_start @ comp_decls @ comp_body @ body_epilogue) in
+    let main = to_asm (comp_decls @ comp_body @ body_epilogue) in
     sprintf "%s%s\n" prelude main
 
 
