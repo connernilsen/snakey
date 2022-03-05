@@ -56,11 +56,17 @@ let label_OVERFLOW      = "error_overflow"
 (* label names for conditionals *)
 let label_IS_NOT_BOOL = "is_not_bool"
 let label_IS_NOT_NUM  = "is_not_num"
+let label_IS_NOT_TUPLE  = "is_not_tuple"
 let label_DONE        = "done"
 
 let first_six_args_registers = [RDI; RSI; RDX; RCX; R8; R9]
 let heap_reg = R15
 let scratch_reg = R11
+
+let prelude = "section .text
+extern error
+extern print
+global our_code_starts_here"
 
 
 (* You may find some of these helpers useful *)
@@ -330,7 +336,7 @@ let anf (p : tag program) : unit aprogram =
     | ENumber(n, _) -> (ImmNum(n, ()), [])
     | EBool(b, _) -> (ImmBool(b, ()), [])
     | EId(name, _) -> (ImmId(name, ()), [])
-
+    | ENil(_) -> raise (NotYetImplemented "Finish nil")
     | EPrim1(op, arg, tag) ->
       let tmp = sprintf "unary_%d" tag in
       let (arg_imm, arg_setup) = helpI arg in
@@ -394,6 +400,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
       | None -> [UnboundId(x, loc)]
       | Some(_) -> []
       end
+    | ENil(_) -> []
     | EPrim1(_, e, _) -> (wf_E e env fun_env)
     | EPrim2(_, l, r, _) -> (wf_E l env fun_env) @ (wf_E r env fun_env)
     | EIf(c, t, f, _) -> (wf_E c env fun_env) @ (wf_E t env fun_env) @ (wf_E f env fun_env)
@@ -692,6 +699,11 @@ let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =
 let create_test_jump_instrs (mask : int64) (to_instr : instruction) : instruction list =
   [IMov(Reg(R10), HexConst(mask)); ITest(Reg(RAX), Reg(R10)); to_instr] 
 
+(* Jumps to to_label if not a tuple *)
+let tuple_tag_check (to_label : string) (body : instruction list) : instruction list =
+  (create_test_jump_instrs tuple_tag_mask (IJnz(to_label)))
+  @ body 
+
 (* Jumps to to_label if not a num *)
 let num_tag_check (to_label : string) (body : instruction list) : instruction list =
   (create_test_jump_instrs num_tag_mask (IJnz(to_label)))
@@ -799,6 +811,19 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
              IMov(Reg(RAX), const_false);
              ILabel(label_done);
            ])
+      | IsTuple ->
+        let label_not_tuple = (sprintf "%s%n" label_IS_NOT_TUPLE tag) in 
+        let label_done = (sprintf "%s%n" label_DONE tag) in
+        IMov(Reg(RAX), e_reg) :: 
+        (* check if value is a tuple, and if not, then jump to label_not_tuple *)
+        (num_tag_check label_not_tuple
+        [
+             IMov(Reg(RAX), const_true);
+             IJmp(label_done);
+             ILabel(label_not_tuple);
+             IMov(Reg(RAX), const_false);
+             ILabel(label_done);
+           ])
       | Not -> 
         IMov(Reg(RAX), e_reg) ::
         (bool_tag_check e_reg label_NOT_BOOL)
@@ -870,6 +895,10 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
   (* todo: figure out what to do with native call types vs not native *)
   | CApp(fun_name, args, _, _) -> (setup_call_to_func num_args (List.map (fun e -> compile_imm e env) args) fun_name)
   | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env)]
+  | CTuple(val1::_, _) -> [IMov(Reg(RAX), compile_imm val1 env)]
+  | CTuple(_, _) -> raise (NotYetImplemented "Fill in here")
+  | CGetItem(tuple, idx, _) -> []
+  | CSetItem(tuple, idx, set, _) -> []
 and compile_imm e env =
   match e with
   | ImmNum(n, _) -> Const(Int64.shift_left n 1)
@@ -883,11 +912,20 @@ let compile_decl (d : tag adecl) (env: arg envt) : instruction list =
   | ADFun(name, params, body, _) ->
     compile_fun name body params env
 
+let compile_error_handler ((err_name : string), (err_code : int64)) : instruction list =
+  ILabel(err_name) :: setup_call_to_func 0 [Const(err_code); Reg(RAX)] "error"
+
 let compile_prog ((anfed : tag aprogram), (env: arg envt)) : string =
   match anfed with
   | AProgram(decls, body, _) ->
-    let comp_decls = raise (NotYetImplemented "... do stuff with decls ...") in
-    let (body_prologue, comp_body, body_epilogue) = raise (NotYetImplemented "... do stuff with body ...") in
+    let comp_decls = (List.flatten (List.map (fun decl -> compile_decl decl env) decls)) in
+    let comp_body = compile_fun "our_code_starts_here" body [] env in 
+    let body_epilogue = (List.flatten (List.map compile_error_handler [
+             (label_COMP_NOT_NUM, err_COMP_NOT_NUM);
+             (label_ARITH_NOT_NUM, err_ARITH_NOT_NUM);
+             (label_NOT_BOOL, err_NOT_BOOL);
+             (label_OVERFLOW, err_OVERFLOW);
+           ])) in
 
     let heap_start = [
       ILineComment("heap start");
@@ -895,13 +933,9 @@ let compile_prog ((anfed : tag aprogram), (env: arg envt)) : string =
       IInstrComment(IAdd(Reg(heap_reg), Const(15L)), "Align it to the nearest multiple of 16");
       IInstrComment(IAnd(Reg(heap_reg), HexConst(0xFFFFFFFFFFFFFFF0L)), "by adding no more than 15 to it")
     ] in
-    let main = to_asm (body_prologue @ heap_start @ comp_body @ body_epilogue) in
+    let main = to_asm (heap_start @ comp_decls @ comp_body @ body_epilogue) in
+    sprintf "%s%s\n" prelude main
 
-    raise (NotYetImplemented "... combine comp_decls and main with any needed extra setup and error handling ...")
-
-(* Feel free to add additional phases to your pipeline.
-   The final pipeline phase needs to return a string,
-   but everything else is up to you. *)
 
 ;;
 
@@ -913,7 +947,7 @@ let run_if should_run f =
 (* Todo: Add comment explaining (1) why you chose the particular ordering of desguaring relative to the other phases that you did, and (2) what syntactic invariants each phase of your compiler expects. You may want to enforce those invariants by throwing InternalCompilerErrors if they’re violated. *)
 let compile_to_string (prog : sourcespan program pipeline) : string pipeline =
   prog
-  |> (add_err_phase well_formed is_well_formed)
+  (* |> (add_err_phase well_formed is_well_formed) *)
   |> (add_phase tagged tag)
   |> (add_phase renamed rename_and_tag)
   |> (add_phase desugared desugar)

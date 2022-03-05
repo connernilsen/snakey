@@ -165,6 +165,7 @@ let anf_tests = [
   tanf_improved "set_tuple"
     ("(1, 2, 3)[0] := 2")
     ("(alet tuple_5 = (1, 2, 3) in (tuple_5[0]:= 2))");
+    (* todo: more tuple tests *)
 ]
 
 let basic_pair_tests = [
@@ -172,6 +173,8 @@ let basic_pair_tests = [
   t "basic_1" "(5, 6, 7)" "" "(5, 6, 7)";
 ]
 
+(* todo: is_tuple tests *)
+(* todo: is_well_formed tuple tests *)
 let pair_tests = [
   t "tup1" "let t = (4, (5, 6)) in
             begin
