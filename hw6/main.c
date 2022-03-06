@@ -25,6 +25,8 @@ const uint64_t ARITH_NOT_NUM = 2L;
 const uint64_t NOT_BOOL = 3L;
 const uint64_t OVERFLOW = 4L;
 
+const uint64_t MAX_VAL_LENGTH = 100;
+
 const int UNKNOWN_TYPE = 0;
 const int NUM_TYPE = 1;
 const int BOOL_TYPE = 2;
@@ -90,7 +92,7 @@ char *convertTypeToStr(int type)
 char *convertValueToStr(SNAKEVAL val, char debug)
 {
   int valType = getValueType(val);
-  char valueStr[21];
+  char valueStr[MAX_VAL_LENGTH];
   // convert val to a string
   switch (valType)
   {
@@ -114,13 +116,17 @@ char *convertValueToStr(SNAKEVAL val, char debug)
   case TUPLE_TYPE:
   {
     int64_t *vals = (int64_t *)(val ^ TUPLE_TAG);
+    int length = vals[0];
     strcpy(valueStr, "(");
-    for (int i = 1; i < vals[0] + 1; i++)
+    for (int i = 1; i < length + 1; i++)
     {
       char* next = convertValueToStr(vals[i], debug);
       strcat(valueStr, next);
-      if (i != vals[0]) {
+      if (i != length) {
         strcat(valueStr, ", ");
+      }
+      else if (length == 1) {
+        strcat(valueStr, ",");
       }
       free(next);
     }

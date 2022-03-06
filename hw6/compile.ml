@@ -901,14 +901,18 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
     (* length at [0] *)
     IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int length)) :: 
         (* items at [1:length + 1] *)
-        List.mapi (fun idx v -> IMov(Sized(QWORD_PTR, RegOffset((idx + 1) * word_size, heap_reg)), compile_imm v env)) vals
+        List.flatten (List.mapi (fun idx v -> 
+          [
+            IMov(Reg(R11), compile_imm v env);
+            IMov(Sized(QWORD_PTR, RegOffset((idx + 1) * word_size, heap_reg)), Reg(R11));
+          ]) vals)
         (* filler at [length + 1:16 byte alignment]?*)
         @ [
           (* Move result to result place *)
           IMov(Reg(RAX), Reg(heap_reg));
           IAdd(Reg(RAX), Const(tuple_tag));
-          (* mov heap_reg to new aligned heap_reg *)
-          IAdd(Reg(heap_reg), Const(15L));
+          (* mov heap_reg to new aligned heap_reg 1 space later *)
+          IAdd(Reg(heap_reg), Const(Int64.of_int (16 * length + 1)));
           IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
           ]
   | CGetItem(tuple, idx, _) -> []

@@ -168,8 +168,25 @@ let anf_tests = [
     (* todo: more tuple tests *)
 ]
 
+(* Pair tests with no potential side effects (like lets, functions, etc) *)
 let basic_pair_tests = [
-  t "basic_pair" "(5, 6)" "" "(5, 6)";
+  t "empty_pair" "()" "" "()";
+  t "single_pair" "(5,)" "" "(5,)";
+  t "double_pair" "(5, 6)" "" "(5, 6)";
+  t "long_pair" "(5, 6, 7, 8, 9, 10, 100)" "" "(5, 6, 7, 8, 9, 10, 100)";
+  t "tuple_within_tuple" "((5, 6), (7, 8))" "" "((5, 6), (7, 8))";
+  t "tuple_within_tuple_2" "((5, 6), (7, 8, 9))" "" "((5, 6), (7, 8, 9))";
+  t "tuple_within_tuple_3" "((5, 6, 9), (7, 8))" "" "((5, 6, 9), (7, 8))";
+  t "tuple_within_tuple_complex" "((5, 6, (7, 8, (9, 10, (11, (12, 13)))), 14), (15, 16))" ""
+    "((5, 6, (7, 8, (9, 10, (11, (12, 13)))), 14), (15, 16))";
+  t "expr_within_tuple" "(1 + 1, 2)" ""
+    "(2, 2)";
+  t "expr_within_tuple_2" "(1 + 1, add1(2))" ""
+    "(2, 3)";
+  t "print_within_tuple" "(print(2), add1(2))" ""
+    "2\n(2, 3)";
+  t "print_of_tuple_within_tuple" "(print((2, 3)), add1(2))" ""
+    "(2, 3)\n((2, 3), 3)";
 ]
 
 (* todo: is_tuple tests *)
