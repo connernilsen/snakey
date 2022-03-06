@@ -436,7 +436,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
       | None -> [UnboundFun(name, loc)] @ args_errors
       end
     | ESeq(_, _, _) -> raise (NotYetImplemented "implement sequences")
-    | ETuple(_, _) -> raise (NotYetImplemented "implement tuples")
+    | ETuple(elements, _) -> List.flatten (List.map (fun e -> wf_E e env fun_env) elements)
     | EGetItem(_, _, _) -> raise (NotYetImplemented "implement sequences")
     | ESetItem(_, _, _, _) -> raise (NotYetImplemented "implement sequences")
   and wf_D (env : int envt) (d : sourcespan decl) : exn list =
@@ -977,7 +977,7 @@ let run_if should_run f =
 (* Todo: Add comment explaining (1) why you chose the particular ordering of desguaring relative to the other phases that you did, and (2) what syntactic invariants each phase of your compiler expects. You may want to enforce those invariants by throwing InternalCompilerErrors if they’re violated. *)
 let compile_to_string (prog : sourcespan program pipeline) : string pipeline =
   prog
-  (* |> (add_err_phase well_formed is_well_formed) *)
+  |> (add_err_phase well_formed is_well_formed)
   |> (add_phase tagged tag)
   |> (add_phase renamed rename_and_tag)
   |> (add_phase desugared desugar)
