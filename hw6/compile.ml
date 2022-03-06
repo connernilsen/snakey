@@ -46,12 +46,17 @@ let err_GET_NOT_TUPLE  = 5L
 let err_GET_LOW_INDEX  = 6L
 let err_GET_HIGH_INDEX = 7L
 let err_NIL_DEREF      = 8L
+let err_GET_NOT_NUM  = 9L
+let err_INDEX_OUT_OF_BOUNDS  = 9L
 
 (* label names for errors *)
 let label_COMP_NOT_NUM  = "error_comp_not_num"
 let label_ARITH_NOT_NUM = "error_arith_not_num"
+let label_TUPLE_ACCESS_NOT_NUM = "error_tuple_access_not_num"
 let label_NOT_BOOL      = "error_not_bool"
+let label_NOT_TUPLE      = "error_not_tuple"
 let label_OVERFLOW      = "error_overflow"
+let label_INDEX_OUT_OF_BOUNDS      = "error_index_out_of_bounds"
 
 (* label names for conditionals *)
 let label_IS_NOT_BOOL = "is_not_bool"
@@ -721,13 +726,36 @@ let bool_tag_check (final_rax_value : arg) (to_label : string) : instruction lis
   IMov(Reg(RAX), final_rax_value); IJnz(to_label);
 ] 
 
-(* Jumps to to_label if not type and puts final_rax_value in RAX on exiting.
- *
- * Note: the value to test should be in RAX before calling
+let generate_cmp_func_with
+    (e1_reg : arg) 
+    (e2_reg : arg) 
+    (jmp_instr_constructor : (string -> instruction))
+    (if_true: instruction list)
+    (if_false: instruction list)
+    (tag : int)
+    : (instruction list) =
+  let label_done = (sprintf "%s%n" label_DONE tag) in
+  IMov(Reg(RAX), e2_reg) ::
+  (num_tag_check label_COMP_NOT_NUM 
+      (IMov(Reg(RAX), e1_reg) ::
+      (num_tag_check label_COMP_NOT_NUM 
+          [IMov(Reg(R10), e2_reg); ICmp(Reg(RAX), Reg(R10));]
+          @ if_true
+          @ [(jmp_instr_constructor label_done);]
+          @ if_false @ 
+          [ILabel(label_done)])))
+(* generates the instructions for comparing the args e1_reg and e2_reg and 
+  * constructs an auto-generated jump label using the jmp_instr_constructor.
+  * jump_instr_constructor should take in a label name and create the appropriate jump instruction
 *)
-let tuple_tag_check (to_label : string) : instruction list =
-  (create_test_jump_instrs tuple_tag_mask (IJnz(to_label)))
-
+let generate_cmp_func
+    (e1_reg : arg) 
+    (e2_reg : arg) 
+    (jmp_instr_constructor : (string -> instruction)) 
+    (tag : int)
+    : (instruction list) =
+  generate_cmp_func_with e1_reg e2_reg jmp_instr_constructor [IMov(Reg(RAX), const_true)] [IMov(Reg(RAX), const_false)] tag
+;;
 
 let rec compile_fun (fun_name : string) (body : tag aexpr) (args: string list) (env: arg envt) : instruction list =
   (* get max allocation needed as an even value, possibly rounded up *)
@@ -836,24 +864,6 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
   | CPrim2(op, l, r, tag) ->
     let e1_reg = (compile_imm l env) in
     let e2_reg = (compile_imm r env) in
-    (* generates the instructions for comparing the args e1_reg and e2_reg and 
-     * constructs an auto-generated jump label using the jmp_instr_constructor.
-     * jump_instr_constructor should take in a label name and create the appropriate jump instruction
-    *)
-    let generate_cmp_func 
-        (e1_reg : arg) 
-        (e2_reg : arg) 
-        (jmp_instr_constructor : (string -> instruction)) 
-        tag : instruction list =
-      let label_done = (sprintf "%s%n" label_DONE tag) in
-      IMov(Reg(RAX), e2_reg) ::
-      (num_tag_check label_COMP_NOT_NUM 
-         (IMov(Reg(RAX), e1_reg) ::
-          (num_tag_check label_COMP_NOT_NUM 
-             [IMov(Reg(R10), e2_reg); ICmp(Reg(RAX), Reg(R10));
-              IMov(Reg(RAX), const_true); (jmp_instr_constructor label_done);
-              IMov(Reg(RAX), const_false); ILabel(label_done)])))
-    in
     (* generates the instructions for performing a Prim2 arith operation on args e1_reg and e2_reg.
      * the body should perform operations using RAX and R10, where e1_reg and e2_reg 
      * will be moved to respectively.
@@ -915,7 +925,27 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
           IAdd(Reg(heap_reg), Const(Int64.of_int (16 * length + 1)));
           IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
           ]
-  | CGetItem(tuple, idx, _) -> []
+  | CGetItem(tuple, idx, tag) -> 
+        let tuple = compile_imm tuple env and idx = compile_imm idx env in
+        (* Check index is num *)
+        IMov(Reg(RAX), idx) :: (num_tag_check label_TUPLE_ACCESS_NOT_NUM 
+          (* Check tuple is tuple *)
+          (IMov(Reg(RAX), tuple) :: (tuple_tag_check label_NOT_TUPLE
+            (* Turn tuple snakeval into memory address *)
+            (IXor(Reg(RAX), Const(tuple_tag)) :: 
+              (generate_cmp_func_with 
+                RegOffset(0, Reg(RAX))
+                idx
+                (fun l -> IJl(l))
+                (generate_cmp_func_with 
+                  RegOffset(0, Reg(RAX))
+                  Const(0L) 
+                  (fun l -> IJge(l))
+                  ([IMov(Reg(RAX), RegOffset((idx + 1) * word_size, Reg(RAX)))])
+                  ([IJmp(label_INDEX_OUT_OF_BOUNDS)])
+                  tag)
+              ([IJmp(label_INDEX_OUT_OF_BOUNDS)])
+              tag)))))
   | CSetItem(tuple, idx, set, _) -> []
 and compile_imm e env =
   match e with
@@ -960,6 +990,8 @@ let compile_prog ((anfed : tag aprogram), (env: arg envt)) : string =
              (label_COMP_NOT_NUM, err_COMP_NOT_NUM);
              (label_ARITH_NOT_NUM, err_ARITH_NOT_NUM);
              (label_NOT_BOOL, err_NOT_BOOL);
+             (label_NOT_TUPLE, err_GET_NOT_TUPLE);
+             (label_INDEX_OUT_OF_BOUNDS, err_INDEX_OUT_OF_BOUNDS);
              (label_OVERFLOW, err_OVERFLOW);
            ])) in
 
