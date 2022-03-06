@@ -33,6 +33,10 @@ let teq name actual expected = (check_name name)>::fun _ ->
 let tdesugar (name : string) (program : string) (expected : string) = (check_name name)>:: fun _ ->
     assert_equal (expected ^ "\n") (string_of_program (desugar (tag (parse_string name program)))) ~printer:(fun s->s);;
 
+let wf_tests = [
+  terr "wf_tuple" "(a, 1, 2, 3)" "" "The identifier a, used at <wf_tuple, 1:1-1:2>, is not in scope";
+  terr "wf_tuple_in_tuple" "((a,), 1, 2, 3)" "" "The identifier a, used at <wf_tuple_in_tuple, 1:2-1:3>, is not in scope";
+]
 let desugar_tests = [
   tdesugar "desugar_and"
     "true && false"
@@ -211,7 +215,6 @@ let pair_tests = [
             (t, t)"
     ""
     "((4, 6), (4, 6))"
-
 ]
 
 (* let oom = [
@@ -228,6 +231,7 @@ let input = [
 
 let suite =
   "suite">:::
+  wf_tests @
   (* input @ *)
   (* desugar_tests @ *)
   (* anf_tests @ *)

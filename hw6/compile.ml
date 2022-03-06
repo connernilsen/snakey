@@ -437,7 +437,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
       end
     | ESeq(_, _, _) -> raise (NotYetImplemented "implement sequences")
     | ETuple(elements, _) -> List.flatten (List.map (fun e -> wf_E e env fun_env) elements)
-    | EGetItem(_, _, _) -> raise (NotYetImplemented "implement sequences")
+    | EGetItem(tuple, idx, _) -> (wf_E tuple env fun_env) @ (wf_E idx env fun_env)
     | ESetItem(_, _, _, _) -> raise (NotYetImplemented "implement sequences")
   and wf_D (env : int envt) (d : sourcespan decl) : exn list =
     match d with
