@@ -32,41 +32,39 @@ let bool_tag       = 0x0000000000000007L
 let bool_tag_mask  = 0x0000000000000007L
 let num_tag        = 0x0000000000000000L
 let num_tag_mask   = 0x0000000000000001L
-
 let tuple_tag      = 0x0000000000000001L
-
 let tuple_tag_mask = 0x0000000000000006L
 
 (* error codes *)
-let err_COMP_NOT_NUM   = 1L
-let err_ARITH_NOT_NUM  = 2L
-let err_NOT_BOOL = 3L
-let err_OVERFLOW       = 4L
-let err_GET_NOT_TUPLE  = 5L
-let err_GET_LOW_INDEX  = 6L
-let err_GET_HIGH_INDEX = 7L
-let err_NIL_DEREF      = 8L
-let err_GET_NOT_NUM  = 9L
-let err_INDEX_OUT_OF_BOUNDS  = 9L
+let err_COMP_NOT_NUM        = 1L
+let err_ARITH_NOT_NUM       = 2L
+let err_NOT_BOOL            = 3L
+let err_OVERFLOW            = 4L
+let err_GET_NOT_TUPLE       = 5L
+let err_GET_LOW_INDEX       = 6L
+let err_GET_HIGH_INDEX      = 7L
+let err_NIL_DEREF           = 8L
+let err_GET_NOT_NUM         = 9L
+let err_INDEX_OUT_OF_BOUNDS = 9L
 
 (* label names for errors *)
-let label_COMP_NOT_NUM  = "error_comp_not_num"
-let label_ARITH_NOT_NUM = "error_arith_not_num"
+let label_COMP_NOT_NUM         = "error_comp_not_num"
+let label_ARITH_NOT_NUM        = "error_arith_not_num"
 let label_TUPLE_ACCESS_NOT_NUM = "error_tuple_access_not_num"
-let label_NOT_BOOL      = "error_not_bool"
-let label_NOT_TUPLE      = "error_not_tuple"
-let label_OVERFLOW      = "error_overflow"
-let label_INDEX_OUT_OF_BOUNDS      = "error_index_out_of_bounds"
+let label_NOT_BOOL             = "error_not_bool"
+let label_NOT_TUPLE            = "error_not_tuple"
+let label_OVERFLOW             = "error_overflow"
+let label_INDEX_OUT_OF_BOUNDS  = "error_index_out_of_bounds"
 
 (* label names for conditionals *)
-let label_IS_NOT_BOOL = "is_not_bool"
-let label_IS_NOT_NUM  = "is_not_num"
-let label_IS_NOT_TUPLE  = "is_not_tuple"
-let label_DONE        = "done"
+let label_IS_NOT_BOOL  = "is_not_bool"
+let label_IS_NOT_NUM   = "is_not_num"
+let label_IS_NOT_TUPLE = "is_not_tuple"
+let label_DONE         = "done"
 
 let first_six_args_registers = [RDI; RSI; RDX; RCX; R8; R9]
-let heap_reg = R15
-let scratch_reg = R11
+let heap_reg                 = R15
+let scratch_reg              = R11
 
 let prelude = "section .text
 extern error
@@ -734,7 +732,7 @@ let generate_cmp_func_with
     (if_false: instruction list)
     (tag : int)
     : (instruction list) =
-  let label_done = (sprintf "%s%n" label_DONE tag) in
+  let label_done = (sprintf "%s%n_cmp" label_DONE tag) in
   IMov(Reg(RAX), e2_reg) ::
   (num_tag_check label_COMP_NOT_NUM 
       (IMov(Reg(RAX), e1_reg) ::
@@ -816,7 +814,7 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
       | Print -> (setup_call_to_func num_args [e_reg] "print") 
       | IsBool -> 
         let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
-        let label_done = (sprintf "%s%n" label_DONE tag) in
+        let label_done = (sprintf "%s%n_bool" label_DONE tag) in
         IMov(Reg(RAX), e_reg) ::
         (* check if value is a bool, and if not, then jump to label_not_bool *)
         (bool_tag_check const_true label_not_bool)
@@ -828,7 +826,7 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
         ]
       | IsNum ->
         let label_not_num = (sprintf "%s%n" label_IS_NOT_NUM tag) in 
-        let label_done = (sprintf "%s%n" label_DONE tag) in
+        let label_done = (sprintf "%s%n_num" label_DONE tag) in
         IMov(Reg(RAX), e_reg) :: 
         (* check if value is a num, and if not, then jump to label_not_num *)
         (num_tag_check label_not_num 
@@ -841,7 +839,7 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
            ])
       | IsTuple ->
         let label_not_tuple = (sprintf "%s%n" label_IS_NOT_TUPLE tag) in 
-        let label_done = (sprintf "%s%n" label_DONE tag) in
+        let label_done = (sprintf "%s%n_tuple" label_DONE tag) in
         IMov(Reg(RAX), e_reg) :: 
         (* check if value is a tuple, and if not, then jump to label_not_tuple *)
         (num_tag_check label_not_tuple
@@ -896,7 +894,7 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
       | SLessEq ->
         (generate_cmp_func e1_reg e2_reg (fun l -> IJle(l)) tag)
       | SEq ->
-        let label_done = (sprintf "%s%n" label_DONE tag) in
+        let label_done = (sprintf "%s%n_eq" label_DONE tag) in
         [IMov(Reg(RAX), e1_reg); IMov(Reg(R10), e2_reg); 
          ICmp(Reg(RAX), Reg(R10)); IMov(Reg(RAX), const_true);
          IJe(label_done); IMov(Reg(RAX), const_false);
@@ -926,7 +924,8 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
           IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
           ]
   | CGetItem(tuple, idx, tag) -> 
-        let tuple = compile_imm tuple env and idx = compile_imm idx env in
+        let tuple = compile_imm tuple env in
+        let idx = compile_imm idx env in
         (* Check index is num *)
         IMov(Reg(RAX), idx) :: (num_tag_check label_TUPLE_ACCESS_NOT_NUM 
           (* Check tuple is tuple *)
@@ -934,14 +933,15 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
             (* Turn tuple snakeval into memory address *)
             (IXor(Reg(RAX), Const(tuple_tag)) :: 
               (generate_cmp_func_with 
-                RegOffset(0, Reg(RAX))
+                (RegOffset(0, RAX))
                 idx
                 (fun l -> IJl(l))
                 (generate_cmp_func_with 
-                  RegOffset(0, Reg(RAX))
-                  Const(0L) 
+                  (RegOffset(0, RAX))
+                  (Const(0L))
                   (fun l -> IJge(l))
-                  ([IMov(Reg(RAX), RegOffset((idx + 1) * word_size, Reg(RAX)))])
+                  ([IMov(Reg(R11), idx); 
+                    IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, 1))])
                   ([IJmp(label_INDEX_OUT_OF_BOUNDS)])
                   tag)
               ([IJmp(label_INDEX_OUT_OF_BOUNDS)])
