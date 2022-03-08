@@ -131,7 +131,7 @@ namebind :
 
 declgroup :
   | decl { [$1] }
-  | decl ANDDEF declgroup { $1::$3 }
+  | decl declgroup { $1::$2 }
 
 program :
   | declgroup expr EOF { Program($1, $2, full_span()) }
