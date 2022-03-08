@@ -942,16 +942,16 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
             (* Turn tuple snakeval into memory address*)
             [(* convert to machine num *)
              IMov(Reg(R11), idx);
-             IShr(Reg(R11), Const(1L));
+             ISar(Reg(R11), Const(1L));
              (* check bounds *)
              ISub(Reg(RAX), Const(tuple_tag));
              IMov(Reg(RAX), RegOffset(0, RAX));
              ICmp(Reg(R11), Reg(RAX));
-             IJge(label_GET_HIGH_INDEX);
              IMov(Reg(RAX), tuple);
-             ISub(Reg(RAX), Const(tuple_tag));
+             IJge(label_GET_HIGH_INDEX);
              ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
              IJl(label_GET_LOW_INDEX);
+             ISub(Reg(RAX), Const(tuple_tag));
              (* get value *)
              IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, word_size))])))
   | CSetItem(tuple, idx, set, _) -> []

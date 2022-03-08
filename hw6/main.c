@@ -189,11 +189,11 @@ void error(uint64_t errCode, uint64_t val)
   }
   else if (errCode == GET_LOW_INDEX)
   {
-    fprintf(stderr, "unable to access index %s of tuple. too low\n", valueStr);
+    fprintf(stderr, "unable to access index of tuple %s, length %d. too low\n", valueStr, ((int64_t*)(val ^ TUPLE_TAG))[0]);
   }
   else if (errCode == GET_HIGH_INDEX)
   {
-    fprintf(stderr, "unable to access index %s of tuple. too high\n", valueStr);
+    fprintf(stderr, "unable to access index of tuple %s, length %d. too high\n", valueStr, ((int64_t *) (val ^ TUPLE_TAG))[0]);
   }
   else if (errCode == OVERFLOW)
   {

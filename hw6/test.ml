@@ -201,6 +201,12 @@ let basic_pair_tests = [
   t "get_value_from_tuple_2" "(1, 2, 3, 4, 5)[2]" "" "3";
   t "get_value_from_tuple_3" "(1, 2, 3, 4, 5)[3]" "" "4";
   t "get_value_from_tuple_4" "(1, 2, 3, 4, 5)[4]" "" "5";
+  t "get_value_from_tuple_expr" "(1, 2, 3, 4, 5)[add1(3)]" "" "5";
+  t "get_value_from_tuple_expr2" "(1, 2, 3, 4, 5)[sub1(1)]" "" "1";
+  terr "get_value_from_tuple_low_idx" "(1, 2, 3, 4, 5)[-1]" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. too low";
+  terr "get_value_from_tuple_low_idx_expr" "(1, 2, 3, 4, 5)[sub1(0)]" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. too low";
+  terr "get_value_from_tuple_high_idx" "(1, 2, 3, 4, 5)[5]" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. too high";
+  terr "get_value_from_tuple_high_idx_expr" "(1, 2, 3, 4, 5)[add1(4)]" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. too high";
 ]
 
 (* todo: is_tuple tests *)
