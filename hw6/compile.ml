@@ -939,26 +939,16 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
         IMov(Reg(RAX), idx) :: (num_tag_check label_TUPLE_ACCESS_NOT_NUM 
           (* Check tuple is tuple *)
           (IMov(Reg(RAX), tuple) :: (tuple_tag_check label_NOT_TUPLE
-            (* Turn tuple snakeval into memory address *)
-            (IXor(Reg(RAX), Const(tuple_tag)) :: 
-              (generate_cmp_func_with 
-                (Reg(RAX))
-                idx
-                (fun l -> IJl(l))
-                (generate_cmp_func_with 
-                  (Reg(RAX))
-                  (Const(0L))
-                  (fun l -> IJge(l))
-                  ([IMov(Reg(R11), idx); 
-                    IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, 1))])
-                  ([IJmp(label_GET_LOW_INDEX)])
-                  tag
-                  "a"
-                  false)
-                ([IJmp(label_GET_HIGH_INDEX)])
-                tag
-                "b"
-                false)))))
+            (* Turn tuple snakeval into memory address*)
+            [IXor(Reg(RAX), Const(tuple_tag));
+             (* check bounds *)
+             ICmp(Sized(QWORD_PTR, RegOffset(0, RAX)), idx);
+             IJge(label_GET_HIGH_INDEX);
+             ICmp(Sized(QWORD_PTR, RegOffset(0, RAX)), Const(0L));
+             IJl(label_GET_LOW_INDEX);
+             (* get value *)
+             IMov(Reg(R11), idx); 
+             IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, word_size))])))
   | CSetItem(tuple, idx, set, _) -> []
 and compile_imm e env =
   match e with

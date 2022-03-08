@@ -197,6 +197,9 @@ let basic_pair_tests = [
   t "print_of_tuple_within_tuple" "(print((2, 3)), add1(2))" ""
     "(2, 3)\n((2, 3), 3)";
   t "get_value_from_tuple" "(1, 2, 3, 4, 5)[3]" "" "4";
+  t "get_value_from_tuple1" "(1, 2, 3, 4, 5)[2]" "" "3";
+  t "get_value_from_tuple2" "(1, 2, 3, 4, 5)[1]" "" "2";
+  t "get_value_from_tuple3" "(1, 2, 3, 4, 5)[3]" "" "1";
 ]
 
 (* todo: is_tuple tests *)
