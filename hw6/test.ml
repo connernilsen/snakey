@@ -85,6 +85,12 @@ let desugar_tests = [
   tdesugar "desugar_seq_complex"
     "true; true && true; true"
     "\n(let _ = true in (let _ = (if true: (if true: true else: false) else: false) in true))";
+  tdesugar "desugar_destructure_basic"
+    "let (a, b, c) = (1, 2, 3) in (a, b, c)"
+    "\n(let bind_temp4 = (1, 2, 3), a = bind_temp4[0], b = bind_temp4[1], c = bind_temp4[2] in (a, b, c))";
+  tdesugar "desugar_destructure_nested"
+    "let (a, (b, c), d) = (1, (2, 3), 4) in (a, (b, c), d)"
+    "\n(let bind_temp4 = (1, (2, 3), 4), a = bind_temp4[0], bind_temp6 = bind_temp4[1], b = bind_temp6[0], c = bind_temp6[1], d = bind_temp4[2] in (a, (b, c), d))";
 ]
 
 let anf_tests = [

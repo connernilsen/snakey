@@ -513,34 +513,22 @@ let desugar (p : tag program) : unit program =
     | ETuple(e, _) -> ETuple(List.map helpE e, ())
     | EGetItem(item, idx, _) -> EGetItem(helpE item, helpE idx, ())
     | ESetItem(item, idx, set, _) -> ESetItem(helpE item, helpE idx, helpE set, ())
-    | ELet(binds, body, _) -> 
-      let rec helpBind (bind : 'a bind) (exp : 'a expr) : unit binding =
-        let helpSubbind (outer_tuple : string) (idx : int) (inner_bind : 'a bind): unit binding = 
-          let this_tuple = gensym "temp" in
-          (BName(this_tuple, false, ()), helpBind inner_bind (EGetItem(EId(outer_tuple, ()), ENumber(i, ()))), ())
-        in
+    | ELet(bindings, body, _) -> 
+      let rec helpBind (bind : 'a bind) (exp : 'a expr) : unit binding list =
         begin
           match bind with
-          | BBlank | BName -> (untagB bind, helpE exp, ())
+          | BBlank(_) | BName(_, _, _) -> [(untagB bind, helpE exp, ())]
           | BTuple(bindings, tag) ->
-            let original_tuple_id = sprintf "bind_temp%s" tag in
+            let original_tuple_id = sprintf "bind_temp%d" tag in
             let original_tuple = (BName(original_tuple_id, false, ()), exp, ()) in
-            let updated_bindings = List.mapi (helpSubbind original_tuple) bindings in
-            ELet((BName(original_tuple_id, false, ()), exp, ()) :: updated_bindings, helpE body, ())
-            (*
-            let (w, (x, y), z) = (1, (2, 3), 4)
-            
-            let temp1 = (1, (2, 3), 4),
-                w = temp1[0],
-                temp2 = temp1[1],
-                x = temp2[0],
-                y = temp2[1],
-                z = temp1[2]
-            *)
+            let updated_bindings = List.flatten (List.mapi 
+              (fun (i : int) (b : tag bind) -> (helpBind b (EGetItem(EId(original_tuple_id, tag), ENumber(Int64.of_int i, tag), tag)))) 
+              bindings) in
+            ((BName(original_tuple_id, false, ()), helpE exp, ()) :: updated_bindings)
         end
       in
       ELet(
-        List.map (fun (bind, exp, _) -> helpBind bind exp) binds, 
+        List.flatten (List.map (fun (bind, exp, _) -> helpBind bind exp) bindings),
         helpE body, 
         ())
     | EPrim1(op, e, _) ->
