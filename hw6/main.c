@@ -24,6 +24,11 @@ const uint64_t COMP_NOT_NUM = 1L;
 const uint64_t ARITH_NOT_NUM = 2L;
 const uint64_t NOT_BOOL = 3L;
 const uint64_t OVERFLOW = 4L;
+const uint64_t GET_NOT_TUPLE = 5L;
+const uint64_t GET_LOW_INDEX = 6L;
+const uint64_t GET_HIGH_INDEX = 7L;
+const uint64_t NIL_DEREF = 8L;
+const uint64_t GET_NOT_NUM = 9L;
 
 const uint64_t MAX_VAL_LENGTH = 100;
 
@@ -179,7 +184,17 @@ void error(uint64_t errCode, uint64_t val)
     fprintf(stderr,
             "expected a boolean, got %s\n", valueStr);
   }
-  // todo: not tuple
+  else if (errCode == GET_NOT_TUPLE) {
+    fprintf(stderr, "unable to access non tuple %s\n", valueStr);
+  }
+  else if (errCode == GET_LOW_INDEX)
+  {
+    fprintf(stderr, "unable to access index %s of tuple. too low\n", valueStr);
+  }
+  else if (errCode == GET_HIGH_INDEX)
+  {
+    fprintf(stderr, "unable to access index %s of tuple. too high\n", valueStr);
+  }
   else if (errCode == OVERFLOW)
   {
     fprintf(stderr,
