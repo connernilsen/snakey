@@ -514,8 +514,33 @@ let desugar (p : tag program) : unit program =
     | EGetItem(item, idx, _) -> EGetItem(helpE item, helpE idx, ())
     | ESetItem(item, idx, set, _) -> ESetItem(helpE item, helpE idx, helpE set, ())
     | ELet(binds, body, _) -> 
+      let rec helpBind (bind : 'a bind) (exp : 'a expr) : unit binding =
+        let helpSubbind (outer_tuple : string) (idx : int) (inner_bind : 'a bind): unit binding = 
+          let this_tuple = gensym "temp" in
+          (BName(this_tuple, false, ()), helpBind inner_bind (EGetItem(EId(outer_tuple, ()), ENumber(i, ()))), ())
+        in
+        begin
+          match bind with
+          | BBlank | BName -> (untagB bind, helpE exp, ())
+          | BTuple(bindings, tag) ->
+            let original_tuple_id = sprintf "bind_temp%s" tag in
+            let original_tuple = (BName(original_tuple_id, false, ()), exp, ()) in
+            let updated_bindings = List.mapi (helpSubbind original_tuple) bindings in
+            ELet((BName(original_tuple_id, false, ()), exp, ()) :: updated_bindings, helpE body, ())
+            (*
+            let (w, (x, y), z) = (1, (2, 3), 4)
+            
+            let temp1 = (1, (2, 3), 4),
+                w = temp1[0],
+                temp2 = temp1[1],
+                x = temp2[0],
+                y = temp2[1],
+                z = temp1[2]
+            *)
+        end
+      in
       ELet(
-        List.map (fun (bind, exp, _) -> (untagB bind, helpE exp, ())) binds, 
+        List.map (fun (bind, exp, _) -> helpBind bind exp) binds, 
         helpE body, 
         ())
     | EPrim1(op, e, _) ->
