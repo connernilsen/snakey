@@ -91,6 +91,9 @@ let desugar_tests = [
   tdesugar "desugar_destructure_nested"
     "let (a, (b, c), d) = (1, (2, 3), 4) in (a, (b, c), d)"
     "\n(let bind_temp4 = (1, (2, 3), 4), a = bind_temp4[0], bind_temp6 = bind_temp4[1], b = bind_temp6[0], c = bind_temp6[1], d = bind_temp4[2] in (a, (b, c), d))";
+  tdesugar "desugar_destructure_nested_w_blanks"
+    "let (a, (b, _), _) = (1, (2, 3), 4) in (a, (b, c), d)"
+    "\n(let bind_temp4 = (1, (2, 3), 4), a = bind_temp4[0], bind_temp6 = bind_temp4[1], b = bind_temp6[0], _ = bind_temp6[1], _ = bind_temp4[2] in (a, (b, c), d))";
 ]
 
 let anf_tests = [
@@ -305,6 +308,26 @@ let let_tests = [
          t[1] := t[0] in
          t" ""
          "(2, 2, 3, 4)";
+  t "destructure_basic"
+    "let (a, b, c) = (1, 2, 3) in (a, c, b)"
+    ""
+    "(1, 3, 2)";
+  t "destructure_complex"
+    "let (a, b, (c, d), e) = (1, 2, (3, 4), 5) in (a, b, (d, c), e)"
+    ""
+    "(1, 2, (4, 3), 5)";
+  t "destructure_expr"
+    "let (a, b, (c, d), e) = (1, 2, (add1(3), add1(4)), 5) in (a, b, (d, c), e)"
+    ""
+    "(1, 2, (5, 4), 5)";
+  t "destructure_print"
+    "let (a, _, c) = (1, print(2), 5) in (a, c)"
+    ""
+    "2\n(1, 5)";
+  t "destructure_print_nested"
+    "let (a, (b, _), c) = (1, (2, print(2)), 5) in (a, c)"
+    ""
+    "2\n(1, 5)";
 ]
 
 let sequencing_tests = [
