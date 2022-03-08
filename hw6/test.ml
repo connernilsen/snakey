@@ -41,6 +41,7 @@ let wf_tests = [
   terr "wf_tuple_set" "(a, 1, 2, 3)[0] := 0" "" "The identifier a, used at <wf_tuple_set, 1:1-1:2>, is not in scope";
   terr "wf_tuple_set_arg" "(1, 2, 3)[a] := 0" "" "The identifier a, used at <wf_tuple_set_arg, 1:10-1:11>, is not in scope";
   terr "wf_tuple_set_set" "(1, 2, 3)[0] := a" "" "The identifier a, used at <wf_tuple_set_set, 1:16-1:17>, is not in scope";
+  terr "wf_rebind_fun" "def input(): true\n1" "" "The identifier a, used at <wf_tuple_set_set, 1:16-1:17>, is not in scope";
   terr "wf_sequence_1" "a; a" "" "The identifier a, used at <wf_sequence_1, 1:0-1:1>, is not in scope\nThe identifier a, used at <wf_sequence_1, 1:3-1:4>, is not in scope";
 ]
 let desugar_tests = [
@@ -242,9 +243,10 @@ let basic_pair_tests = [
 ]
 
 let stdin_tests = [
-  t "stdin_print_int" "print(input())" "5" "5";
-  t "stdin_print_bool" "print(input())" "true" "true";
-  t "stdin_print_bool_false" "print(input())" "false" "false";
+  t "stdin_print_int" "print(input())" "5" "5\n5";
+  t "stdin_print_bool" "print(input())" "true" "true\ntrue";
+  t "stdin_print_bool_false" "print(input())" "false" "false\nfalse";
+  t "wf_input" "input()" "" "0";
 ]
 
 (* todo: is_tuple tests *)
@@ -282,6 +284,28 @@ let input = [
   t "input1" "let x = input() in x + 2" "123" "125"
 ]
 
+let let_tests = [
+  t "let_blank" "let _ = print(5 * 5) in print(3)" "" "25\n3";
+  t "tuple_modification"
+    "let t = (1, 2, 3, 4),
+         a = t[1],
+         b = t[1] := t[a],
+         _ = t[0] := a in
+         print(t); print(a); print(b)" ""
+         "(2, 3, 3, 4)\n2\n3\n3";
+  t "tuple_double_modify"
+    "let t = (1, 2, 3, 4),
+         t[0] := t[1],
+         t[1] := t[0] in
+         t" ""
+         "(2, 2, 3, 4)";
+]
+
+let sequencing_tests = [
+  t "print_add" "print(5 * 5) ; 5 - 2" "" "25\n3";
+  t "add_twice" "5 * 5 ; 5 - 2" "" "3";
+  t "sequencing" "print(5 * 5); print(3)" "" "25\n3\n3";
+]
 
 let suite =
   "suite">:::
@@ -291,7 +315,8 @@ let suite =
   (* anf_tests @ *)
   (* pair_tests @ *)
   basic_pair_tests @
-  stdin_tests
+  stdin_tests @
+  sequencing_tests
 
 
 let () =

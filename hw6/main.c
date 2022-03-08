@@ -168,7 +168,7 @@ SNAKEVAL convertStrToVal(char *str) {
     return FALSE;
   }
   else {
-    return atoi(str);
+    return atoi(str) << 1;
   }
 }
 

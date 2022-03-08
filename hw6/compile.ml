@@ -70,6 +70,7 @@ let scratch_reg              = R11
 let prelude = "section .text
 extern error
 extern print
+extern input
 global our_code_starts_here"
 
 let nil = HexConst(tuple_tag)
@@ -169,8 +170,7 @@ let binds_to_env (binds : sourcespan bind list) : (string * sourcespan) list =
 
 type funenvt = call_type envt;;
 let initial_fun_env : funenvt = [
-  (* call_types indicate whether a given function is implemented by something in the runtime,
-     as a snake function, as a primop (in case that's useful), or just unknown so far *)
+  ("input", Native);
 ];;
 
 
@@ -296,8 +296,9 @@ let anf (p : tag program) : unit aprogram =
       let args = List.map (fun a ->
           match a with
           | BName(a, _, _) -> a
-          | _ -> raise (NotYetImplemented("Finish this"))) args in
-      ADFun(name, args, helpA body, ())
+          | BTuple(_, _) -> raise (NotYetImplemented "do tuple destructuring in fun def")
+          | _ ->  raise (NotYetImplemented "do _ destructuring in fun def")) args
+      in ADFun(name, args, helpA body, ())
   and helpC (e : tag expr) : (unit cexpr * (string * unit cexpr) list) = 
     match e with
     | EPrim1(op, arg, _) ->
@@ -311,11 +312,19 @@ let anf (p : tag program) : unit aprogram =
       let (cond_imm, cond_setup) = helpI cond in
       (CIf(cond_imm, helpA _then, helpA _else, ()), cond_setup)
     | ELet([], body, _) -> helpC body
-    | ELet(_::_, body, _) -> raise (NotYetImplemented "Finish this")
-    (* | ELet(((bind, _, _), exp, _)::rest, body, pos) ->
-     *    let (exp_ans, exp_setup) = helpC exp in
-     *    let (body_ans, body_setup) = helpC (ELet(rest, body, pos)) in
-     *    (body_ans, exp_setup @ [(bind, exp_ans)] @ body_setup) *)
+    | ELet((bind, exp, _) :: rest, body, pos) -> 
+      begin
+        match bind with 
+        | BBlank(_) -> 
+          let (_, exp_setup) = helpI exp in
+          let (body_ans, body_setup) = helpC (ELet(rest, body, pos)) in 
+          (body_ans, exp_setup @ body_setup)
+        | BName(name, _, _) -> 
+          let (exp_ans, exp_setup) = helpC exp in
+          let (body_ans, body_setup) = helpC (ELet(rest, body, pos)) in 
+          (body_ans, exp_setup @ [(name, exp_ans)] @ body_setup)
+        | BTuple(_, _) -> raise (NotYetImplemented "do tuple destructuring")
+      end
     | EApp(funname, args, ct, _) ->
       let (new_args, new_setup) = List.split (List.map helpI args) in
       (CApp(funname, new_args, ct, ()), List.concat new_setup)
@@ -360,11 +369,19 @@ let anf (p : tag program) : unit aprogram =
       let (new_args, new_setup) = List.split (List.map helpI args) in
       (ImmId(tmp, ()), (List.concat new_setup) @ [(tmp, CApp(funname, new_args, ct, ()))])
     | ELet([], body, _) -> helpI body
-    | ELet(_::_, body, _) -> raise (NotYetImplemented "Finish this")
-    (* | ELet(((bind, _, _), exp, _)::rest, body, pos) ->
-     *    let (exp_ans, exp_setup) = helpC exp in
-     *    let (body_ans, body_setup) = helpI (ELet(rest, body, pos)) in
-     *    (body_ans, exp_setup @ [(bind, exp_ans)] @ body_setup) *)
+    | ELet((bind, exp, _) :: rest, body, pos) -> 
+      begin
+        match bind with 
+        | BBlank(_) -> 
+          let (_, exp_setup) = helpI exp in
+          let (body_ans, body_setup) = helpI (ELet(rest, body, pos)) in 
+          (body_ans, exp_setup @ body_setup)
+        | BName(name, _, _) -> 
+          let (exp_ans, exp_setup) = helpC exp in
+          let (body_ans, body_setup) = helpI (ELet(rest, body, pos)) in 
+          (body_ans, exp_setup @ [(name, exp_ans)] @ body_setup)
+        | BTuple(_, _) -> raise (NotYetImplemented "do tuple destructuring")
+      end
     | ETuple(e, tag) -> 
       let tmp = sprintf "tuple_%d" tag 
       and id_setup = List.map helpI e in 
@@ -416,7 +433,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
               let curr_errors = (wf_E e scope_env fun_env) @ found_errors in
               begin
               match x with 
-              | BBlank(loc) -> raise (NotYetImplemented "implement blank is well formed in let")
+              | BBlank(loc) -> (scope_env, shadow_env, curr_errors)
               (* todo: call_type *)
               | BName(name, _, loc) -> 
                 begin
@@ -453,7 +470,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
            match x with 
            | DFun(name, args, _, _) -> 
              (name, (List.length args)) 
-         end) decls)
+         end) decls) @ List.map (fun (name, _) -> (name, 0)) initial_fun_env
   and dup_d_errors (decls : sourcespan decl list) = 
     List.map (fun x -> 
         begin 
@@ -496,8 +513,11 @@ let desugar (p : tag program) : unit program =
     | ETuple(e, _) -> ETuple(List.map helpE e, ())
     | EGetItem(item, idx, _) -> EGetItem(helpE item, helpE idx, ())
     | ESetItem(item, idx, set, _) -> ESetItem(helpE item, helpE idx, helpE set, ())
-    | ELet(binds, body, _) -> raise (NotYetImplemented "Finish the remaining cases")
-    (* ELet(List.map (fun (name, expr, _) -> (name, helpE expr, ())) binds, helpE body, ()) *)
+    | ELet(binds, body, _) -> 
+      ELet(
+        List.map (fun (bind, exp, _) -> (untagB bind, helpE exp, ())) binds, 
+        helpE body, 
+        ())
     | EPrim1(op, e, _) ->
       EPrim1(op, helpE e, ())
     | EPrim2(op, e1, e2, a) ->
@@ -529,11 +549,19 @@ let desugar (p : tag program) : unit program =
     | EBool(b, _) -> EBool(b, ())
     | ENil(_) -> ENil(())
     | EId(id, _) -> EId(id, ())
-    | EApp(_, _, _, _) -> raise (NotYetImplemented "Finish the remaining cases")
+    | EApp(name, args, allow_shadow, _) -> EApp(name, List.map helpE args, allow_shadow, ())
   and helpD (d : tag decl) : unit decl (* other parameters may be needed here *) =
     match d with
-    | DFun(_, _, _, _) -> raise (NotYetImplemented "Finish the remaining cases")
-    (* DFun(name, List.map (fun (name, _) -> (name, ())) args, helpE body, ()) *)
+    | DFun(name, args, body, _) -> 
+      let helpBind (b : 'a bind) : unit bind = 
+        begin
+        match b with 
+        | BBlank(_) -> raise (NotYetImplemented "_ in d binds")
+        (* todo bool *)
+        | BName(name, shadowable, _) -> BName(name, shadowable, ())
+        | BTuple(t, _) -> raise (NotYetImplemented "tuple in d binds")
+        end
+      in DFun(name, List.map helpBind args, helpE body, ())
   in
   match p with
   | Program(decls, body, _) ->
@@ -819,7 +847,6 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
         (num_tag_check label_ARITH_NOT_NUM 
            [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(Int64.neg 2L))); IJo(label_OVERFLOW)])
       | Print -> (setup_call_to_func num_args [e_reg] "print") 
-      | Input -> (setup_call_to_func num_args [] "input") 
       | IsBool -> 
         let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
         let label_done = (sprintf "%s%n_bool" label_DONE tag) in
@@ -1056,6 +1083,8 @@ let run_if should_run f =
  * In the previous assignemnts, we had a compile-time syntactic invariant of a subtype of expr (sexpr) for a sugared expr. 
  * This worked well for us, however, in this assignment, there was so much repeated code required (printing, etc) that it would
  * have taken too long. We ended up adding runtime exceptions in any unexpected desugaring case.  *)
+
+ (* todo: talk more about sprim *)
 let compile_to_string (prog : sourcespan program pipeline) : string pipeline =
   prog
   |> (add_err_phase well_formed is_well_formed)

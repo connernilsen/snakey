@@ -15,7 +15,6 @@ type prim1 =
   | Add1
   | Sub1
   | Print
-  | Input
   | IsBool
   | IsNum
   | IsTuple
