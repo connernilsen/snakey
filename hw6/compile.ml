@@ -507,26 +507,23 @@ let desugar (p : tag program) : unit program =
     (fun name ->
        next := !next + 1;
        sprintf "%s_%d" name (!next)) in
-  let rec helpE (e : tag expr) : unit expr (* other parameters may be needed here *) =
+  let rec helpBind (bind : 'a bind) (exp : 'a expr) : unit binding list =
+    match bind with
+    | BBlank(_) | BName(_, _, _) -> [(untagB bind, helpE exp, ())]
+    | BTuple(bindings, tag) ->
+      let original_tuple_id = sprintf "bind_temp%d" tag in
+      let original_tuple = (BName(original_tuple_id, false, ()), exp, ()) in
+      let updated_bindings = List.flatten (List.mapi 
+        (fun (i : int) (b : tag bind) -> (helpBind b (EGetItem(EId(original_tuple_id, tag), ENumber(Int64.of_int i, tag), tag)))) 
+        bindings) in
+      ((BName(original_tuple_id, false, ()), helpE exp, ()) :: updated_bindings)
+  and helpE (e : tag expr) : unit expr (* other parameters may be needed here *) =
     match e with 
     | ESeq(e1, e2, _) -> ELet([(BBlank(()), helpE e1, ())], helpE e2, ())
     | ETuple(e, _) -> ETuple(List.map helpE e, ())
     | EGetItem(item, idx, _) -> EGetItem(helpE item, helpE idx, ())
     | ESetItem(item, idx, set, _) -> ESetItem(helpE item, helpE idx, helpE set, ())
     | ELet(bindings, body, _) -> 
-      let rec helpBind (bind : 'a bind) (exp : 'a expr) : unit binding list =
-        begin
-          match bind with
-          | BBlank(_) | BName(_, _, _) -> [(untagB bind, helpE exp, ())]
-          | BTuple(bindings, tag) ->
-            let original_tuple_id = sprintf "bind_temp%d" tag in
-            let original_tuple = (BName(original_tuple_id, false, ()), exp, ()) in
-            let updated_bindings = List.flatten (List.mapi 
-              (fun (i : int) (b : tag bind) -> (helpBind b (EGetItem(EId(original_tuple_id, tag), ENumber(Int64.of_int i, tag), tag)))) 
-              bindings) in
-            ((BName(original_tuple_id, false, ()), helpE exp, ()) :: updated_bindings)
-        end
-      in
       ELet(
         List.flatten (List.map (fun (bind, exp, _) -> helpBind bind exp) bindings),
         helpE body, 
@@ -563,18 +560,14 @@ let desugar (p : tag program) : unit program =
     | ENil(_) -> ENil(())
     | EId(id, _) -> EId(id, ())
     | EApp(name, args, allow_shadow, _) -> EApp(name, List.map helpE args, allow_shadow, ())
-  and helpD (d : tag decl) : unit decl (* other parameters may be needed here *) =
+  and helpD (d : tag decl) : unit decl =
     match d with
-    | DFun(name, args, body, _) -> 
-      let helpBind (b : 'a bind) : unit bind = 
-        begin
-        match b with 
-        | BBlank(_) -> raise (NotYetImplemented "_ in d binds")
-        (* todo bool *)
-        | BName(name, shadowable, _) -> BName(name, shadowable, ())
-        | BTuple(t, _) -> raise (NotYetImplemented "tuple in d binds")
-        end
-      in DFun(name, List.map helpBind args, helpE body, ())
+    | DFun(name, args, body, tag) -> 
+      let new_args = List.map (fun (a) -> gensym (sprintf "new_args_%d" tag)) args in 
+      (* todo: new tag on eid below *)
+      let prologue_let_bindings = List.flatten (List.map2 (fun new_name bind -> (helpBind bind (EId(new_name, tag)))) new_args args)
+      (* todo: maybe don't desugar if we aren't destructuring *)
+      in DFun(name, List.map (fun name -> (BName(name, false, ()))) new_args, ELet(prologue_let_bindings, helpE body, ()), ())
   in
   match p with
   | Program(decls, body, _) ->

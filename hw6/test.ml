@@ -94,6 +94,12 @@ let desugar_tests = [
   tdesugar "desugar_destructure_nested_w_blanks"
     "let (a, (b, _), _) = (1, (2, 3), 4) in (a, (b, c), d)"
     "\n(let bind_temp4 = (1, (2, 3), 4), a = bind_temp4[0], bind_temp6 = bind_temp4[1], b = bind_temp6[0], _ = bind_temp6[1], _ = bind_temp4[2] in (a, (b, c), d))";
+  tdesugar "desugar_decl_with_destructure"
+    "def f((a, b), c): ((a, b), c)\nf((1, 2), 3)"
+    "(def f(new_args_2_1, new_args_2_2):\n(let bind_temp3 = new_args_2_1, a = bind_temp3[0], b = bind_temp3[1], c = new_args_2_2 in ((a, b), c)))\n(?f((1, 2), 3))";
+  tdesugar "desugar_decl_with_destructure_and_blank"
+    "def f((a, _), c): ((a,), c)\nf((1, 2), 3)"
+    "(def f(new_args_2_1, new_args_2_2):\n(let bind_temp3 = new_args_2_1, a = bind_temp3[0], _ = bind_temp3[1], c = new_args_2_2 in ((a,), c)))\n(?f((1, 2), 3))";
 ]
 
 let anf_tests = [
