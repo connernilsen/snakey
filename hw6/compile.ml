@@ -53,8 +53,8 @@ let label_TUPLE_ACCESS_NOT_NUM = "error_tuple_access_not_num"
 let label_NOT_BOOL             = "error_not_bool"
 let label_NOT_TUPLE            = "error_not_tuple"
 let label_OVERFLOW             = "error_overflow"
-let label_GET_LOW_INDEX  = "error_get_low_index"
-let label_GET_HIGH_INDEX  = "error_get_high_index"
+let label_GET_LOW_INDEX        = "error_get_low_index"
+let label_GET_HIGH_INDEX       = "error_get_high_index"
 
 (* label names for conditionals *)
 let label_IS_NOT_BOOL  = "is_not_bool"
@@ -940,14 +940,19 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
           (* Check tuple is tuple *)
           (IMov(Reg(RAX), tuple) :: (tuple_tag_check label_NOT_TUPLE
             (* Turn tuple snakeval into memory address*)
-            [IXor(Reg(RAX), Const(tuple_tag));
+            [(* convert to machine num *)
+             IMov(Reg(R11), idx);
+             IShr(Reg(R11), Const(1L));
              (* check bounds *)
-             ICmp(Sized(QWORD_PTR, RegOffset(0, RAX)), idx);
+             ISub(Reg(RAX), Const(tuple_tag));
+             IMov(Reg(RAX), RegOffset(0, RAX));
+             ICmp(Reg(R11), Reg(RAX));
              IJge(label_GET_HIGH_INDEX);
-             ICmp(Sized(QWORD_PTR, RegOffset(0, RAX)), Const(0L));
+             IMov(Reg(RAX), tuple);
+             ISub(Reg(RAX), Const(tuple_tag));
+             ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
              IJl(label_GET_LOW_INDEX);
              (* get value *)
-             IMov(Reg(R11), idx); 
              IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, word_size))])))
   | CSetItem(tuple, idx, set, _) -> []
 and compile_imm e env =
