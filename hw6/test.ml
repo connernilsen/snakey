@@ -241,6 +241,12 @@ let basic_pair_tests = [
   terr "tuple_binary_type_r" "1 + (1, 2)" "" "arithmetic expected a number, got tuple((num(1), num(2)))";
 ]
 
+let stdin_tests = [
+  t "stdin_print_int" "print(input())" "5" "5";
+  t "stdin_print_bool" "print(input())" "true" "true";
+  t "stdin_print_bool_false" "print(input())" "false" "false";
+]
+
 (* todo: is_tuple tests *)
 (* todo: is_well_formed tuple tests *)
 let pair_tests = [
@@ -284,8 +290,8 @@ let suite =
   desugar_tests @
   (* anf_tests @ *)
   (* pair_tests @ *)
-  basic_pair_tests
-
+  basic_pair_tests @
+  stdin_tests
 
 
 let () =

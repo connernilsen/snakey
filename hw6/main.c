@@ -159,6 +159,19 @@ char *convertValueToStr(SNAKEVAL val, char debug)
   return strdup(result);
 }
 
+SNAKEVAL convertStrToVal(char *str) {
+  if (strcmp("true", str) == 0) {
+    return TRUE;
+  }
+  else if (strcmp("false", str) == 0)
+  {
+    return FALSE;
+  }
+  else {
+    return atoi(str);
+  }
+}
+
 /**
  * Handle an error. The print statement depends
  * on the error code given.
@@ -228,6 +241,13 @@ SNAKEVAL print(SNAKEVAL val)
   printf("%s\n", valueStr);
   free(valueStr);
   return val;
+}
+
+SNAKEVAL input()
+{
+  char str[100];
+  scanf("%s", str);
+  return convertStrToVal(str);
 }
 
 // main should remain unchanged
