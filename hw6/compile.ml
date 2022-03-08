@@ -954,7 +954,32 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
              ISub(Reg(RAX), Const(tuple_tag));
              (* get value *)
              IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, word_size))])))
-  | CSetItem(tuple, idx, set, _) -> []
+  | CSetItem(tuple, idx, set, _) -> 
+        let tuple = compile_imm tuple env in
+        let idx = compile_imm idx env in
+        let set = compile_imm set env in
+        (* Check index is num *)
+        IMov(Reg(RAX), idx) :: (num_tag_check label_TUPLE_ACCESS_NOT_NUM 
+          (* Check tuple is tuple *)
+          (IMov(Reg(RAX), tuple) :: (tuple_tag_check label_NOT_TUPLE
+            (* Turn tuple snakeval into memory address*)
+            [(* convert to machine num *)
+             IMov(Reg(R11), idx);
+             ISar(Reg(R11), Const(1L));
+             (* check bounds *)
+             ISub(Reg(RAX), Const(tuple_tag));
+             IMov(Reg(RAX), RegOffset(0, RAX));
+             ICmp(Reg(R11), Reg(RAX));
+             IMov(Reg(RAX), tuple);
+             IJge(label_GET_HIGH_INDEX);
+             ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
+             IJl(label_GET_LOW_INDEX);
+             ISub(Reg(RAX), Const(tuple_tag));
+             (* get value *)
+             IMov(Reg(R12), set);
+             IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, R11, word_size, word_size)), Reg(R12));
+             IMov(Reg(RAX), set)])))
+
 and compile_imm e env =
   match e with
   | ImmNum(n, _) -> Const(Int64.shift_left n 1)

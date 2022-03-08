@@ -201,6 +201,7 @@ let basic_pair_tests = [
   t "get_value_from_tuple_2" "(1, 2, 3, 4, 5)[2]" "" "3";
   t "get_value_from_tuple_3" "(1, 2, 3, 4, 5)[3]" "" "4";
   t "get_value_from_tuple_4" "(1, 2, 3, 4, 5)[4]" "" "5";
+  t "get_value_from_tuple_5_tuple" "(1, (1, 2, 3), 3, 4, 5)[1]" "" "(1, 2, 3)";
   t "get_value_from_tuple_expr" "(1, 2, 3, 4, 5)[add1(3)]" "" "5";
   t "get_value_from_tuple_expr2" "(1, 2, 3, 4, 5)[sub1(1)]" "" "1";
   terr "get_value_from_tuple_low_idx" "(1, 2, 3, 4, 5)[-1]" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too small";
@@ -209,6 +210,17 @@ let basic_pair_tests = [
   terr "get_value_from_tuple_high_idx_expr" "(1, 2, 3, 4, 5)[add1(4)]" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too large";
   terr "tuple_access_wrong_type" "1[5]" "" "tuple access expected tuple num(1)";
   terr "tuple_access_idx_wrong_type" "(1, 2)[true]" "" "unable to access tuple position bool(true)";
+  t "get_value_from_tuple_0_set" "(1, 2, 3, 4, 5)[0] := 3" "" "3";
+  t "get_value_from_tuple_4_set" "(1, 2, 3, 4, 5)[4] := 3" "" "3";
+  t "get_value_from_tuple_expr_set" "(1, 2, 3, 4, 5)[add1(3)] := 3" "" "3";
+  t "get_value_from_tuple_expr2_set" "(1, 2, 3, 4, 5)[sub1(1)] := 3" "" "3";
+  t "get_value_from_tuple_expr2_set_tuple" "(1, 2, 3, 4, 5)[sub1(1)] := (1, 2, 3)" "" "(1, 2, 3)";
+  terr "get_value_from_tuple_low_idx_set" "(1, 2, 3, 4, 5)[-1] := 3" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too small";
+  terr "get_value_from_tuple_low_idx_expr_set" "(1, 2, 3, 4, 5)[sub1(0)] := 3" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too small";
+  terr "get_value_from_tuple_high_idx_set" "(1, 2, 3, 4, 5)[5] := 3" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too large";
+  terr "get_value_from_tuple_high_idx_expr_set" "(1, 2, 3, 4, 5)[add1(4)] := 3" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too large";
+  terr "tuple_access_wrong_type_set" "1[5] := 3" "" "tuple access expected tuple num(1)";
+  terr "tuple_access_idx_wrong_type_set" "(1, 2)[true] := 3" "" "unable to access tuple position bool(true)";
 ]
 
 (* todo: is_tuple tests *)
