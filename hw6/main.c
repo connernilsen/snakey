@@ -120,6 +120,9 @@ char *convertValueToStr(SNAKEVAL val, char debug)
     break;
   case TUPLE_TYPE:
   {
+    if (val == TUPLE_TAG) {
+      return strdup("nil");
+    }
     int64_t *vals = (int64_t *)(val ^ TUPLE_TAG);
     int length = vals[0];
     strcpy(valueStr, "(");
@@ -203,6 +206,10 @@ void error(uint64_t errCode, uint64_t val)
   {
     fprintf(stderr,
             "overflow occurred for arithmetic operation, got %s\n", valueStr);
+  }
+  else if (errCode == NIL_DEREF) 
+  {
+    fprintf(stderr, "unable to dereference value, got %s\n", valueStr);
   }
   else
   {

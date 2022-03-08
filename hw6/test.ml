@@ -41,6 +41,7 @@ let wf_tests = [
   terr "wf_tuple_set" "(a, 1, 2, 3)[0] := 0" "" "The identifier a, used at <wf_tuple_set, 1:1-1:2>, is not in scope";
   terr "wf_tuple_set_arg" "(1, 2, 3)[a] := 0" "" "The identifier a, used at <wf_tuple_set_arg, 1:10-1:11>, is not in scope";
   terr "wf_tuple_set_set" "(1, 2, 3)[0] := a" "" "The identifier a, used at <wf_tuple_set_set, 1:16-1:17>, is not in scope";
+  terr "wf_sequence_1" "a; a" "" "The identifier a, used at <sequence_1, 1:0-1:1>, is not in scope\nThe identifier a, used at <sequence_1, 1:3-1:4>, is not in scope";
 ]
 let desugar_tests = [
   tdesugar "desugar_and"
@@ -74,6 +75,15 @@ let desugar_tests = [
 (def f2(n, b):
   (let x = print((f1(b, n))), y = print(n), z = print(b) in (if (if x: (if isnum(y): true else: false) else: false): (if isbool(z): true else: false) else: false)))
 (f2(5, false))";
+  tdesugar "desugar_seq_basic"
+    "true; false"
+    "\n(let _ = true in false)";
+  tdesugar "desugar_seq_nested"
+    "true; false; true"
+    "\n(let _ = true in (let _ = false in true))";
+  tdesugar "desugar_seq_complex"
+    "true; true && true; true"
+    "\n(let _ = true in (let _ = (if true: (if true: true else: false) else: false) in true))";
 ]
 
 let anf_tests = [
@@ -210,11 +220,14 @@ let basic_pair_tests = [
   terr "get_value_from_tuple_high_idx_expr" "(1, 2, 3, 4, 5)[add1(4)]" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too large";
   terr "tuple_access_wrong_type" "1[5]" "" "tuple access expected tuple num(1)";
   terr "tuple_access_idx_wrong_type" "(1, 2)[true]" "" "unable to access tuple position bool(true)";
+  terr "tuple_access_idx_wrong_type_nil_access" "nil[true]" "" "unable to dereference value, got nil";
+  terr "tuple_access_idx_wrong_type_nil_idx" "(1, 2)[nil]" "" "unable to access tuple position nil";
   t "get_value_from_tuple_0_set" "(1, 2, 3, 4, 5)[0] := 3" "" "3";
   t "get_value_from_tuple_4_set" "(1, 2, 3, 4, 5)[4] := 3" "" "3";
   t "get_value_from_tuple_expr_set" "(1, 2, 3, 4, 5)[add1(3)] := 3" "" "3";
   t "get_value_from_tuple_expr2_set" "(1, 2, 3, 4, 5)[sub1(1)] := 3" "" "3";
   t "get_value_from_tuple_expr2_set_tuple" "(1, 2, 3, 4, 5)[sub1(1)] := (1, 2, 3)" "" "(1, 2, 3)";
+  t "unchanged_modify_new_tuples" "print((1, 2, 3, 4, 5)); (1, 2, 3, 4, 5)[sub1(1)] := (1, 2, 3); (1, 2, 3, 4, 5)" "" "(1, 2, 3, 4, 5)\n(1, 2, 3, 4, 5)";
   terr "get_value_from_tuple_low_idx_set" "(1, 2, 3, 4, 5)[-1] := 3" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too small";
   terr "get_value_from_tuple_low_idx_expr_set" "(1, 2, 3, 4, 5)[sub1(0)] := 3" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too small";
   terr "get_value_from_tuple_high_idx_set" "(1, 2, 3, 4, 5)[5] := 3" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too large";
@@ -263,7 +276,7 @@ let suite =
   "suite">:::
   wf_tests @
   (* input @ *)
-  (* desugar_tests @ *)
+  desugar_tests @
   (* anf_tests @ *)
   (* pair_tests @ *)
   basic_pair_tests

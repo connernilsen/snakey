@@ -55,6 +55,7 @@ let label_NOT_TUPLE            = "error_not_tuple"
 let label_OVERFLOW             = "error_overflow"
 let label_GET_LOW_INDEX        = "error_get_low_index"
 let label_GET_HIGH_INDEX       = "error_get_high_index"
+let label_NIL_DEREF            = "error_nil_deref"
 
 (* label names for conditionals *)
 let label_IS_NOT_BOOL  = "is_not_bool"
@@ -71,6 +72,7 @@ extern error
 extern print
 global our_code_starts_here"
 
+let nil = HexConst(tuple_tag)
 
 (* You may find some of these helpers useful *)
 let rec find ls x =
@@ -331,7 +333,7 @@ let anf (p : tag program) : unit aprogram =
       and (index_id, index_setup) = helpI index
       and (set_id, set_setup) = helpI set in 
       (CSetItem(tuple_id, index_id, set_id, ()), tuple_setup @ index_setup @ set_setup)
-    | ESeq(exp1, exp2, _) -> raise (NotYetImplemented "Finish this")
+    | ESeq(exp1, exp2, _) -> raise (InternalCompilerError "Sequences should be desugared into let bindings with _.")
     | _ -> let (imm, setup) = helpI e in (CImmExpr imm, setup)
 
   and helpI (e : tag expr) : (unit immexpr * (string * unit cexpr) list) =
@@ -339,7 +341,7 @@ let anf (p : tag program) : unit aprogram =
     | ENumber(n, _) -> (ImmNum(n, ()), [])
     | EBool(b, _) -> (ImmBool(b, ()), [])
     | EId(name, _) -> (ImmId(name, ()), [])
-    | ENil(_) -> raise (NotYetImplemented "Finish nil")
+    | ENil(_) -> (ImmNil(()), [])
     | EPrim1(op, arg, tag) ->
       let tmp = sprintf "unary_%d" tag in
       let (arg_imm, arg_setup) = helpI arg in
@@ -380,7 +382,7 @@ let anf (p : tag program) : unit aprogram =
       and (index_id, index_setup) = helpI index
       and (set_id, set_setup) = helpI set in 
       (ImmId(tmp, ()), tuple_setup @ index_setup @ set_setup @ [(tmp, CSetItem(tuple_id, index_id, set_id, ()))])
-    | ESeq(exp1, exp2, _) -> raise (NotYetImplemented "Finish this")
+    | ESeq(exp1, exp2, _) -> raise (InternalCompilerError "Sequences should be desugared into let bindings with _.")
   and helpA e : unit aexpr = 
     let (ans, ans_setup) = helpC e in
     List.fold_right (fun (bind, exp) body -> ALet(bind, exp, body, ())) ans_setup (ACExpr ans)
@@ -438,7 +440,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
           else args_errors
       | None -> [UnboundFun(name, loc)] @ args_errors
       end
-    | ESeq(_, _, _) -> raise (NotYetImplemented "implement sequences")
+    | ESeq(s1, s2, _) -> (wf_E s1 env fun_env) @ (wf_E s2 env fun_env)
     | ETuple(elements, _) -> List.flatten (List.map (fun e -> wf_E e env fun_env) elements)
     | EGetItem(tuple, idx, _) -> (wf_E tuple env fun_env) @ (wf_E idx env fun_env)
     | ESetItem(tuple, idx, set, _) -> (wf_E tuple env fun_env) @ (wf_E idx env fun_env) @ (wf_E set env fun_env)
@@ -490,7 +492,7 @@ let desugar (p : tag program) : unit program =
        sprintf "%s_%d" name (!next)) in
   let rec helpE (e : tag expr) : unit expr (* other parameters may be needed here *) =
     match e with 
-    | ESeq(e1, e2, _) -> raise (NotYetImplemented "Finish the remaining cases")
+    | ESeq(e1, e2, _) -> ELet([(BBlank(()), helpE e1, ())], helpE e2, ())
     | ETuple(e, _) -> ETuple(List.map helpE e, ())
     | EGetItem(item, idx, _) -> EGetItem(helpE item, helpE idx, ())
     | ESetItem(item, idx, set, _) -> ESetItem(helpE item, helpE idx, helpE set, ())
@@ -507,11 +509,9 @@ let desugar (p : tag program) : unit program =
               helpE e2,
               EBool(true, ()),
               EBool(false, ()),
-              ()
-            ),
+              ()),
             EBool(false, ()),
-            ()
-          )
+            ())
         | Or -> EIf(
             helpE e1,
             EBool(true, ()),
@@ -519,17 +519,15 @@ let desugar (p : tag program) : unit program =
               helpE e2,
               EBool(true, ()),
               EBool(false, ()),
-              ()
-            ),
-            ()
-          )
+              ()),
+            ())
         | p -> EPrim2(p, helpE e1, helpE e2, ())
       end
     | EIf(cond, thn, els, _) ->
       EIf(helpE cond, helpE thn, helpE els, ())
     | ENumber(n, _) -> ENumber(n, ())
     | EBool(b, _) -> EBool(b, ())
-    | ENil(_) -> raise (NotYetImplemented "Finish the remaining cases")
+    | ENil(_) -> ENil(())
     | EId(id, _) -> EId(id, ())
     | EApp(_, _, _, _) -> raise (NotYetImplemented "Finish the remaining cases")
   and helpD (d : tag decl) : unit decl (* other parameters may be needed here *) =
@@ -935,12 +933,16 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
   | CGetItem(tuple, idx, tag) -> 
         let tuple = compile_imm tuple env in
         let idx = compile_imm idx env in
-        (* Check index is num *)
-        IMov(Reg(RAX), idx) :: (num_tag_check label_TUPLE_ACCESS_NOT_NUM 
-          (* Check tuple is tuple *)
-          (IMov(Reg(RAX), tuple) :: (tuple_tag_check label_NOT_TUPLE
-            (* Turn tuple snakeval into memory address*)
-            [(* convert to machine num *)
+        (* Check tuple is tuple *)
+        (IMov(Reg(RAX), tuple) :: (tuple_tag_check label_NOT_TUPLE
+          (* Check index is num *)
+          [ (* ensure tuple isn't nil *)
+             IMov(Reg(R11), nil);
+             ICmp(Reg(RAX), Reg(R11));
+             IJe(label_NIL_DEREF);
+             IMov(Reg(RAX), idx) 
+          ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM 
+            [ (* convert to machine num *)
              IMov(Reg(R11), idx);
              ISar(Reg(R11), Const(1L));
              (* check bounds *)
@@ -958,12 +960,16 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
         let tuple = compile_imm tuple env in
         let idx = compile_imm idx env in
         let set = compile_imm set env in
-        (* Check index is num *)
-        IMov(Reg(RAX), idx) :: (num_tag_check label_TUPLE_ACCESS_NOT_NUM 
-          (* Check tuple is tuple *)
-          (IMov(Reg(RAX), tuple) :: (tuple_tag_check label_NOT_TUPLE
-            (* Turn tuple snakeval into memory address*)
-            [(* convert to machine num *)
+        (* Check tuple is tuple *)
+        (IMov(Reg(RAX), tuple) :: (tuple_tag_check label_NOT_TUPLE
+          (* Check index is num *)
+          [ (* ensure tuple isn't nil *)
+             IMov(Reg(R11), nil);
+             ICmp(Reg(RAX), Reg(R11));
+             IJe(label_NIL_DEREF);
+             IMov(Reg(RAX), idx) 
+          ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM 
+            [ (* convert to machine num *)
              IMov(Reg(R11), idx);
              ISar(Reg(R11), Const(1L));
              (* check bounds *)
@@ -986,7 +992,7 @@ and compile_imm e env =
   | ImmBool(true, _) -> const_true
   | ImmBool(false, _) -> const_false
   | ImmId(x, _) -> (find env x)
-  | ImmNil(_) -> raise (NotYetImplemented "Finish this")
+  | ImmNil(_) -> nil
 
 let compile_decl (d : tag adecl) (env: arg envt) : instruction list =
   match d with 
@@ -1028,6 +1034,7 @@ let compile_prog ((anfed : tag aprogram), (env: arg envt)) : string =
              (label_GET_HIGH_INDEX, err_GET_HIGH_INDEX);
              (label_TUPLE_ACCESS_NOT_NUM, err_GET_NOT_NUM);
              (label_OVERFLOW, err_OVERFLOW);
+             (label_NIL_DEREF, err_NIL_DEREF);
            ])) in
 
     let main = to_asm (comp_decls @ comp_body @ body_epilogue) in
@@ -1040,8 +1047,12 @@ let run_if should_run f =
   if should_run then f else no_op_phase
 ;;
 
-(* Add a desugaring phase somewhere in here *)
-(* Todo: Add comment explaining (1) why you chose the particular ordering of desguaring relative to the other phases that you did, and (2) what syntactic invariants each phase of your compiler expects. You may want to enforce those invariants by throwing InternalCompilerErrors if they’re violated. *)
+(* Desugaring went after renaming and before anfing. This is because the desugaring step uses tags to rename so it doesn't
+ * need to rename again. It requires tagging for this rename so it must come after tagging. And it is required to anf so it
+ * had to come before that.  
+ * In the previous assignemnts, we had a compile-time syntactic invariant of a subtype of expr (sexpr) for a sugared expr. 
+ * This worked well for us, however, in this assignment, there was so much repeated code required (printing, etc) that it would
+ * have taken too long. We ended up adding runtime exceptions in any unexpected desugaring case.  *)
 let compile_to_string (prog : sourcespan program pipeline) : string pipeline =
   prog
   |> (add_err_phase well_formed is_well_formed)
