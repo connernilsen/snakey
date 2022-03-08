@@ -185,15 +185,19 @@ void error(uint64_t errCode, uint64_t val)
             "expected a boolean, got %s\n", valueStr);
   }
   else if (errCode == GET_NOT_TUPLE) {
-    fprintf(stderr, "unable to access non tuple %s\n", valueStr);
+    fprintf(stderr, "tuple access expected tuple %s\n", valueStr);
   }
   else if (errCode == GET_LOW_INDEX)
   {
-    fprintf(stderr, "unable to access index of tuple %s, length %d. too low\n", valueStr, ((int64_t*)(val ^ TUPLE_TAG))[0]);
+    fprintf(stderr, "unable to access index of tuple %s, length %d. index too small\n", valueStr, ((int64_t*)(val ^ TUPLE_TAG))[0]);
   }
   else if (errCode == GET_HIGH_INDEX)
   {
-    fprintf(stderr, "unable to access index of tuple %s, length %d. too high\n", valueStr, ((int64_t *) (val ^ TUPLE_TAG))[0]);
+    fprintf(stderr, "unable to access index of tuple %s, length %d. index too large\n", valueStr, ((int64_t *) (val ^ TUPLE_TAG))[0]);
+  }
+  else if (errCode == GET_NOT_NUM)
+  {
+    fprintf(stderr, "unable to access tuple position %s\n", valueStr);
   }
   else if (errCode == OVERFLOW)
   {
