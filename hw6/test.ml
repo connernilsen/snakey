@@ -41,7 +41,7 @@ let wf_tests = [
   terr "wf_tuple_set" "(a, 1, 2, 3)[0] := 0" "" "The identifier a, used at <wf_tuple_set, 1:1-1:2>, is not in scope";
   terr "wf_tuple_set_arg" "(1, 2, 3)[a] := 0" "" "The identifier a, used at <wf_tuple_set_arg, 1:10-1:11>, is not in scope";
   terr "wf_tuple_set_set" "(1, 2, 3)[0] := a" "" "The identifier a, used at <wf_tuple_set_set, 1:16-1:17>, is not in scope";
-  terr "wf_sequence_1" "a; a" "" "The identifier a, used at <sequence_1, 1:0-1:1>, is not in scope\nThe identifier a, used at <sequence_1, 1:3-1:4>, is not in scope";
+  terr "wf_sequence_1" "a; a" "" "The identifier a, used at <wf_sequence_1, 1:0-1:1>, is not in scope\nThe identifier a, used at <wf_sequence_1, 1:3-1:4>, is not in scope";
 ]
 let desugar_tests = [
   tdesugar "desugar_and"
@@ -220,6 +220,8 @@ let basic_pair_tests = [
   terr "get_value_from_tuple_high_idx_expr" "(1, 2, 3, 4, 5)[add1(4)]" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too large";
   terr "tuple_access_wrong_type" "1[5]" "" "tuple access expected tuple num(1)";
   terr "tuple_access_idx_wrong_type" "(1, 2)[true]" "" "unable to access tuple position bool(true)";
+  t "nil_list_1" "(1, nil)" "" "(1, nil)";
+  t "nil_list_2" "(1, (2, nil))" "" "(1, (2, nil))";
   terr "tuple_access_idx_wrong_type_nil_access" "nil[true]" "" "unable to dereference value, got nil";
   terr "tuple_access_idx_wrong_type_nil_idx" "(1, 2)[nil]" "" "unable to access tuple position nil";
   t "get_value_from_tuple_0_set" "(1, 2, 3, 4, 5)[0] := 3" "" "3";
