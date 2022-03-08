@@ -943,6 +943,7 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
              IMov(Reg(RAX), idx) 
           ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM 
             [ (* convert to machine num *)
+              IMov(Reg(RAX), tuple);
              IMov(Reg(R11), idx);
              ISar(Reg(R11), Const(1L));
              (* check bounds *)
@@ -970,6 +971,7 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
              IMov(Reg(RAX), idx) 
           ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM 
             [ (* convert to machine num *)
+              IMov(Reg(RAX), tuple);
              IMov(Reg(R11), idx);
              ISar(Reg(R11), Const(1L));
              (* check bounds *)
