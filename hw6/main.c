@@ -206,11 +206,11 @@ void error(uint64_t errCode, uint64_t val)
   }
   else if (errCode == GET_LOW_INDEX)
   {
-    fprintf(stderr, "unable to access index of tuple %s, length %d. index too small\n", valueStr, ((int64_t*)(val ^ TUPLE_TAG))[0]);
+    fprintf(stderr, "unable to access index of tuple %s, length %ld. index too small\n", valueStr, ((int64_t*)(val ^ TUPLE_TAG))[0]);
   }
   else if (errCode == GET_HIGH_INDEX)
   {
-    fprintf(stderr, "unable to access index of tuple %s, length %d. index too large\n", valueStr, ((int64_t *) (val ^ TUPLE_TAG))[0]);
+    fprintf(stderr, "unable to access index of tuple %s, length %ld. index too large\n", valueStr, ((int64_t *) (val ^ TUPLE_TAG))[0]);
   }
   else if (errCode == GET_NOT_NUM)
   {
