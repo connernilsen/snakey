@@ -133,20 +133,20 @@ let rec find_dups_by (l : 'a list) (eq : ('a -> 'a -> bool)) : ('a * 'a) list =
 
 let rec find_dup_exns_by_env (e : (string * sourcespan) list) : exn list =
   let rec find_dups_by_env (e : (string * sourcespan) list) : ((string * sourcespan) * (string * sourcespan)) list =
-    (find_dups_by e (fun e1 e2 -> match e1 with (name, loc) -> match e2 with (name2, loc) -> name == name2))
+    (find_dups_by e (fun e1 e2 -> match e1 with (name, loc) -> match e2 with (name2, loc) -> name = name2))
   in (List.map 
       (fun (e1, e2) -> 
-        match e1 with (name, span) -> match e2 with (_, span2) -> DuplicateId(name, span, span2))
+        match e1 with (name, span) -> match e2 with (_, span2) -> DuplicateId(name, span2, span))
       (find_dups_by_env e))
 
 let rec binds_to_env (binds : sourcespan bind list) : (string * sourcespan) list =
-  let bind_to_env (bind : sourcespan bind) (acc : (string * sourcespan) list) : (string * sourcespan) list =
+  let bind_to_env (acc : (string * sourcespan) list) (bind : sourcespan bind) : (string * sourcespan) list =
     match bind with 
     | BBlank(_) -> acc
     (* todo: deal with is_whatever? *)
     | BName(name, _, pos) -> (name, pos)::acc
     | BTuple(vals, _) -> (binds_to_env vals) @ acc
-  in List.fold_right bind_to_env binds []
+  in List.fold_left bind_to_env [] binds
 
 type funenvt = call_type envt;;
 let initial_fun_env : funenvt = [
