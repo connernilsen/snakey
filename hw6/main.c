@@ -9,6 +9,7 @@ extern SNAKEVAL our_code_starts_here(uint64_t *HEAP, int size) asm("our_code_sta
 extern void error(uint64_t code, SNAKEVAL val) asm("error");
 extern SNAKEVAL print(SNAKEVAL val) asm("print");
 extern SNAKEVAL input() asm("input");
+extern SNAKEVAL equal(SNAKEVAL v1, SNAKEVAL v2) asm("equal");
 extern SNAKEVAL printStack(SNAKEVAL val, uint64_t *esp, uint64_t *ebp, int args) asm("print_stack");
 extern uint64_t *STACK_BOTTOM asm("STACK_BOTTOM");
 
@@ -248,6 +249,15 @@ SNAKEVAL input()
   char str[100];
   scanf("%s", str);
   return convertStrToVal(str);
+}
+
+// Structural equality for snakevals
+SNAKEVAL equal(SNAKEVAL v1, SNAKEVAL v2) {
+  if (strcmp(convertValueToStr(v1, 0), convertValueToStr(v2, 0)) == 0) {
+    return TRUE;
+  } else {
+    return FALSE;
+  }
 }
 
 // main should remain unchanged

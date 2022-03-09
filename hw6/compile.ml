@@ -71,6 +71,7 @@ let prelude = "section .text
 extern error
 extern print
 extern input
+extern equal
 global our_code_starts_here"
 
 let nil = HexConst(tuple_tag)
@@ -171,7 +172,11 @@ let binds_to_env (binds : sourcespan bind list) : (string * sourcespan) list =
 type funenvt = call_type envt;;
 let initial_fun_env : funenvt = [
   ("input", Native);
+  ("equal", Native);
 ];;
+let initial_fun_arity = [
+  0; 2
+]
 
 
 let rename_and_tag (p : tag program) : tag program =
@@ -470,7 +475,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
            match x with 
            | DFun(name, args, _, _) -> 
              (name, (List.length args)) 
-         end) decls) @ List.map (fun (name, _) -> (name, 0)) initial_fun_env
+         end) decls) @ List.map2 (fun (name, _) (arity) -> (name, arity)) initial_fun_env initial_fun_arity
   and dup_d_errors (decls : sourcespan decl list) = 
     List.map (fun x -> 
         begin 

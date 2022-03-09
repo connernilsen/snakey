@@ -255,6 +255,13 @@ let basic_pair_tests = [
   terr "tuple_unary_type" "add1((1, 2))" "" "arithmetic expected a number, got tuple((num(1), num(2)))";
   terr "tuple_binary_type_l" "(1, 2) + 1" "" "arithmetic expected a number, got tuple((num(1), num(2)))";
   terr "tuple_binary_type_r" "1 + (1, 2)" "" "arithmetic expected a number, got tuple((num(1), num(2)))";
+  t "equality_ref" "(1, 2, 3) == (1, 2, 3)" "" "false";
+  t "equality_ref_true" "let x = (1, 2, 3) in x == x" "" "true";
+  t "equality_equal_ref" "let x = (1, 2, 3) in equal(x, x)" "" "true";
+  t "equality_equal_structural" "equal((1, 2, 3), (1, 2, 3))" "" "true";
+  t "equality_equal_structural_nest" "equal(((1, 2, 3), 2, 3), ((1, 2, 3), 2, 3))" "" "true";
+  t "equality_equal_structural_prims" "equal(((add1(1), 2, 3), 2, 3), ((2, 2, 3), 2, 3))" "" "true";
+  t "equality_notequal_structural_prims" "equal(((add1(1), 2, 3), 2, 3), ((2, 2, 4), 2, 3))" "" "false";
 ]
 
 let stdin_tests = [
