@@ -257,6 +257,14 @@ let basic_pair_tests = [
   t "equality_equal_structural_nest" "equal(((1, 2, 3), 2, 3), ((1, 2, 3), 2, 3))" "" "true";
   t "equality_equal_structural_prims" "equal(((add1(1), 2, 3), 2, 3), ((2, 2, 3), 2, 3))" "" "true";
   t "equality_notequal_structural_prims" "equal(((add1(1), 2, 3), 2, 3), ((2, 2, 4), 2, 3))" "" "false";
+  t "istuple_tuple" "istuple((1, 2, 3))" "" "true";
+  t "istuple_nil" "istuple(())" "" "true";
+  t "istuple_num" "istuple(5)" "" "false";
+  t "istuple_bool" "istuple(false)" "" "false";
+  t "isbool_tuple" "isbool((1, 2))" "" "false";
+  t "isbool_nil" "isbool(())" "" "false";
+  t "isnum_tuple" "isnum((1, 2))" "" "false";
+  t "isnum_nil" "isnum(())" "" "false";
 ]
 
 let stdin_tests = [
