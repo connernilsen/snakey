@@ -341,6 +341,11 @@ let let_tests = [
     "let (a, (b, _), c) = (1, (2, print(2)), 5) in (a, c)"
     ""
     "2\n(1, 5)";
+  t "destructure_not_nested" 
+    "let (a, b, c, d) = (1, (2, 3), (4, 5, 6), ()) in 
+      print(a); print(b); print(c); d"
+    ""
+    "1\n(2, 3)\n(4, 5, 6)\n()";
 ]
 
 let sequencing_tests = [
@@ -352,13 +357,14 @@ let sequencing_tests = [
 let suite =
   "suite">:::
   wf_tests @
-  (* input @ *)
+  input @
   desugar_tests @
   (* anf_tests @ *)
   (* pair_tests @ *)
   basic_pair_tests @
   stdin_tests @
-  sequencing_tests
+  sequencing_tests @
+  let_tests
 
 
 let () =
