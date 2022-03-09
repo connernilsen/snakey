@@ -46,7 +46,14 @@ let wf_tests = [
   terr "wf_tuple_set" "(a, 1, 2, 3)[0] := 0" "" "The identifier a, used at <wf_tuple_set, 1:1-1:2>, is not in scope";
   terr "wf_tuple_set_arg" "(1, 2, 3)[a] := 0" "" "The identifier a, used at <wf_tuple_set_arg, 1:10-1:11>, is not in scope";
   terr "wf_tuple_set_set" "(1, 2, 3)[0] := a" "" "The identifier a, used at <wf_tuple_set_set, 1:16-1:17>, is not in scope";
-  terr "wf_rebind_fun" "def input(): true\n1" "" "do we want to make sure input can't be rebound?";
+  te "wf_rebind_builtin" "def input(): true\ninput()" (print_te 
+        [DuplicateFun("input",
+                    (create_ss "wf_rebind_builtin" 1 8 1 9),
+                    (create_ss "wf_rebind_builtin" 1 5 1 6))]);
+  te "wf_rebind_fun" "def a(): true\ndef a(): true\n1" (print_te 
+        [DuplicateFun("a",
+                    (create_ss "wf_rebind_fun" 2 0 2 13),
+                    (create_ss "wf_rebind_fun" 1 0 1 13))]);
   terr "wf_sequence_1" "a; a" "" "The identifier a, used at <wf_sequence_1, 1:0-1:1>, is not in scope\nThe identifier a, used at <wf_sequence_1, 1:3-1:4>, is not in scope";
   te "wf_let_tuple_repeats" "let (a, a) = (1, 2) in true"
       (print_te 
