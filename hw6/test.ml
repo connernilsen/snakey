@@ -47,13 +47,11 @@ let wf_tests = [
   terr "wf_tuple_set_arg" "(1, 2, 3)[a] := 0" "" "The identifier a, used at <wf_tuple_set_arg, 1:10-1:11>, is not in scope";
   terr "wf_tuple_set_set" "(1, 2, 3)[0] := a" "" "The identifier a, used at <wf_tuple_set_set, 1:16-1:17>, is not in scope";
   te "wf_rebind_builtin" "def input(): true\ninput()" (print_te 
-        [DuplicateFun("input",
-                    (create_ss "wf_rebind_builtin" 1 8 1 9),
-                    (create_ss "wf_rebind_builtin" 1 5 1 6))]);
-  te "wf_rebind_builtin_2" "def print(a): true\ninput()" (print_te 
-        [DuplicateFun("print",
-                    (create_ss "wf_rebind_builtin_2" 1 8 1 9),
-                    (create_ss "wf_rebind_builtin_2" 1 5 1 6))]);
+        [IllegalFunName("input",
+                    (create_ss "wf_rebind_builtin" 1 0 1 17))]);
+  te "wf_rebind_builtin_2" "def print(a): true\nprint()" (print_te 
+        [IllegalFunName("print",
+                    (create_ss "wf_rebind_builtin_2" 1 0 1 18))]);
   te "wf_rebind_fun" "def a(): true\ndef a(): true\n1" (print_te 
         [DuplicateFun("a",
                     (create_ss "wf_rebind_fun" 2 0 2 13),
@@ -95,7 +93,7 @@ let desugar_tests = [
     "\n(if (if true: (if true: true else: false) else: false): (if false: true else: false) else: false)";
   tdesugar "desugar_print"
     "true || print(1)"
-    "\n(if true: true else: (if ?print(1): true else: false))";
+    "\n(if true: true else: (if (?print(1)): true else: false))";
   tdesugar "desugar_seq_basic"
     "true; false"
     "\n(let _ = true in false)";

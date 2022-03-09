@@ -474,11 +474,15 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
               | (DFun(n1, _, _, _), DFun(n2, _, _, _)) -> 
                 n1 = n2 
             end)) in
-    let decls_redeclaring_scope = List.filter_map (fun (name, _, ss, _) -> 
-      match (List.find (fun (name2, _) -> name = name2) initial_fun_env) with 
-      | [] -> []
-      | a -> IllegalFunName(name, ss))
-      decls in 
+    let decls_redeclaring_scope = (List.filter_map (fun decl -> 
+      match decl with 
+      | DFun(name, _, _, ss) ->
+        begin
+        match (List.find_opt (fun (name2, _) -> name = name2) initial_fun_env) with 
+        | None -> None
+        | Some a -> Some (IllegalFunName(name, ss))
+        end)
+      decls) in 
     dup_decls @ decls_redeclaring_scope
   and d_errors (decls : sourcespan decl list) (env: int envt) = 
     List.flatten (List.map (wf_D env) decls) in 

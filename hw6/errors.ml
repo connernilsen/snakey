@@ -49,6 +49,9 @@ let print_errors (exns : exn list) : string list =
       | Arity(expected, actual, loc) ->
         sprintf "The function called at <%s> expected an arity of %d, but received %d arguments"
           (string_of_sourcespan loc) expected actual
+      | IllegalFunName(name, loc) ->
+        sprintf "The function name %s at <%s> is restricted"
+          name (string_of_sourcespan loc)
       | _ ->
         sprintf "%s" (Printexc.to_string e)
     ) exns
