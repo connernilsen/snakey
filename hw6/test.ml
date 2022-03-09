@@ -61,22 +61,6 @@ let desugar_tests = [
   tdesugar "desugar_print"
     "true || print(1)"
     "\n(if true: true else: (if print(1): true else: false))";
-  tdesugar "desugar_complex"
-    "def f1(b, n):
-      let x = print(b),
-          y = print(n) in 
-        isnum(n) && isbool(b) 
-  def f2(n, b):
-    let x = print(f1(b, n)),
-        y = print(n),
-        z = print(b) in 
-      x && isnum(y) && isbool(z)
-  f2(5, false)"
-    "(def f1(b, n):
-  (let x = print(b), y = print(n) in (if isnum(n): (if isbool(b): true else: false) else: false)))
-(def f2(n, b):
-  (let x = print((f1(b, n))), y = print(n), z = print(b) in (if (if x: (if isnum(y): true else: false) else: false): (if isbool(z): true else: false) else: false)))
-(f2(5, false))";
   tdesugar "desugar_seq_basic"
     "true; false"
     "\n(let _ = true in false)";
@@ -97,13 +81,10 @@ let desugar_tests = [
     "\n(let bind_temp4 = (1, (2, 3), 4), a = bind_temp4[0], bind_temp6 = bind_temp4[1], b = bind_temp6[0], _ = bind_temp6[1], _ = bind_temp4[2] in (a, (b, c), d))";
   tdesugar "desugar_decl_with_destructure"
     "def f((a, b), c): ((a, b), c)\nf((1, 2), 3)"
-    "(def f(new_args_2_1, new_args_2_2):\n(let bind_temp3 = new_args_2_1, a = bind_temp3[0], b = bind_temp3[1], c = new_args_2_2 in ((a, b), c)))\n(?f((1, 2), 3))";
+    "(def f(fun_arg#3, c):\n  (let bind_temp3 = fun_arg#3, a = bind_temp3[0], b = bind_temp3[1] in ((a, b), c)))\n(?f((1, 2), 3))";
   tdesugar "desugar_decl_with_destructure_and_blank"
     "def f((a, _), c): ((a,), c)\nf((1, 2), 3)"
-    "(def f(new_args_2_1, new_args_2_2):\n(let bind_temp3 = new_args_2_1, a = bind_temp3[0], _ = bind_temp3[1], c = new_args_2_2 in ((a,), c)))\n(?f((1, 2), 3))";
-  tdesugar "desugar_decl_with_destructure_and_blank_rename"
-    "def f((a, _), c, new_args_2_1): new_args_2_1\nf((1, 2), 3, 4)"
-    "(def f(new_args_2_1, new_args_2_2, new_args_2_1_?):\n(let bind_temp3 = new_args_2_1, a = bind_temp3[0], _ = bind_temp3[1], c = new_args_2_2 in ((a,), c)))\n(?f((1, 2), 3))";
+    "(def f(fun_arg#3, c):\n  (let bind_temp3 = fun_arg#3, a = bind_temp3[0], _ = bind_temp3[1] in ((a,), c)))\n(?f((1, 2), 3))";
   tdesugar "desugar_destructure_not_nested"
     "let (a, b, c) = (1, (2, 3), 4) in (a, b, c)"
     "\n(let bind_temp4 = (1, (2, 3), 4), a = bind_temp4[0], b = bind_temp4[1], c = bind_temp4[2] in (a, b, c))";

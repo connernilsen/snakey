@@ -547,11 +547,18 @@ let desugar (p : tag program) : unit program =
   and helpD (d : tag decl) : unit decl =
     match d with
     | DFun(name, args, body, tag) -> 
-      let new_args = List.map (fun (a) -> gensym (sprintf "new_args_%d" tag)) args in 
-      (* todo: new tag on eid below *)
-      let prologue_let_bindings = List.flatten (List.map2 (fun new_name bind -> (helpBind bind (EId(new_name, tag)))) new_args args)
-      (* todo: maybe don't desugar if we aren't destructuring *)
-      in DFun(name, List.map (fun name -> (BName(name, false, ()))) new_args, ELet(prologue_let_bindings, helpE body, ()), ())
+      let (env, new_binds) = List.fold_right (fun bind (env, new_binds) ->
+        match bind with 
+          | BBlank(_) | BName(_, _, _) -> (env, (untagB bind) :: new_binds)
+          | BTuple(_, tag) -> 
+            (* TODO: we shouldn't need to use gensym since tag should be unique? *)
+            let new_name = sprintf "fun_arg#%d" tag in
+            let prologue_binds = helpBind bind (EId(new_name, tag)) in
+            (prologue_binds @ env, (BName(new_name, false, ())) :: new_binds)
+        ) args ([], []) in
+      match env with 
+      | [] -> DFun(name, new_binds, helpE body, ())
+      | _::_ -> DFun(name, new_binds, ELet(env, helpE body, ()), ())
   in
   match p with
   | Program(decls, body, _) ->
