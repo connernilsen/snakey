@@ -33,7 +33,7 @@ let bool_tag_mask  = 0x0000000000000007L
 let num_tag        = 0x0000000000000000L
 let num_tag_mask   = 0x0000000000000001L
 let tuple_tag      = 0x0000000000000001L
-let tuple_tag_mask = 0x0000000000000006L
+let tuple_tag_mask = 0x0000000000000007L
 
 (* error codes *)
 let err_COMP_NOT_NUM        = 1L
@@ -430,7 +430,6 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
               in (new_binds @ env, new_binds @ bindings_env, curr_errors))
           (env, [], []) bindings) in
           errors @ find_dup_exns_by_env bindings_env @ (wf_E body env fun_env)
-      (* todo: figure out what call_type is for *)
     | EApp(name, args, _, loc) -> 
       let args_errors = List.flatten (List.map (fun expr -> wf_E expr env fun_env) args) in
       begin
@@ -717,23 +716,9 @@ let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =
       @ (get_aexpr_envt expr 1)))
 ;;
 
-(* creates a jump instruction to to_instr if testing the value in RAX with mask 
- * satisifies the to_instr jump condition
- *
- * Note: the value to test should be in RAX before calling
-*)
-let create_test_jump_instrs (mask : int64) (to_instr : instruction) : instruction list =
-  [IMov(Reg(R10), HexConst(mask)); ITest(Reg(RAX), Reg(R10)); to_instr] 
-
-(* Jumps to to_label if not a tuple *)
-let tuple_tag_check (to_label : string) (body : instruction list) : instruction list =
-  (create_test_jump_instrs tuple_tag_mask (IJnz(to_label)))
-  @ body 
-
 (* Jumps to to_label if not a num *)
-let num_tag_check (to_label : string) (body : instruction list) : instruction list =
-  (create_test_jump_instrs num_tag_mask (IJnz(to_label)))
-  @ body 
+let num_tag_check (to_label : string) : instruction list =
+  [IMov(Reg(R10), HexConst(num_tag_mask)); ITest(Reg(RAX), Reg(R10)); IJnz(to_label)]
 
 (* Jumps to to_label if not type and puts final_rax_value in RAX on exiting.
  * final_rax_value does not have to be the original RAX value, but
@@ -741,10 +726,13 @@ let num_tag_check (to_label : string) (body : instruction list) : instruction li
  *
  * Note: the value to test should be in RAX before calling
 *)
-let bool_tag_check (final_rax_value : arg) (to_label : string) : instruction list = [
-  IMov(Reg(R10), HexConst(bool_tag_mask)); 
-  IAnd(Reg(RAX), Reg(R10)); ICmp(Reg(RAX), Reg(R10));
-  IMov(Reg(RAX), final_rax_value); IJnz(to_label);
+let tag_check (final_rax_value : arg) (to_label : string) (tag_mask : int64) (tag : int64) : instruction list = [
+  IMov(Reg(R10), HexConst(tag_mask)); 
+  IAnd(Reg(RAX), Reg(R10)); 
+  IMov(Reg(R10), HexConst(tag));
+  ICmp(Reg(RAX), Reg(R10));
+  IMov(Reg(RAX), final_rax_value); 
+  IJnz(to_label);
 ] 
 
 (* generates the instructions for comparing the args e1_reg and e2_reg and 
@@ -768,11 +756,11 @@ let generate_cmp_func_with
           @ if_false @ 
           [ILabel(label_done)]) in
   if tag_checks then
-  IMov(Reg(RAX), e2_reg) ::
-    (num_tag_check label_COMP_NOT_NUM 
-      (IMov(Reg(RAX), e1_reg) ::
-        (num_tag_check label_COMP_NOT_NUM 
-          body)))
+    IMov(Reg(RAX), e2_reg) ::
+    (num_tag_check label_COMP_NOT_NUM)
+    @ [(IMov(Reg(RAX), e1_reg))] 
+    @ (num_tag_check label_COMP_NOT_NUM)
+    @ body
   else body
 (* generates the instructions for comparing the args e1_reg and e2_reg and 
   * constructs an auto-generated jump label using the jmp_instr_constructor.
@@ -821,7 +809,7 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
     els = compile_aexpr els env num_args is_tail and
     cond_value = compile_imm cond env in
     IMov(Reg(RAX), cond_value) ::
-    (bool_tag_check cond_value label_NOT_BOOL)
+    (tag_check cond_value label_NOT_BOOL bool_tag_mask bool_tag)
     @ [
       IMov(Reg(R10), bool_mask); ITest(Reg(RAX), Reg(R10));
       IJz(if_f);
@@ -837,19 +825,19 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
     begin match op with
       | Add1 -> 
         IMov(Reg(RAX), e_reg) ::
-        (num_tag_check label_ARITH_NOT_NUM 
-           [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(2L))); IJo(label_OVERFLOW)])
+        (num_tag_check label_ARITH_NOT_NUM)
+          @ [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(2L))); IJo(label_OVERFLOW)]
       | Sub1 -> 
         IMov(Reg(RAX), e_reg) ::
-        (num_tag_check label_ARITH_NOT_NUM 
-           [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(Int64.neg 2L))); IJo(label_OVERFLOW)])
+        (num_tag_check label_ARITH_NOT_NUM)
+          @ [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(Int64.neg 2L))); IJo(label_OVERFLOW)]
       | Print -> (setup_call_to_func num_args [e_reg] "print") 
       | IsBool -> 
         let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
         let label_done = (sprintf "%s%n_bool" label_DONE tag) in
         IMov(Reg(RAX), e_reg) ::
         (* check if value is a bool, and if not, then jump to label_not_bool *)
-        (bool_tag_check const_true label_not_bool)
+        (tag_check const_true label_not_bool bool_tag_mask bool_tag)
         @ [
           IJmp(label_done);
           ILabel(label_not_bool);
@@ -861,35 +849,34 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
         let label_done = (sprintf "%s%n_num" label_DONE tag) in
         IMov(Reg(RAX), e_reg) :: 
         (* check if value is a num, and if not, then jump to label_not_num *)
-        (num_tag_check label_not_num 
-           [
+        (num_tag_check label_not_num)
+           @ [
              IMov(Reg(RAX), const_true);
              IJmp(label_done);
              ILabel(label_not_num);
              IMov(Reg(RAX), const_false);
              ILabel(label_done);
-           ])
+           ]
       | IsTuple ->
         let label_not_tuple = (sprintf "%s%n" label_IS_NOT_TUPLE tag) in 
         let label_done = (sprintf "%s%n_tuple" label_DONE tag) in
         IMov(Reg(RAX), e_reg) :: 
         (* check if value is a tuple, and if not, then jump to label_not_tuple *)
-        (num_tag_check label_not_tuple
-        [
-             IMov(Reg(RAX), const_true);
+        (tag_check const_true label_not_tuple tuple_tag_mask tuple_tag)
+        @ [
              IJmp(label_done);
              ILabel(label_not_tuple);
              IMov(Reg(RAX), const_false);
              ILabel(label_done);
-           ])
+           ]
       | Not -> 
         IMov(Reg(RAX), e_reg) ::
-        (bool_tag_check e_reg label_NOT_BOOL)
+        (tag_check e_reg label_NOT_BOOL bool_tag_mask bool_tag)
         @ [ 
           IMov(Reg(R10), bool_mask);
           IXor(Reg(RAX), Reg(R10));
         ]
-      | PrintStack -> raise (NotYetImplemented "Fill in here")
+      | PrintStack -> raise (InternalCompilerError "Not implemented yet")
     end
   | CPrim2(op, l, r, tag) ->
     let e1_reg = (compile_imm l env) in
@@ -904,8 +891,8 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
         (e2_reg : arg) 
         (body : instruction list) : instruction list =
       IMov(Reg(RAX), e2_reg) :: 
-      (num_tag_check label_ARITH_NOT_NUM [IMov(Reg(RAX), e1_reg)])
-      @ (num_tag_check label_ARITH_NOT_NUM [IMov(Reg(R10), e2_reg)])
+      (num_tag_check label_ARITH_NOT_NUM) @ [IMov(Reg(RAX), e1_reg)]
+      @ (num_tag_check label_ARITH_NOT_NUM) @ [IMov(Reg(R10), e2_reg)]
       @ body
       @ [IJo(label_OVERFLOW)]
     in
@@ -959,59 +946,59 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
         let tuple = compile_imm tuple env in
         let idx = compile_imm idx env in
         (* Check tuple is tuple *)
-        (IMov(Reg(RAX), tuple) :: (tuple_tag_check label_NOT_TUPLE
-          (* Check index is num *)
-          [ (* ensure tuple isn't nil *)
-             IMov(Reg(R11), nil);
-             ICmp(Reg(RAX), Reg(R11));
-             IJe(label_NIL_DEREF);
-             IMov(Reg(RAX), idx) 
-          ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM 
-            [ (* convert to machine num *)
-              IMov(Reg(RAX), tuple);
-             IMov(Reg(R11), idx);
-             ISar(Reg(R11), Const(1L));
-             (* check bounds *)
-             ISub(Reg(RAX), Const(tuple_tag));
-             IMov(Reg(RAX), RegOffset(0, RAX));
-             ICmp(Reg(R11), Reg(RAX));
-             IMov(Reg(RAX), tuple);
-             IJge(label_GET_HIGH_INDEX);
-             ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
-             IJl(label_GET_LOW_INDEX);
-             ISub(Reg(RAX), Const(tuple_tag));
-             (* get value *)
-             IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, word_size))])))
+        (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
+         (* Check index is num *)
+         @ [ (* ensure tuple isn't nil *)
+           IMov(Reg(R11), nil);
+           ICmp(Reg(RAX), Reg(R11));
+           IJe(label_NIL_DEREF);
+           IMov(Reg(RAX), idx) 
+         ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM)
+                @ [ (* convert to machine num *)
+                  IMov(Reg(RAX), tuple);
+                  IMov(Reg(R11), idx);
+                  ISar(Reg(R11), Const(1L));
+                  (* check bounds *)
+                  ISub(Reg(RAX), Const(tuple_tag));
+                  IMov(Reg(RAX), RegOffset(0, RAX));
+                  ICmp(Reg(R11), Reg(RAX));
+                  IMov(Reg(RAX), tuple);
+                  IJge(label_GET_HIGH_INDEX);
+                  ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
+                  IJl(label_GET_LOW_INDEX);
+                  ISub(Reg(RAX), Const(tuple_tag));
+                  (* get value *)
+                  IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, word_size))])
   | CSetItem(tuple, idx, set, _) -> 
         let tuple = compile_imm tuple env in
         let idx = compile_imm idx env in
         let set = compile_imm set env in
         (* Check tuple is tuple *)
-        (IMov(Reg(RAX), tuple) :: (tuple_tag_check label_NOT_TUPLE
-          (* Check index is num *)
-          [ (* ensure tuple isn't nil *)
-             IMov(Reg(R11), nil);
-             ICmp(Reg(RAX), Reg(R11));
-             IJe(label_NIL_DEREF);
-             IMov(Reg(RAX), idx) 
-          ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM 
-            [ (* convert to machine num *)
-              IMov(Reg(RAX), tuple);
-             IMov(Reg(R11), idx);
-             ISar(Reg(R11), Const(1L));
-             (* check bounds *)
-             ISub(Reg(RAX), Const(tuple_tag));
-             IMov(Reg(RAX), RegOffset(0, RAX));
-             ICmp(Reg(R11), Reg(RAX));
-             IMov(Reg(RAX), tuple);
-             IJge(label_GET_HIGH_INDEX);
-             ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
-             IJl(label_GET_LOW_INDEX);
-             ISub(Reg(RAX), Const(tuple_tag));
-             (* get value *)
-             IMov(Reg(R12), set);
-             IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, R11, word_size, word_size)), Reg(R12));
-             IMov(Reg(RAX), set)])))
+        (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
+         (* Check index is num *)
+         @ [ (* ensure tuple isn't nil *)
+           IMov(Reg(R11), nil);
+           ICmp(Reg(RAX), Reg(R11));
+           IJe(label_NIL_DEREF);
+           IMov(Reg(RAX), idx) 
+         ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM)
+                @ [ (* convert to machine num *)
+                  IMov(Reg(RAX), tuple);
+                  IMov(Reg(R11), idx);
+                  ISar(Reg(R11), Const(1L));
+                  (* check bounds *)
+                  ISub(Reg(RAX), Const(tuple_tag));
+                  IMov(Reg(RAX), RegOffset(0, RAX));
+                  ICmp(Reg(R11), Reg(RAX));
+                  IMov(Reg(RAX), tuple);
+                  IJge(label_GET_HIGH_INDEX);
+                  ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
+                  IJl(label_GET_LOW_INDEX);
+                  ISub(Reg(RAX), Const(tuple_tag));
+                  (* get value *)
+                  IMov(Reg(R12), set);
+                  IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, R11, word_size, word_size)), Reg(R12));
+                  IMov(Reg(RAX), set)])
 
 and compile_imm e env =
   match e with
