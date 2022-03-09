@@ -131,42 +131,21 @@ let rec find_dups_by (l : 'a list) (eq : ('a -> 'a -> bool)) : ('a * 'a) list =
     (List.map (fun dup -> (dup, first)) dups) @ (find_dups_by other eq)
 ;;
 
-let rec find_dup_exns_by_binds (b : 'a bind list) : exn list =
-  let rec find_dups_by_bindings (b : 'a bind list) : ('a bind * 'a bind) list =
-    (find_dups_by b (fun b1 b2 -> match b1 with 
-      | BBlank(_) -> false
-      | BName(name, _, span) ->
-        begin
-        match b2 with 
-        | BBlank(_) -> false
-        | BName(name2, _, span2) -> name == name2
-        | BTuple(_, span2) -> raise (NotYetImplemented "implement tuple binding lookup. ")
-        end
-      | BTuple(_, span) -> raise (NotYetImplemented "implement duplicate tuple bindings. ")
-    ))
+let rec find_dup_exns_by_env (e : (string * sourcespan) list) : exn list =
+  let rec find_dups_by_env (e : (string * sourcespan) list) : ((string * sourcespan) * (string * sourcespan)) list =
+    (find_dups_by e (fun e1 e2 -> match e1 with (name, loc) -> match e2 with (name2, loc) -> name == name2))
   in (List.map 
-    (fun (bind1, bind2) -> 
-    begin
-      match bind1 with 
-      | BBlank(_) -> raise (InternalCompilerError "Duplicate _ bindings found. Impossible. ")
-      | BName(name, _, span) ->
-        begin
-        match bind2 with 
-        | BBlank(_) -> raise (InternalCompilerError "Duplicate _ bindings found. Impossible. ")
-        | BName(_, _, span2) -> DuplicateId(name, span, span2)
-        | BTuple(_, span2) -> raise (NotYetImplemented "implement tuple bindings. ")
-        end
-      | BTuple(_, span) -> raise (NotYetImplemented "implement duplicate tuple bindings. ")
-    end)
-    (find_dups_by_bindings b))
+      (fun (e1, e2) -> 
+        match e1 with (name, span) -> match e2 with (_, span2) -> DuplicateId(name, span, span2))
+      (find_dups_by_env e))
 
-let binds_to_env (binds : sourcespan bind list) : (string * sourcespan) list =
+let rec binds_to_env (binds : sourcespan bind list) : (string * sourcespan) list =
   let bind_to_env (bind : sourcespan bind) (acc : (string * sourcespan) list) : (string * sourcespan) list =
     match bind with 
     | BBlank(_) -> acc
     (* todo: deal with is_whatever? *)
     | BName(name, _, pos) -> (name, pos)::acc
-    | BTuple(_, _) -> raise (NotYetImplemented "implement duplicate tuple bindings. ")
+    | BTuple(vals, _) -> (binds_to_env vals) @ acc
   in List.fold_right bind_to_env binds []
 
 type funenvt = call_type envt;;
@@ -431,26 +410,15 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
     | EPrim1(_, e, _) -> (wf_E e env fun_env)
     | EPrim2(_, l, r, _) -> (wf_E l env fun_env) @ (wf_E r env fun_env)
     | EIf(c, t, f, _) -> (wf_E c env fun_env) @ (wf_E t env fun_env) @ (wf_E f env fun_env)
-    | ELet(binds, body, _) ->
-      let (env2, _, errors) =
+    | ELet(bindings, body, _) ->
+      let (env, bindings_env, errors) =
         (List.fold_left
-          (fun (scope_env, shadow_env, found_errors) (x, e, loc) ->
-              let curr_errors = (wf_E e scope_env fun_env) @ found_errors in
-              begin
-              match x with 
-              | BBlank(loc) -> (scope_env, shadow_env, curr_errors)
-              (* todo: call_type *)
-              | BName(name, _, loc) -> 
-                begin
-                match List.assoc_opt name shadow_env with
-                | None -> ((name, loc) :: scope_env, (name, loc) :: shadow_env, curr_errors)
-                | Some(existing) -> 
-                  (scope_env, shadow_env, DuplicateId(name, loc, existing) :: curr_errors)
-                end
-              | BTuple(_, _) -> raise (NotYetImplemented "implement tuple is well formed in let")
-              end)
-          (env, [], []) binds) in
-          errors @ (wf_E body env2 fun_env)
+          (fun (env, bindings_env, found_errors) (bind, expr, loc) ->
+              let curr_errors = (wf_E expr env fun_env) @ found_errors in
+              let new_binds = (binds_to_env [bind])
+              in (new_binds @ env, new_binds @ bindings_env, curr_errors))
+          (env, [], []) bindings) in
+          errors @ find_dup_exns_by_env bindings_env @ (wf_E body env fun_env)
       (* todo: figure out what call_type is for *)
     | EApp(name, args, _, loc) -> 
       let args_errors = List.flatten (List.map (fun expr -> wf_E expr env fun_env) args) in
@@ -468,7 +436,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
     | ESetItem(tuple, idx, set, _) -> (wf_E tuple env fun_env) @ (wf_E idx env fun_env) @ (wf_E set env fun_env)
   and wf_D (env : int envt) (d : sourcespan decl) : exn list =
     match d with
-    | DFun(name, params, body, span) -> find_dup_exns_by_binds params @ (wf_E body (binds_to_env params) env)
+    | DFun(name, params, body, span) -> let params_env = (binds_to_env params) in find_dup_exns_by_env params_env @ (wf_E body params_env env)
   and get_env (decls : sourcespan decl list) : int envt = 
     (List.map (fun x -> 
          begin 
