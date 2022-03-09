@@ -452,14 +452,16 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
     match d with
     | DFun(name, params, body, span) -> let params_env = (binds_to_env params) in find_dup_exns_by_env params_env @ (wf_E body params_env env)
   and get_env (decls : sourcespan decl list) : int envt = 
-    (List.map (fun x -> 
+    let fun_env = (List.map (fun x -> 
          begin 
            match x with 
            | DFun(name, args, _, _) -> 
              (name, (List.length args)) 
-         end) decls) @ List.map2 (fun (name, _) (arity) -> (name, arity)) initial_fun_env initial_fun_arity
+         end) decls)
+    and builtin_env = List.map2 (fun (name, _) (arity) -> (name, arity)) initial_fun_env initial_fun_arity in
+    fun_env @ builtin_env
   and dup_d_errors (decls : sourcespan decl list) = 
-    List.map (fun x -> 
+    let dup_decls = List.map (fun x -> 
         begin 
           match x with 
           | (DFun(name, _, _, span1), DFun(_, _, _, span2)) -> 
@@ -471,7 +473,13 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
               match (d1, d2) with 
               | (DFun(n1, _, _, _), DFun(n2, _, _, _)) -> 
                 n1 = n2 
-            end))
+            end)) in
+    let decls_redeclaring_scope = List.filter_map (fun (name, _, ss, _) -> 
+      match (List.find (fun (name2, _) -> name = name2) initial_fun_env) with 
+      | [] -> []
+      | a -> IllegalFunName(name, ss))
+      decls in 
+    dup_decls @ decls_redeclaring_scope
   and d_errors (decls : sourcespan decl list) (env: int envt) = 
     List.flatten (List.map (wf_D env) decls) in 
   match p with
