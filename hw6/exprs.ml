@@ -14,7 +14,6 @@ type sourcespan = (Lexing.position * Lexing.position)
 type prim1 =
   | Add1
   | Sub1
-  | Print
   | IsBool
   | IsNum
   | IsTuple

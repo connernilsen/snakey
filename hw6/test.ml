@@ -95,7 +95,7 @@ let desugar_tests = [
     "\n(if (if true: (if true: true else: false) else: false): (if false: true else: false) else: false)";
   tdesugar "desugar_print"
     "true || print(1)"
-    "\n(if true: true else: (if print(1): true else: false))";
+    "\n(if true: true else: (if ?print(1): true else: false))";
   tdesugar "desugar_seq_basic"
     "true; false"
     "\n(let _ = true in false)";

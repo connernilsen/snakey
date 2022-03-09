@@ -154,9 +154,10 @@ type funenvt = call_type envt;;
 let initial_fun_env : funenvt = [
   ("input", Native);
   ("equal", Native);
+  ("print", Native);
 ];;
 let initial_fun_arity = [
-  0; 2
+  0; 2; 1
 ]
 
 
@@ -835,7 +836,6 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
         IMov(Reg(RAX), e_reg) ::
         (num_tag_check label_ARITH_NOT_NUM)
           @ [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(Int64.neg 2L))); IJo(label_OVERFLOW)]
-      | Print -> (setup_call_to_func num_args [e_reg] "print") 
       | IsBool -> 
         let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
         let label_done = (sprintf "%s%n_bool" label_DONE tag) in
