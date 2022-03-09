@@ -32,11 +32,13 @@ const uint64_t NIL_DEREF = 8L;
 const uint64_t GET_NOT_NUM = 9L;
 
 const uint64_t MAX_VAL_LENGTH = 100;
+const int CYCLE_ARR_LENGTH = 50;
 
 const int UNKNOWN_TYPE = 0;
 const int NUM_TYPE = 1;
 const int BOOL_TYPE = 2;
 const int TUPLE_TYPE = 3;
+
 
 /**
  * Determine the type of the given value by comparing the tags
@@ -87,6 +89,17 @@ char *convertTypeToStr(int type)
   }
 }
 
+int findPosInAssocList(uint64_t **list, int max_idx, uint64_t *val) {
+  for (int i = 0; i < max_idx; i++)
+  {
+    if (list[i] == val)
+    {
+      return i;
+    }
+  }
+  return -1;
+}
+
 /**
  * Converts the given value to a string representing the value.
  *
@@ -95,7 +108,7 @@ char *convertTypeToStr(int type)
  *
  * NOTE: caller needs to free returned value
  */
-char *convertValueToStr(SNAKEVAL val, char debug)
+char *convertValueToStr(SNAKEVAL val, char debug, uint64_t **seen, int idx)
 {
   int valType = getValueType(val);
   char valueStr[MAX_VAL_LENGTH];
@@ -124,12 +137,18 @@ char *convertValueToStr(SNAKEVAL val, char debug)
     if (val == TUPLE_TAG) {
       return strdup("nil");
     }
-    int64_t *vals = (int64_t *)(val ^ TUPLE_TAG);
+    uint64_t *vals = (uint64_t *)(val ^ TUPLE_TAG);
+    int assocListPos = findPosInAssocList(seen, idx, vals);
+    if (assocListPos > -1) {
+      return strdup(sprintf("<cyclic tuple %d>)", assocListPos));
+    }
+    seen[idx] = vals;
+    idx++;
     int length = vals[0];
     strcpy(valueStr, "(");
     for (int i = 1; i < length + 1; i++)
     {
-      char* next = convertValueToStr(vals[i], debug);
+      char* next = convertValueToStr(vals[i], debug, seen, idx);
       strcat(valueStr, next);
       if (i != length) {
         strcat(valueStr, ", ");
@@ -184,7 +203,8 @@ SNAKEVAL convertStrToVal(char *str) {
  */
 void error(uint64_t errCode, uint64_t val)
 {
-  char *valueStr = convertValueToStr(val, 1);
+  uint64_t *arr[CYCLE_ARR_LENGTH];
+  char *valueStr = convertValueToStr(val, 1, arr, 0);
 
   if (errCode == COMP_NOT_NUM)
   {
@@ -238,9 +258,11 @@ void error(uint64_t errCode, uint64_t val)
 
 SNAKEVAL print(SNAKEVAL val)
 {
-  char *valueStr = convertValueToStr(val, 0);
+  uint64_t **arr = calloc(CYCLE_ARR_LENGTH, sizeof(uint64_t*));
+  char *valueStr = convertValueToStr(val, 0, arr, 0);
   printf("%s\n", valueStr);
   free(valueStr);
+  free(arr);
   return val;
 }
 
@@ -253,11 +275,18 @@ SNAKEVAL input()
 
 // Structural equality for snakevals
 SNAKEVAL equal(SNAKEVAL v1, SNAKEVAL v2) {
-  if (strcmp(convertValueToStr(v1, 0), convertValueToStr(v2, 0)) == 0) {
-    return TRUE;
+  uint64_t **arr = calloc(CYCLE_ARR_LENGTH, sizeof(uint64_t *));
+  uint64_t **arr2 = calloc(CYCLE_ARR_LENGTH, sizeof(uint64_t *));
+  // free
+  uint64_t res;
+  if (strcmp(convertValueToStr(v1, 0, arr, 0), convertValueToStr(v2, 0, arr2, 0)) == 0) {
+    res = TRUE;
   } else {
-    return FALSE;
+    res = FALSE;
   }
+  free(arr);
+  free(arr2);
+  return res;
 }
 
 // main should remain unchanged
