@@ -50,6 +50,10 @@ let wf_tests = [
         [DuplicateFun("input",
                     (create_ss "wf_rebind_builtin" 1 8 1 9),
                     (create_ss "wf_rebind_builtin" 1 5 1 6))]);
+  te "wf_rebind_builtin_2" "def print(a): true\ninput()" (print_te 
+        [DuplicateFun("print",
+                    (create_ss "wf_rebind_builtin_2" 1 8 1 9),
+                    (create_ss "wf_rebind_builtin_2" 1 5 1 6))]);
   te "wf_rebind_fun" "def a(): true\ndef a(): true\n1" (print_te 
         [DuplicateFun("a",
                     (create_ss "wf_rebind_fun" 2 0 2 13),
@@ -122,77 +126,6 @@ let desugar_tests = [
 ]
 
 let anf_tests = [
-  tanf_improved "let_in_prim"
-    "add1(let x = 5 in x)"
-    "\n(alet x#5 = 5 in add1(x#5))";
-
-  tanf_improved "let_in_prim_with_eval"
-    "add1(let x = 5 in add1(x))"
-    "\n(alet x#5 = 5 in (alet unary_7 = add1(x#5) in add1(unary_7)))";
-
-  tanf_improved "let_in_prim2_with_eval"
-    "add1(let x = 5 in (x + (let x = 2 in x)))"
-    "\n(alet x#5 = 5 in (alet x#11 = 2 in (alet binop_7 = (x#5 + x#11) in add1(binop_7))))";
-
-  tanf_improved "let_in_let_in_if" 
-    ("if (let x = 5, y = (let x = sub1(x), y = (add1(x) - 10) in y) in (y + x)): " ^
-     "(let abcd = 10 in add1(abcd)) " ^
-     "else: (let x = 0, y = sub1(if x: x else: 1) in y)")
-    ("\n(alet x#5 = 5 in (alet x#11 = sub1(x#5) in (alet unary_17 = add1(x#11) in (alet y#15 = (unary_17 - 10) in (alet y#8 = y#15 in (alet binop_21 = (y#8 + x#5) in (if binop_21: (alet abcd#26 = 10 in add1(abcd#26)) else: (alet x#32 = 0 in (alet if_37 = (if x#32: x#32 else: 1) in (alet y#35 = sub1(if_37) in y#35))))))))))");
-
-  tanf_improved "lets_in_prim"
-    "(let x = 1 in x) + (let x = 2 in x)"
-    "\n(alet x#5 = 1 in (alet x#10 = 2 in (x#5 + x#10)))";
-
-  tanf_improved "if_in_if_in_let_in_add1"
-    "add1(let x = (if (if 0: 0 else: 1): 2 else: 3) in (if x: 4 else: 5))"
-    "\n(alet if_7 = (if 0: 0 else: 1) in (alet x#5 = (if if_7: 2 else: 3) in (alet if_13 = (if x#5: 4 else: 5) in add1(if_13))))";
-
-  tanf_improved "simple_conditional"
-    "(let x = (if 1: 5 + 5 else: 6 * 2) in (let y = (if 0: x * 3 else: x + 5) in x + y))"
-    ("\n(alet x#4 = (if 1: (5 + 5) else: (6 * 2)) in (alet y#15 = (if 0: (x#4 * 3) else: (x#4 + 5)) in (x#4 + y#15)))");
-
-  tanf_improved "complex_conditional"
-    ("(let x = (if (5 - 10): add1(5 + 5) else: sub1(6 * 2)) in " ^
-     "(let y = sub1(if (x * 0): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))"
-    )
-    ("\n(alet binop_6 = (5 - 10) in (alet x#4 = (if binop_6: (alet binop_10 = (5 + 5) in add1(binop_10)) else: (alet binop_14 = (6 * 2) in sub1(binop_14))) in (alet binop_22 = (x#4 * 0) in (alet if_21 = (if binop_22: (alet unary_27 = sub1(3) in (x#4 * unary_27)) else: (alet unary_30 = add1(x#4) in (unary_30 + 5))) in (alet y#19 = sub1(if_21) in (alet binop_34 = (x#4 + y#19) in sub1(binop_34)))))))");
-  tanf_improved "expr_basic"
-    ("def f() : 1\n1")
-    ("(fun f$2(): 1)\n1");
-  tanf_improved "expr_call"
-    ("def f() : 1\nf()")
-    ("(fun f$2(): 1)\n(f$2())\n");
-  tanf_improved "expr_call_w_imm_args"
-    ("def f(a, b) : 1\n(f(1, 2))")
-    ("(fun f$2(a#3, b#4): 1)\n(f$2(1, 2))");
-  tanf_improved "expr_call_w_compound_args"
-    ("def f(a, b) : 1\nf(add1(1), 2)")
-    ("(fun f$2(a#3, b#4): 1)
-(alet unary_7 = add1(1) in (f$2(unary_7, 2)))");
-  tanf_improved "expr_call_w_multiple_compound_args"
-    ("def f(a, b) : 1\nf(add1(1), add1(1))")
-    ("(fun f$2(a#3, b#4): 1)
-(alet unary_7 = add1(1) in (alet unary_9 = add1(1) in (f$2(unary_7, unary_9))))");
-  tanf_improved "multiple_expr_call_w_multiple_compound_args"
-    ("def f(a, b) : 1\ndef g(a, b, c) : a == b\nlet c = f(add1(1), add1(1)), d = g(add1(2), add1(3), 4 + 3) in d")
-    ("(fun f$2(a#3, b#4): 1)
-(fun g$6(a#7, b#8, c#9): (a#7 == b#8))
-(alet unary_17 = add1(1) in (alet unary_19 = add1(1) in (alet c#15 = (f$2(unary_17, unary_19)) in (alet unary_24 = add1(2) in (alet unary_26 = add1(3) in (alet binop_28 = (4 + 3) in (alet d#22 = (g$6(unary_24, unary_26, binop_28)) in d#22)))))))");
-  tanf_improved "expr_within_expr"
-    ("def f(a) : a\ndef g(b) : add1(b)\nf(g(1))")
-    ("(fun f$2(a#3): a#3)
-(fun g$5(b#6): add1(b#6))
-(alet app_10 = (g$5(1)) in (f$2(app_10)))");
-  tanf_improved "expr_within_expr_within_expr"
-    ("def f(a) : a\ndef g(b) : add1(b)\ndef h(b) : b\nh(f(g(1)))")
-    ("(fun f$2(a#3): a#3)
-(fun g$5(b#6): add1(b#6))
-(fun h$9(b#10): b#10)
-(alet app_14 = (g$5(1)) in (alet app_13 = (f$2(app_14)) in (h$9(app_13))))");
-  tanf_improved "infinite_loop"
-    ("def f(a) : g(a)\ndef g(a) : f(a)\ng(1)")
-    ("(fun f$2(a#3): (g$6(a#3)))\n(fun g$6(a#7): (f$2(a#7)))\n(g$6(1))");
   tanf_improved "tuple"
     ("(1, 2, 3)")
     ("\n(1, 2, 3)");
@@ -202,7 +135,6 @@ let anf_tests = [
   tanf_improved "set_tuple"
     ("(1, 2, 3)[0] := 2")
     ("\n(alet tuple_5 = (1, 2, 3) in (tuple_5[0]:= 2))");
-    (* todo: more tuple tests *)
 ]
 
 (* Pair tests with no potential side effects (like lets, functions, etc) *)
@@ -384,15 +316,15 @@ let dup_exn_tests = [
 
 let suite =
   "suite">:::
-  (* wf_tests @
+  wf_tests @
   input @
   desugar_tests @
-  anf_tests @ *)
+  anf_tests @
   pair_tests @
-  (* basic_pair_tests @
+  basic_pair_tests @
   stdin_tests @
   sequencing_tests @
-  let_tests @ *)
+  let_tests @
   dup_exn_tests
 
 
