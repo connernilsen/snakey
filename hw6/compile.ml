@@ -312,8 +312,8 @@ let anf (p : tag program) : unit aprogram =
       let args = List.map (fun a ->
           match a with
           | BName(a, _, _) -> a
-          | BTuple(_, _) -> raise (NotYetImplemented "do tuple destructuring in fun def")
-          | _ ->  raise (NotYetImplemented "do _ destructuring in fun def")) args
+          | BTuple(_, _) -> raise (InternalCompilerError "Tuple destructuring should have been desugared away")
+          | _ ->  raise (InternalCompilerError "Tuple destructuring should have been desugared away")) args
       in ADFun(name, args, helpA body, ())
   and helpC (e : tag expr) : (unit cexpr * (string * unit cexpr) list) = 
     match e with
@@ -339,7 +339,7 @@ let anf (p : tag program) : unit aprogram =
           let (exp_ans, exp_setup) = helpC exp in
           let (body_ans, body_setup) = helpC (ELet(rest, body, pos)) in 
           (body_ans, exp_setup @ [(name, exp_ans)] @ body_setup)
-        | BTuple(_, _) -> raise (NotYetImplemented "do tuple destructuring")
+        | BTuple(_, _) -> raise (InternalCompilerError "Tuple destructuring should have been desugared away")
       end
     | EApp(funname, args, ct, _) ->
       let (new_args, new_setup) = List.split (List.map helpI args) in
@@ -396,7 +396,7 @@ let anf (p : tag program) : unit aprogram =
           let (exp_ans, exp_setup) = helpC exp in
           let (body_ans, body_setup) = helpI (ELet(rest, body, pos)) in 
           (body_ans, exp_setup @ [(name, exp_ans)] @ body_setup)
-        | BTuple(_, _) -> raise (NotYetImplemented "do tuple destructuring")
+        | BTuple(_, _) -> raise (InternalCompilerError "Tuples should be already desugared away")
       end
     | ETuple(e, tag) -> 
       let tmp = sprintf "tuple_%d" tag 
