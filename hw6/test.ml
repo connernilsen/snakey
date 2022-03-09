@@ -307,7 +307,7 @@ let input = [
 ]
 
 let let_tests = [
-  t "let_blank" "let _ = print(5 * 5) in print(3)" "" "25\n3";
+  t "let_blank" "let _ = print(5 * 5) in print(3)" "" "25\n3\n3";
   t "tuple_modification"
     "let t = (1, 2, 3, 4),
          a = t[1],
@@ -316,9 +316,9 @@ let let_tests = [
          print(t); print(a); print(b)" ""
          "(2, 3, 3, 4)\n2\n3\n3";
   t "tuple_double_modify"
-    "let t = (1, 2, 3, 4),
-         t[0] := t[1],
-         t[1] := t[0] in
+    "let t = (1, 2, 3, 4) in
+         t[0] := t[1];
+         t[1] := t[0]; 
          t" ""
          "(2, 2, 3, 4)";
   t "destructure_basic"
