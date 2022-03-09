@@ -164,20 +164,27 @@ let rename_and_tag (p : tag program) : tag program =
     | Program(decls, body, tag) ->
       let rec addToEnv funenv decl =
         match decl with
-        | DFun(name, _, _, _) -> (name, Snake)::funenv in
-      let initial_funenv = List.map (fun (name, ct) -> (name, ct)) initial_fun_env in
+        | DFun(name, _, _, tag) -> 
+          (name, (Snake, (sprintf "%s$%n" name tag))) :: funenv 
+      in
+      let initial_funenv = List.map (fun (name, ct) -> (name, (ct, name))) initial_fun_env in
       let funenv = List.fold_left addToEnv initial_funenv decls in
       Program(List.map (helpD funenv env) decls, helpE funenv env body, tag)
   and helpD funenv env decl =
     match decl with
     | DFun(name, args, body, tag) ->
       let (newArgs, env') = helpBS env args in
-      DFun(name, newArgs, helpE funenv env' body, tag)
+      let new_name = match find_opt funenv name with 
+        | None -> 
+          raise (InternalCompilerError (sprintf "Function declaration name not found in funenv: %s" name))
+        | Some((_, new_name)) -> new_name 
+      in
+      DFun(new_name, newArgs, helpE funenv env' body, tag)
   and helpB env b =
     match b with
     | BBlank tag -> (b, env)
     | BName(name, allow_shadow, tag) ->
-      let name' = sprintf "%s_%d" name tag in
+      let name' = sprintf "%s#%d" name tag in
       (BName(name', allow_shadow, tag), (name, name') :: env)
     | BTuple(binds, tag) ->
       let (binds', env') = helpBS env binds in
@@ -213,9 +220,13 @@ let rename_and_tag (p : tag program) : tag program =
       (try
          EId(find env name, tag)
        with Not_found -> e)
-    | EApp(name, args, native, tag) ->
-      let call_type = match find_opt funenv name with None -> native | Some ct -> ct in
-      EApp(name, List.map (helpE funenv env) args, call_type, tag)
+    | EApp(name, args, call_type, tag) ->
+      let (ct, new_name) = match find_opt funenv name with 
+        | None -> 
+          raise (InternalCompilerError (sprintf "Function declaration name not found in funenv: %s" name))
+        | Some(tup) -> tup
+      in
+      EApp(new_name, List.map (helpE funenv env) args, ct, tag)
     | ELet(binds, body, tag) ->
       let (binds', env') = helpBG funenv env binds in
       let body' = helpE funenv env' body in
