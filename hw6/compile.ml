@@ -952,7 +952,7 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
           IMov(Reg(RAX), Reg(heap_reg));
           IAdd(Reg(RAX), Const(tuple_tag));
           (* mov heap_reg to new aligned heap_reg 1 space later *)
-          IAdd(Reg(heap_reg), Const(Int64.of_int (16 * length + 1)));
+          IAdd(Reg(heap_reg), Const(Int64.of_int (16 * (Int.max length 1) + 1)));
           IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
           ]
   | CGetItem(tuple, idx, tag) -> 

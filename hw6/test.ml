@@ -288,7 +288,8 @@ let pair_tests = [
   t "tup4" "let t = (4, 6) in
             (t, t)"
     ""
-    "((4, 6), (4, 6))"
+    "((4, 6), (4, 6))";
+  t "tuple_empty_access" "((),)[0]" "" "()";
 ]
 
 (* let oom = [
@@ -367,22 +368,22 @@ let dup_exn_tests = [
 let suite =
   "suite">:::
   wf_tests @
-  input @
+  (* input @
   desugar_tests @
-  anf_tests @
+  anf_tests @ *)
   pair_tests @
   basic_pair_tests @
-  stdin_tests @
+  (* stdin_tests @
   sequencing_tests @
-  let_tests @
+  let_tests @ *)
   dup_exn_tests
 
 
 let () =
   run_test_tt_main ("all_tests">:::[
     suite; 
-    old_tests; 
-    input_file_test_suite ()
+    (* old_tests; 
+    input_file_test_suite () *)
     ])
 ;;
 
