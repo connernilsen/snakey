@@ -1090,7 +1090,6 @@ test(1, 2)"
   (let x = print(b), y = print(n) in (if isnum(n): (if isbool(b): true else: false) else: false)))
 
 (def f2(n, b):
-  (let x = print((?f1(b, n))), y = print(n), z = print(b) in (if (if x: (if isnum(y): true else: false) else: false): 
-(if isbool(z): true else: false) else: false)))
+  (let x = print((?f1(b, n))), y = print(n), z = print(b) in (if (if x: (if isnum(y): true else: false) else: false): (if isbool(z): true else: false) else: false)))
 (?f2(5, false))";
 ]
