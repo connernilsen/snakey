@@ -30,6 +30,10 @@ let tanf_improved (name : string) (program : string) (expected : string) = (chec
 
 let teq name actual expected = (check_name name)>::fun _ ->
     assert_equal expected actual ~printer:(fun s -> s);;
+let teq_notstring name actual expected = (check_name name)>::fun _ ->
+    assert_equal expected actual;;
+let teq_num name actual expected = (check_name name)>::fun _ ->
+    assert_equal expected actual ~printer:(fun d -> sprintf "%d" d);;
 
 let tdesugar (name : string) (program : string) (expected : string) = (check_name name)>:: fun _ ->
     assert_equal (expected ^ "\n") (string_of_program (desugar (tag (parse_string name program)))) ~printer:(fun s->s);;
@@ -44,6 +48,26 @@ let wf_tests = [
   terr "wf_tuple_set_set" "(1, 2, 3)[0] := a" "" "The identifier a, used at <wf_tuple_set_set, 1:16-1:17>, is not in scope";
   terr "wf_rebind_fun" "def input(): true\n1" "" "do we want to make sure input can't be rebound?";
   terr "wf_sequence_1" "a; a" "" "The identifier a, used at <wf_sequence_1, 1:0-1:1>, is not in scope\nThe identifier a, used at <wf_sequence_1, 1:3-1:4>, is not in scope";
+  te "wf_let_tuple_repeats" "let (a, a) = (1, 2) in true"
+      (print_te 
+        [DuplicateId("a",
+                    (create_ss "wf_let_tuple_repeats" 1 8 1 9),
+                    (create_ss "wf_let_tuple_repeats" 1 5 1 6))]);
+  te "wf_let_tuple_repeats_non_tuple" "let (a, b) = (1, 2), a = true in true"
+      (print_te 
+        [DuplicateId("a",
+                    (create_ss "wf_let_tuple_repeats_non_tuple" 1 21 1 22),
+                    (create_ss "wf_let_tuple_repeats_non_tuple" 1 5 1 6))]);
+  te "wf_let_tuple_repeats_nested" "let (a, (b, a)) = (1, (2, 3)) in true"
+      (print_te 
+        [DuplicateId("a",
+                    (create_ss "wf_let_tuple_repeats_nested" 1 12 1 13),
+                    (create_ss "wf_let_tuple_repeats_nested" 1 5 1 6))]);
+  te "wf_let_nested_tuple_repeats_non_tuple" "let (c, (b, a)) = (1, (2, 3)), b = true in true"
+      (print_te 
+        [DuplicateId("b",
+                    (create_ss "wf_let_nested_tuple_repeats_non_tuple" 1 31 1 32),
+                    (create_ss "wf_let_nested_tuple_repeats_non_tuple" 1 9 1 10))]);
 ]
 let desugar_tests = [
   tdesugar "desugar_and"
@@ -342,6 +366,12 @@ let sequencing_tests = [
   t "sequencing" "print(5 * 5); print(3)" "" "25\n3\n3";
 ]
 
+let dup_exn_tests = [
+  teq_notstring "dup_exn_basic" (find_dup_exns_by_env [("a", create_ss "dup_exn" 0 0 0 0);]) [];
+  teq_notstring "dup_exn_basic_2" (find_dup_exns_by_env [("a", create_ss "dup_exn" 0 0 0 0);("b", create_ss "dup_exn" 0 0 0 0);]) [];
+  teq_num "dup_exn_exn" (List.length (find_dup_exns_by_env [("a", create_ss "dup_exn" 0 0 0 0);("a", create_ss "dup_exn" 0 0 0 0);])) 1;
+]
+
 let suite =
   "suite">:::
   wf_tests @
@@ -352,10 +382,15 @@ let suite =
   basic_pair_tests @
   stdin_tests @
   sequencing_tests @
-  let_tests
+  let_tests @
+  dup_exn_tests
 
 
 let () =
-  run_test_tt_main ("all_tests">:::[suite; old_tests; input_file_test_suite ()])
+  run_test_tt_main ("all_tests">:::[
+    suite; 
+    old_tests; 
+    input_file_test_suite ()
+    ])
 ;;
 
