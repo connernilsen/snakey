@@ -107,22 +107,22 @@ let desugar_tests = [
     "\n(let _ = true in (let _ = (if true: (if true: true else: false) else: false) in true))";
   tdesugar "desugar_destructure_basic"
     "let (a, b, c) = (1, 2, 3) in (a, b, c)"
-    "\n(let bind_temp4 = (1, 2, 3), a = bind_temp4[0], b = bind_temp4[1], c = bind_temp4[2] in (a, b, c))";
+    "\n(let bind_temp4 = ((1, 2, 3) should be len 3), a = bind_temp4[0], b = bind_temp4[1], c = bind_temp4[2] in (a, b, c))";
   tdesugar "desugar_destructure_nested"
     "let (a, (b, c), d) = (1, (2, 3), 4) in (a, (b, c), d)"
-    "\n(let bind_temp4 = (1, (2, 3), 4), a = bind_temp4[0], bind_temp6 = bind_temp4[1], b = bind_temp6[0], c = bind_temp6[1], d = bind_temp4[2] in (a, (b, c), d))";
+    "\n(let bind_temp4 = ((1, (2, 3), 4) should be len 3), a = bind_temp4[0], bind_temp6 = (bind_temp4[1] should be len 2), b = bind_temp6[0], c = bind_temp6[1], d = bind_temp4[2] in (a, (b, c), d))";
   tdesugar "desugar_destructure_nested_w_blanks"
     "let (a, (b, _), _) = (1, (2, 3), 4) in (a, (b, c), d)"
-    "\n(let bind_temp4 = (1, (2, 3), 4), a = bind_temp4[0], bind_temp6 = bind_temp4[1], b = bind_temp6[0], _ = bind_temp6[1], _ = bind_temp4[2] in (a, (b, c), d))";
+    "\n(let bind_temp4 = ((1, (2, 3), 4) should be len 3), a = bind_temp4[0], bind_temp6 = (bind_temp4[1] should be len 2), b = bind_temp6[0], _ = bind_temp6[1], _ = bind_temp4[2] in (a, (b, c), d))";
   tdesugar "desugar_decl_with_destructure"
     "def f((a, b), c): ((a, b), c)\nf((1, 2), 3)"
-    "(def f(fun_arg#3, c):\n  (let bind_temp3 = fun_arg#3, a = bind_temp3[0], b = bind_temp3[1] in ((a, b), c)))\n(?f((1, 2), 3))";
+    "(def f(fun_arg#3, c):\n  (let bind_temp3 = (fun_arg#3 should be len 2), a = bind_temp3[0], b = bind_temp3[1] in ((a, b), c)))\n(?f((1, 2), 3))";
   tdesugar "desugar_decl_with_destructure_and_blank"
     "def f((a, _), c): ((a,), c)\nf((1, 2), 3)"
-    "(def f(fun_arg#3, c):\n  (let bind_temp3 = fun_arg#3, a = bind_temp3[0], _ = bind_temp3[1] in ((a,), c)))\n(?f((1, 2), 3))";
+    "(def f(fun_arg#3, c):\n  (let bind_temp3 = (fun_arg#3 should be len 2), a = bind_temp3[0], _ = bind_temp3[1] in ((a,), c)))\n(?f((1, 2), 3))";
   tdesugar "desugar_destructure_not_nested"
     "let (a, b, c) = (1, (2, 3), ()) in (a, b, c)"
-    "\n(let bind_temp4 = (1, (2, 3), ()), a = bind_temp4[0], b = bind_temp4[1], c = bind_temp4[2] in (a, b, c))";
+    "\n(let bind_temp4 = ((1, (2, 3), ()) should be len 3), a = bind_temp4[0], b = bind_temp4[1], c = bind_temp4[2] in (a, b, c))";
 ]
 
 let anf_tests = [
@@ -236,7 +236,7 @@ let pair_tests = [
     ""
     "((4, 6), (4, 6))";
   t "tuple_empty_access" "((),)[0]" "" "()";
-  terr "tuple_destructure_invalid" "let temp = (1, 2), (a, b, c) = temp in true" "" "unable to access index of tuple tuple((num(1), num(2))), length 2. index too large";
+  terr "tuple_destructure_invalid" "let temp = (1, 2), (a, b, c) = temp in true" "" "unable to destructure tuple with incorrect length tuple((num(1), num(2)))";
   terr "tuple_destructure_invalid_2" "let (a, b) = (1, 2, 3) in (a, b)" "" "";
   terr "tuple_destructure_invalid_3" "let temp = (1, 2, 3), (a, b) = temp in (a, b)" "" "";
 ]

@@ -43,6 +43,7 @@ let string_of_op2 (op: prim2) =
   | GreaterEq -> ">="
   | LessEq -> "<="
   | Eq -> "=="
+  | AssertLen -> "should be len"
 let string_of_sop2 (op: sprim2) =
   match op with
   | SPlus -> "+"
@@ -53,6 +54,7 @@ let string_of_sop2 (op: sprim2) =
   | SGreaterEq -> ">="
   | SLessEq -> "<="
   | SEq -> "=="
+  | SAssertLen -> "should be len"
 let name_of_op2 (op: prim2) =
   match op with
   | Plus -> "Plus"
@@ -65,6 +67,7 @@ let name_of_op2 (op: prim2) =
   | GreaterEq -> "GreaterEq"
   | LessEq -> "LessEq"
   | Eq -> "Eq"
+  | AssertLen -> "AssertLen"
 
 let rec string_of_bind (b : 'a bind) : string =
   match b with

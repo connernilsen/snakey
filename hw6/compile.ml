@@ -45,6 +45,7 @@ let err_GET_LOW_INDEX       = 6L
 let err_GET_HIGH_INDEX      = 7L
 let err_NIL_DEREF           = 8L
 let err_GET_NOT_NUM         = 9L
+let err_DESTRUCTURE_INVALID_LEN         = 10L
 
 (* label names for errors *)
 let label_COMP_NOT_NUM         = "error_comp_not_num"
@@ -56,6 +57,7 @@ let label_OVERFLOW             = "error_overflow"
 let label_GET_LOW_INDEX        = "error_get_low_index"
 let label_GET_HIGH_INDEX       = "error_get_high_index"
 let label_NIL_DEREF            = "error_nil_deref"
+let label_DESTRUCTURE_INVALID_LEN         = "destructure_invalid_len"
 
 (* label names for conditionals *)
 let label_IS_NOT_BOOL  = "is_not_bool"
@@ -278,6 +280,7 @@ let prim2_to_sprim2 (p : prim2): sprim2 =
   | Less -> SLess
   | LessEq -> SLessEq
   | Eq -> SEq
+  | AssertLen -> SAssertLen
 
 let anf (p : tag program) : unit aprogram =
   let rec helpP (p : tag program) : unit aprogram =
@@ -499,7 +502,8 @@ let desugar (p : tag program) : unit program =
       let updated_bindings = List.flatten (List.mapi 
         (fun (i : int) (b : tag bind) -> (helpBind b (EGetItem(EId(original_tuple_id, tag), ENumber(Int64.of_int i, tag), tag)))) 
         bindings) in
-      ((BName(original_tuple_id, false, ()), helpE exp, ()) :: updated_bindings)
+      let tuple = helpE exp in
+        (BName(original_tuple_id, false, ()), EPrim2(AssertLen, tuple, ENumber(Int64.of_int (List.length bindings), ()), ()), ()) :: updated_bindings
   and helpE (e : tag expr) : unit expr (* other parameters may be needed here *) =
     match e with 
     | ESeq(e1, e2, _) -> ELet([(BBlank(()), helpE e1, ())], helpE e2, ())
@@ -918,6 +922,12 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
          ICmp(Reg(RAX), Reg(R10)); IMov(Reg(RAX), const_true);
          IJe(label_done); IMov(Reg(RAX), const_false);
          ILabel(label_done)]
+      | SAssertLen ->
+        (* convert to snake val then compare *)
+        (* Then move to RAX *)
+        [IMov(Reg(R11), Sized(QWORD_PTR, e1_reg)); ISub(Reg(R11), Const(1L)); IMov(Reg(R11), RegOffset(0, R11)); IShl(Reg(R11), Const(1L));
+         ICmp(Reg(R11), Sized(QWORD_PTR, e2_reg)); IJne(label_DESTRUCTURE_INVALID_LEN);
+         IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
     end
   (* todo: figure out what to do with native call types vs not native *)
   | CApp(fun_name, args, _, _) -> (setup_call_to_func num_args (List.map (fun e -> compile_imm e env) args) fun_name)
@@ -1049,6 +1059,7 @@ let compile_prog ((anfed : tag aprogram), (env: arg envt)) : string =
              (label_TUPLE_ACCESS_NOT_NUM, err_GET_NOT_NUM);
              (label_OVERFLOW, err_OVERFLOW);
              (label_NIL_DEREF, err_NIL_DEREF);
+             (label_DESTRUCTURE_INVALID_LEN, err_DESTRUCTURE_INVALID_LEN);
            ])) in
 
     let main = to_asm (comp_decls @ comp_body @ body_epilogue) in

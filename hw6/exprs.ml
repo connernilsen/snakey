@@ -32,6 +32,7 @@ type prim2 =
   | Less
   | LessEq
   | Eq
+  | AssertLen
 
 type sprim2 =
   | SPlus
@@ -42,6 +43,7 @@ type sprim2 =
   | SLess
   | SLessEq
   | SEq
+  | SAssertLen
 
 and 'a bind =
   | BBlank of 'a

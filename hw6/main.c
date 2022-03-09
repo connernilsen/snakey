@@ -30,6 +30,7 @@ const uint64_t GET_LOW_INDEX = 6L;
 const uint64_t GET_HIGH_INDEX = 7L;
 const uint64_t NIL_DEREF = 8L;
 const uint64_t GET_NOT_NUM = 9L;
+const uint64_t DESTRUCTURE_INVALID_LEN = 10L;
 
 const uint64_t MAX_VAL_LENGTH = 100;
 const int CYCLE_ARR_LENGTH = 50;
@@ -244,6 +245,10 @@ void error(uint64_t errCode, uint64_t val)
   else if (errCode == NIL_DEREF) 
   {
     fprintf(stderr, "unable to dereference value, got %s\n", valueStr);
+  }
+  else if (errCode == DESTRUCTURE_INVALID_LEN)
+  {
+    fprintf(stderr, "unable to destructure tuple with incorrect length %s\n", valueStr);
   }
   else
   {
