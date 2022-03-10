@@ -79,21 +79,6 @@ let wf_tests = [
                     (create_ss "wf_let_nested_tuple_repeats_non_tuple" 1 9 1 10))]);
 ]
 let desugar_tests = [
-  tdesugar "desugar_and"
-    "true && false"
-    "\n(if true: (if false: true else: false) else: false)";
-  tdesugar "desugar_or"
-    "true || false"
-    "\n(if true: true else: (if false: true else: false))";
-  tdesugar "desugar_nested_or"
-    "true || true || false"
-    "\n(if (if true: true else: (if true: true else: false)): true else: (if false: true else: false))";
-  tdesugar "desugar_nested_and"
-    "true && true && false"
-    "\n(if (if true: (if true: true else: false) else: false): (if false: true else: false) else: false)";
-  tdesugar "desugar_print"
-    "true || print(1)"
-    "\n(if true: true else: (if (?print(1)): true else: false))";
   tdesugar "desugar_seq_basic"
     "true; false"
     "\n(let _ = true in false)";
@@ -346,8 +331,8 @@ let suite =
 let () =
   run_test_tt_main ("all_tests">:::[
     suite; 
-    (* old_tests; 
-    input_file_test_suite () *)
+    old_tests; 
+    input_file_test_suite ()
     ])
 ;;
 
