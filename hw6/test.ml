@@ -300,6 +300,27 @@ let let_tests = [
     "let a = ((), ()) in a[0]"
     ""
     "()";
+  t "print_cyclic_tuple_1"
+    "let a = (1, nil) in
+      a[1] := a; a"
+    ""
+    "(1, <cyclic tuple 1>)";
+  t "print_cyclic_tuple_2"
+    "let a = (1, nil, 3),
+         b = (a, 2, 3) in
+      a[1] := b; print(b); a"
+    ""
+    "((1, <cyclic tuple 1>, 3), 2, 3)\n(1, (<cyclic tuple 1>, 2, 3), 3)";
+  t "print_cyclic_tuple_3"
+    "let a = (nil, nil, nil),
+         b = (nil, nil, a),
+         c = (nil, a, b) in
+        a[0] := a; a[1] := b; a[2] := c;
+        b[0] := b; b[1] := c;
+        c[0] := c;
+        a"
+    ""
+    "(<cyclic tuple 1>, (<cyclic tuple 2>, (<cyclic tuple 3>, <cyclic tuple 1>, <cyclic tuple 2>), <cyclic tuple 1>), <cyclic tuple 3>)";
 ]
 
 let sequencing_tests = [
@@ -316,14 +337,14 @@ let dup_exn_tests = [
 
 let suite =
   "suite">:::
-  wf_tests @
-  input @
-  desugar_tests @
-  anf_tests @
-  pair_tests @
-  basic_pair_tests @
-  stdin_tests @
-  sequencing_tests @
+  (* wf_tests @ *)
+  (* input @ *)
+  (* desugar_tests @ *)
+  (* anf_tests @ *)
+  (* pair_tests @ *)
+  (* basic_pair_tests @ *)
+  (* stdin_tests @ *)
+  (* sequencing_tests @ *)
   let_tests @
   dup_exn_tests
 
@@ -331,8 +352,8 @@ let suite =
 let () =
   run_test_tt_main ("all_tests">:::[
     suite; 
-    old_tests; 
-    input_file_test_suite ()
+    (* old_tests; *) 
+    input_file_test_suite ();
     ])
 ;;
 

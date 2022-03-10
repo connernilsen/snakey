@@ -74,10 +74,13 @@ output/dont_err/%.o: output/dont_err/%.s
 output/dont_err/%.s: input/dont_err/%.egg main
 	./main $< > $@
 
-clean:
+clean-test-out:
 	rm -rf output/*.o output/*.s output/*.dSYM output/*.run *.log
 	rm -rf output/*/*.o output/*/*.s output/*/*.dSYM output/*/*.run
-	rm -rf _build/
-	rm -f main test
+	rm -f test
 
-ct: clean test
+clean: clean-test-out 
+	rm -rf _build/
+	rm -f main 
+
+ct: clean-test-out test

@@ -90,8 +90,8 @@ char *convertTypeToStr(int type)
   }
 }
 
-int findPosInAssocList(uint64_t **list, int max_idx, uint64_t *val) {
-  for (int i = 0; i < max_idx; i++)
+int findPosInList(uint64_t **list, uint64_t *val) {
+  for (int i = 0; i < CYCLE_ARR_LENGTH; i++)
   {
     if (list[i] == val)
     {
@@ -139,9 +139,9 @@ char *convertValueToStr(SNAKEVAL val, char debug, uint64_t **seen, int idx)
       return strdup("nil");
     }
     uint64_t *vals = (uint64_t *)(val ^ TUPLE_TAG);
-    int assocListPos = findPosInAssocList(seen, idx, vals);
+    int assocListPos = findPosInList(seen, vals);
     if (assocListPos > -1) {
-      char* message[20];
+      char message[20];
       sprintf(message, "<cyclic tuple %d>", assocListPos + 1);
       strcpy(valueStr, message);
       break;
