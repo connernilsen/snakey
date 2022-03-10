@@ -240,6 +240,12 @@ let pair_tests = [
               t[0] := g;
               (t, g)
             end" "" "(((<cyclic tuple 2>,),), ((<cyclic tuple 2>,),))";
+  t "infinite_loop_is_tuple" "let t = (1,), g = (t,) in
+            begin
+              t[0] := g;
+              istuple(t)
+            end" "" "true";
+  t "nil_is_tuple" "istuple(nil)" "" "true";
   t "tup4" "let t = (4, 6) in
             (t, t)"
     ""
