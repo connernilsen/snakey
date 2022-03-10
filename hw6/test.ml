@@ -224,11 +224,22 @@ let pair_tests = [
               t[1] := nil;
               t
             end" "" "(4, nil)";
-  t "tup3" "let t = (4, (5, nil)) in
+  t "tup_cycle" "let t = (4, (5, nil)) in
             begin
               t[1] := t;
               t
             end" "" "(4, <cyclic tuple 1>)";
+  t "tup_cycle_bigger" "let t = (4, (5, nil)), g = (t, 5), h = (g, 6), k = (10, h) in
+            begin
+              t[1] := k;
+              (t, g, h, k)
+            end" ""
+            "((4, (10, ((<cyclic tuple 2>, 5), 6))), ((4, (10, (<cyclic tuple 2>, 6))), 5), (((4, (10, <cyclic tuple 2>)), 5), 6), (10, (((4, <cyclic tuple 2>), 5), 6)))";
+  t "infinite_loop" "let t = (1,), g = (t,) in
+            begin
+              t[0] := g;
+              (t, g)
+            end" "" "(((<cyclic tuple 2>,),), ((<cyclic tuple 2>,),))";
   t "tup4" "let t = (4, 6) in
             (t, t)"
     ""

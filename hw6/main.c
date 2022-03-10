@@ -32,7 +32,7 @@ const uint64_t NIL_DEREF = 8L;
 const uint64_t GET_NOT_NUM = 9L;
 const uint64_t DESTRUCTURE_INVALID_LEN = 10L;
 
-const uint64_t MAX_VAL_LENGTH = 100;
+const uint64_t MAX_VAL_LENGTH = 200;
 const int CYCLE_ARR_LENGTH = 50;
 
 const int UNKNOWN_TYPE = 0;
@@ -141,7 +141,10 @@ char *convertValueToStr(SNAKEVAL val, char debug, uint64_t **seen, int idx)
     uint64_t *vals = (uint64_t *)(val ^ TUPLE_TAG);
     int assocListPos = findPosInAssocList(seen, idx, vals);
     if (assocListPos > -1) {
-      return strdup(sprintf("<cyclic tuple %d>)", assocListPos));
+      char* message[20];
+      sprintf(message, "<cyclic tuple %d>", assocListPos + 1);
+      strcpy(valueStr, message);
+      break;
     }
     seen[idx] = vals;
     idx++;
