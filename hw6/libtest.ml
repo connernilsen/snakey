@@ -542,11 +542,6 @@ test(1, 2)"
       5
     our_code_starts_here()"
     "5";
-  te "print_dup"
-    "def print():
-      5
-    print()"
-    (print_te [ParseError("Parse error at line 1, col 9: token `print`")]);
   te "func_invalid_bind"
     "def test(1):
       1
@@ -1074,7 +1069,7 @@ test(1, 2)"
   "\n(if (if true: (if true: true else: false) else: false): (if false: true else: false) else: false)";
   tdesugar "desugar_print"
   "true || print(1)"
-  "\n(if true: true else: (if print(1): true else: false))";
+  "\n(if true: true else: (if (?print(1)): true else: false))";
   tdesugar "desugar_complex"
   "def f1(b, n):
       let x = print(b),
@@ -1087,9 +1082,9 @@ test(1, 2)"
       x && isnum(y) && isbool(z)
   f2(5, false)"
   "(def f1(b, n):
-  (let x = print(b), y = print(n) in (if isnum(n): (if isbool(b): true else: false) else: false)))
+  (let x = (?print(b)), y = (?print(n)) in (if isnum(n): (if isbool(b): true else: false) else: false)))
 
 (def f2(n, b):
-  (let x = print((?f1(b, n))), y = print(n), z = print(b) in (if (if x: (if isnum(y): true else: false) else: false): (if isbool(z): true else: false) else: false)))
+  (let x = (?print((?f1(b, n)))), y = (?print(n)), z = (?print(b)) in (if (if x: (if isnum(y): true else: false) else: false): (if isbool(z): true else: false) else: false)))
 (?f2(5, false))";
 ]

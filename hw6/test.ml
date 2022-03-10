@@ -194,6 +194,8 @@ let basic_pair_tests = [
   t "equality_equal_structural_nest" "equal(((1, 2, 3), 2, 3), ((1, 2, 3), 2, 3))" "" "true";
   t "equality_equal_structural_prims" "equal(((add1(1), 2, 3), 2, 3), ((2, 2, 3), 2, 3))" "" "true";
   t "equality_notequal_structural_prims" "equal(((add1(1), 2, 3), 2, 3), ((2, 2, 4), 2, 3))" "" "false";
+  t "equality_equal_infinite_loop" "let f = (1,), g = (f,) in f[0] := g; equal(f, g)" "" "true";
+  t "equality_notequal_infinite_loop" "let f = (1,), g = (f, 1) in f[0] := g; equal(f, g)" "" "false";
   t "istuple_tuple" "istuple((1, 2, 3))" "" "true";
   t "istuple_nil" "istuple(())" "" "true";
   t "istuple_num" "istuple(5)" "" "false";
@@ -204,15 +206,14 @@ let basic_pair_tests = [
   t "isnum_nil" "isnum(())" "" "false";
 ]
 
-let stdin_tests = [
-  t "stdin_print_int" "print(input())" "5" "5\n5";
-  t "stdin_print_bool" "print(input())" "true" "true\ntrue";
-  t "stdin_print_bool_false" "print(input())" "false" "false\nfalse";
+let input_tests = [
+  t "input1" "let x = input() in x + 2" "123" "125";
+  t "input_print_int" "print(input())" "5" "5\n5";
+  t "input_print_bool" "print(input())" "true" "true\ntrue";
+  t "input_print_bool_false" "print(input())" "false" "false\nfalse";
   t "wf_input" "input()" "" "0";
 ]
 
-(* todo: is_tuple tests *)
-(* todo: is_well_formed tuple tests *)
 let pair_tests = [
   t "tup1" "let t = (4, (5, 6)) in
             begin
@@ -254,17 +255,6 @@ let pair_tests = [
   terr "tuple_destructure_invalid" "let temp = (1, 2), (a, b, c) = temp in true" "" "unable to destructure tuple with incorrect length tuple((num(1), num(2)))";
   terr "tuple_destructure_invalid_2" "let (a, b) = (1, 2, 3) in (a, b)" "" "";
   terr "tuple_destructure_invalid_3" "let temp = (1, 2, 3), (a, b) = temp in (a, b)" "" "";
-]
-
-(* let oom = [
- *   tgcerr "oomgc1" (7) "(1, (3, 4))" "" "Out of memory";
- *   tgc "oomgc2" (8) "(1, (3, 4))" "" "(1, (3, 4))";
- *   tvgc "oomgc3" (8) "(1, (3, 4))" "" "(1, (3, 4))";
- *   tgc "oomgc4" (4) "(3, 4)" "" "(3, 4)";
- * ] *)
-
-let input = [
-  t "input1" "let x = input() in x + 2" "123" "125"
 ]
 
 let let_tests = [
@@ -329,25 +319,29 @@ let dup_exn_tests = [
   teq_num "dup_exn_exn" (List.length (find_dup_exns_by_env [("a", create_ss "dup_exn" 0 0 0 0);("a", create_ss "dup_exn" 0 0 0 0);])) 1;
 ]
 
+let integration_tests = [
+  terr "overflow" "def f(a): if (a == 0): true else: f(a - 1)\nf(-1)" "" "Signalled with -10 while running output/overflow.";
+]
+
 let suite =
   "suite">:::
   wf_tests @
-  input @
   desugar_tests @
   anf_tests @
   pair_tests @
   basic_pair_tests @
-  stdin_tests @
+  input_tests @
   sequencing_tests @
   let_tests @
-  dup_exn_tests
+  dup_exn_tests @
+  integration_tests
 
 
 let () =
   run_test_tt_main ("all_tests">:::[
     suite; 
-    (* old_tests; 
-    input_file_test_suite () *)
+    old_tests; 
+    input_file_test_suite ()
     ])
 ;;
 
