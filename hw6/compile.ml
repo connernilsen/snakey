@@ -145,7 +145,6 @@ let rec binds_to_env (binds : sourcespan bind list) : (string * sourcespan) list
   let bind_to_env (acc : (string * sourcespan) list) (bind : sourcespan bind) : (string * sourcespan) list =
     match bind with 
     | BBlank(_) -> acc
-    (* todo: deal with is_whatever? *)
     | BName(name, _, pos) -> (name, pos)::acc
     | BTuple(vals, _) -> (binds_to_env vals) @ acc
   in List.fold_left bind_to_env [] binds
@@ -941,7 +940,6 @@ and compile_cexpr (e : tag cexpr) (env: arg envt) (num_args: int) (is_tail: bool
          ICmp(Reg(R11), Sized(QWORD_PTR, e2_reg)); IJne(label_DESTRUCTURE_INVALID_LEN);
          IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
     end
-  (* todo: figure out what to do with native call types vs not native *)
   | CApp(fun_name, args, _, _) -> (setup_call_to_func num_args (List.map (fun e -> compile_imm e env) args) fun_name)
   | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env)]
   | CTuple(vals, _) ->
@@ -1089,9 +1087,10 @@ let run_if should_run f =
  * had to come before that.  
  * In the previous assignemnts, we had a compile-time syntactic invariant of a subtype of expr (sexpr) for a sugared expr. 
  * This worked well for us, however, in this assignment, there was so much repeated code required (printing, etc) that it would
- * have taken too long. We ended up adding runtime exceptions in any unexpected desugaring case.  *)
+ * have taken too long. We ended up adding runtime exceptions in any unexpected desugaring case. 
+ * There is a sprim (sugared prim type) for the prims in anf since anf never has to deal with certain expressions. We can skip
+ * the internalcompilerexceptions for these. *)
 
- (* todo: talk more about sprim *)
 let compile_to_string (prog : sourcespan program pipeline) : string pipeline =
   prog
   |> (add_err_phase well_formed is_well_formed)
