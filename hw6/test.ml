@@ -79,21 +79,6 @@ let wf_tests = [
                     (create_ss "wf_let_nested_tuple_repeats_non_tuple" 1 9 1 10))]);
 ]
 let desugar_tests = [
-  tdesugar "desugar_and"
-    "true && false"
-    "\n(if true: (if false: true else: false) else: false)";
-  tdesugar "desugar_or"
-    "true || false"
-    "\n(if true: true else: (if false: true else: false))";
-  tdesugar "desugar_nested_or"
-    "true || true || false"
-    "\n(if (if true: true else: (if true: true else: false)): true else: (if false: true else: false))";
-  tdesugar "desugar_nested_and"
-    "true && true && false"
-    "\n(if (if true: (if true: true else: false) else: false): (if false: true else: false) else: false)";
-  tdesugar "desugar_print"
-    "true || print(1)"
-    "\n(if true: true else: (if (?print(1)): true else: false))";
   tdesugar "desugar_seq_basic"
     "true; false"
     "\n(let _ = true in false)";
@@ -170,7 +155,7 @@ let basic_pair_tests = [
   terr "tuple_access_idx_wrong_type" "(1, 2)[true]" "" "unable to access tuple position bool(true)";
   t "nil_list_1" "(1, nil)" "" "(1, nil)";
   t "nil_list_2" "(1, (2, nil))" "" "(1, (2, nil))";
-  terr "tuple_access_idx_wrong_type_nil_access" "nil[true]" "" "unable to dereference value, got nil";
+  terr "tuple_access_idx_wrong_type_nil_access" "nil[true]" "" "access component of nil, got nil";
   terr "tuple_access_idx_wrong_type_nil_idx" "(1, 2)[nil]" "" "unable to access tuple position nil";
   t "get_value_from_tuple_0_set" "(1, 2, 3, 4, 5)[0] := 3" "" "3";
   t "get_value_from_tuple_4_set" "(1, 2, 3, 4, 5)[4] := 3" "" "3";
@@ -305,6 +290,74 @@ let let_tests = [
     "let a = ((), ()) in a[0]"
     ""
     "()";
+  t "print_cyclic_tuple_1"
+    "let a = (1, nil) in
+      a[1] := a; a"
+    ""
+    "(1, <cyclic tuple 1>)";
+  t "print_cyclic_tuple_2"
+    "let a = (1, nil, 3),
+         b = (a, 2, 3) in
+      a[1] := b; print(b); a"
+    ""
+    "((1, <cyclic tuple 1>, 3), 2, 3)\n(1, (<cyclic tuple 1>, 2, 3), 3)";
+  t "print_cyclic_tuple_3"
+    "let a = (nil, nil, nil),
+         b = (nil, nil, a),
+         c = (nil, a, b) in
+        a[0] := a; a[1] := b; a[2] := c;
+        b[0] := b; b[1] := c;
+        c[0] := c;
+        a"
+    ""
+    "(<cyclic tuple 1>, (<cyclic tuple 2>, (<cyclic tuple 3>, <cyclic tuple 1>, <cyclic tuple 2>), <cyclic tuple 1>), (<cyclic tuple 2>, <cyclic tuple 1>, (<cyclic tuple 3>, <cyclic tuple 2>, <cyclic tuple 1>)))";
+  t "deep_equal"
+    "let a = (nil, nil, 1),
+         b = (a, nil, 1) in
+        a[0] := a; a[1] := b; 
+        b[1] := b;
+        equal(a, b)"
+    ""
+    "true";
+  t "deep_equal_tuple_len"
+    "equal((1, 2, 3, (4, 5)), (1, 2, 3, (4, 5, 6)))"
+    ""
+    "false";
+  t "deep_equal_tuple_values"
+    "equal((1, 2, 3, (4, 5)), (1, 2, 3, (4, 4)))"
+    ""
+    "false";
+  t "deep_equal_cycles_different_value"
+    "let a = (nil, nil, 1),
+         b = (a, nil, 2) in
+        a[0] := a; a[1] := b; 
+        b[1] := b;
+        equal(a, b)"
+    ""
+    "false";
+  t "deep_equal_cycles_different_reference_1"
+    "let a = (nil, 1),
+         b = (a, 1),
+         c = (b, 2) in
+        a[0] := c; 
+        equal(a, b)"
+    ""
+    "false";
+  t "deep_equal_cycles_different_reference_2"
+    "let a = (nil, 1),
+         b = (a, 1),
+         c = (b, 2) in
+        a[0] := c; 
+        equal(b, a)"
+    ""
+    "false";
+  t "deep_equal_cycles_different_reference_3"
+    "let a = (nil, 1),
+         b = (a, 1) in
+        a[0] := a; 
+        equal(a, b)"
+    ""
+    "true";
 ]
 
 let sequencing_tests = [
@@ -341,7 +394,7 @@ let () =
   run_test_tt_main ("all_tests">:::[
     suite; 
     old_tests; 
-    input_file_test_suite ()
+    input_file_test_suite ();
     ])
 ;;
 

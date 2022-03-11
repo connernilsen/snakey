@@ -542,6 +542,12 @@ test(1, 2)"
       5
     our_code_starts_here()"
     "5";
+  te "print_dup"
+    "def print():
+      5
+    print()"
+    (print_te [IllegalFunName("print",
+                              create_ss "print_dup" 1 0 2 7)]);
   te "func_invalid_bind"
     "def test(1):
       1

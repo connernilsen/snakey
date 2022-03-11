@@ -32,7 +32,7 @@ const uint64_t NIL_DEREF = 8L;
 const uint64_t GET_NOT_NUM = 9L;
 const uint64_t DESTRUCTURE_INVALID_LEN = 10L;
 
-const uint64_t MAX_VAL_LENGTH = 200;
+const uint64_t MAX_VAL_LENGTH = 500;
 const int CYCLE_ARR_LENGTH = 50;
 
 const int UNKNOWN_TYPE = 0;
@@ -90,15 +90,52 @@ char *convertTypeToStr(int type)
   }
 }
 
-int findPosInAssocList(uint64_t **list, int max_idx, uint64_t *val) {
-  for (int i = 0; i < max_idx; i++)
-  {
-    if (list[i] == val)
-    {
+int findNextPosInList(uint64_t **list, uint64_t *val, int start) {
+  for (int i = start; i < CYCLE_ARR_LENGTH; i++) {
+    if (list[i] == val) {
       return i;
     }
   }
   return -1;
+}
+
+int findPosInList(uint64_t **list, uint64_t *val) {
+  return findNextPosInList(list, val, 0);
+}
+
+int areValsMaybeEqual(uint64_t **arr1, uint64_t **arr2, uint64_t *v1, uint64_t *v2) {
+  int v1Known[10];
+  int v2Known[10];
+
+  int lastFound = findPosInList(arr1, v1);
+  int v1Idx = 0;
+  while (lastFound != -1) {
+    v1Known[v1Idx] = lastFound;
+    v1Idx++;
+    lastFound = findNextPosInList(arr1, v1, lastFound + 1);
+  }
+  if (v1Idx == 0) {
+    return 0;
+  }
+  lastFound = findPosInList(arr2, v2);
+  int v2Idx = 0;
+  while (lastFound != -1) {
+    v2Known[v2Idx] = lastFound;
+    v2Idx++;
+    lastFound = findNextPosInList(arr2, v2, lastFound + 1);
+  }
+  if (v2Idx == 0) {
+    return 0;
+  }
+
+  for (int i = 0; i < v1Idx; i++) {
+    for (int j = 0; j < v2Idx; j++) {
+      if (v1Known[i] == v2Known[j]) {
+        return 1;
+      }
+    }
+  }
+  return 0;
 }
 
 /**
@@ -139,9 +176,9 @@ char *convertValueToStr(SNAKEVAL val, char debug, uint64_t **seen, int idx)
       return strdup("nil");
     }
     uint64_t *vals = (uint64_t *)(val ^ TUPLE_TAG);
-    int assocListPos = findPosInAssocList(seen, idx, vals);
+    int assocListPos = findPosInList(seen, vals);
     if (assocListPos > -1) {
-      char* message[20];
+      char message[20];
       sprintf(message, "<cyclic tuple %d>", assocListPos + 1);
       strcpy(valueStr, message);
       break;
@@ -163,6 +200,9 @@ char *convertValueToStr(SNAKEVAL val, char debug, uint64_t **seen, int idx)
       free(next);
     }
     strcat(valueStr, ")");
+    if (idx > 0) {
+      seen[idx - 1] = 0L;
+    }
     break;
   }
   default:
@@ -247,7 +287,7 @@ void error(uint64_t errCode, uint64_t val)
   }
   else if (errCode == NIL_DEREF) 
   {
-    fprintf(stderr, "unable to dereference value, got %s\n", valueStr);
+    fprintf(stderr, "access component of nil, got %s\n", valueStr);
   }
   else if (errCode == DESTRUCTURE_INVALID_LEN)
   {
@@ -266,11 +306,10 @@ void error(uint64_t errCode, uint64_t val)
 
 SNAKEVAL print(SNAKEVAL val)
 {
-  uint64_t **arr = calloc(CYCLE_ARR_LENGTH, sizeof(uint64_t*));
+  uint64_t *arr[CYCLE_ARR_LENGTH];
   char *valueStr = convertValueToStr(val, 0, arr, 0);
   printf("%s\n", valueStr);
   free(valueStr);
-  free(arr);
   return val;
 }
 
@@ -281,20 +320,58 @@ SNAKEVAL input()
   return convertStrToVal(str);
 }
 
+int equalHelper(SNAKEVAL v1Val, SNAKEVAL v2Val, uint64_t **arr1, uint64_t **arr2, int idx) {
+  int v1Type = getValueType(v1Val);
+  int v2Type = getValueType(v2Val);
+
+  if (v1Val == v2Val) {
+    return 1;
+  } else if (v1Type != v2Type) {
+    return 0;
+  } else if (v1Type == TUPLE_TYPE) {
+    uint64_t *v1 = (uint64_t *)(v1Val ^ TUPLE_TAG);
+    uint64_t *v2 = (uint64_t *)(v2Val ^ TUPLE_TAG);
+    
+    int v1Len = v1[0];
+    int v2Len = v2[0];
+    if (v1Len != v2Len) {
+      return 0;
+    } 
+
+    int maybeEq = areValsMaybeEqual(arr1, arr2, v1, v2);
+    
+    if (!maybeEq) {
+      arr1[idx] = v1;
+      arr2[idx] = v2;
+      idx++;
+      for (int i = 1; i <= v1Len; i++) {
+        if (!equalHelper(v1[i], v2[i], arr1, arr2, idx)) {
+          return 0;
+        }
+      }
+
+      if (idx > 0) {
+        arr1[idx - 1] = 0L;
+        arr2[idx - 1] = 0L;
+      }
+    }
+
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
 // Structural equality for snakevals
 SNAKEVAL equal(SNAKEVAL v1, SNAKEVAL v2) {
-  uint64_t **arr = calloc(CYCLE_ARR_LENGTH, sizeof(uint64_t *));
-  uint64_t **arr2 = calloc(CYCLE_ARR_LENGTH, sizeof(uint64_t *));
-  // free
-  uint64_t res;
-  if (strcmp(convertValueToStr(v1, 0, arr, 0), convertValueToStr(v2, 0, arr2, 0)) == 0) {
-    res = TRUE;
+  uint64_t *arr1[CYCLE_ARR_LENGTH];
+  uint64_t *arr2[CYCLE_ARR_LENGTH];
+
+  if (equalHelper(v1, v2, arr1, arr2, 0)) {
+    return TRUE;
   } else {
-    res = FALSE;
+    return FALSE;
   }
-  free(arr);
-  free(arr2);
-  return res;
 }
 
 // main should remain unchanged
