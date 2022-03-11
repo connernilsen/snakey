@@ -32,7 +32,7 @@ const uint64_t NIL_DEREF = 8L;
 const uint64_t GET_NOT_NUM = 9L;
 const uint64_t DESTRUCTURE_INVALID_LEN = 10L;
 
-const uint64_t MAX_VAL_LENGTH = 200;
+const uint64_t MAX_VAL_LENGTH = 500;
 const int CYCLE_ARR_LENGTH = 50;
 
 const int UNKNOWN_TYPE = 0;
@@ -163,6 +163,9 @@ char *convertValueToStr(SNAKEVAL val, char debug, uint64_t **seen, int idx)
       free(next);
     }
     strcat(valueStr, ")");
+    if (idx > 0) {
+      seen[idx - 1] = 0L;
+    }
     break;
   }
   default:
@@ -266,11 +269,10 @@ void error(uint64_t errCode, uint64_t val)
 
 SNAKEVAL print(SNAKEVAL val)
 {
-  uint64_t **arr = calloc(CYCLE_ARR_LENGTH, sizeof(uint64_t*));
+  uint64_t *arr[CYCLE_ARR_LENGTH];
   char *valueStr = convertValueToStr(val, 0, arr, 0);
   printf("%s\n", valueStr);
   free(valueStr);
-  free(arr);
   return val;
 }
 

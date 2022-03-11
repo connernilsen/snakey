@@ -320,7 +320,7 @@ let let_tests = [
         c[0] := c;
         a"
     ""
-    "(<cyclic tuple 1>, (<cyclic tuple 2>, (<cyclic tuple 3>, <cyclic tuple 1>, <cyclic tuple 2>), <cyclic tuple 1>), <cyclic tuple 3>)";
+    "(<cyclic tuple 1>, (<cyclic tuple 2>, (<cyclic tuple 3>, <cyclic tuple 1>, <cyclic tuple 2>), <cyclic tuple 1>), (<cyclic tuple 2>, <cyclic tuple 1>, (<cyclic tuple 3>, <cyclic tuple 2>, <cyclic tuple 1>)))";
 ]
 
 let sequencing_tests = [
@@ -337,14 +337,14 @@ let dup_exn_tests = [
 
 let suite =
   "suite">:::
-  (* wf_tests @ *)
-  (* input @ *)
-  (* desugar_tests @ *)
-  (* anf_tests @ *)
-  (* pair_tests @ *)
-  (* basic_pair_tests @ *)
-  (* stdin_tests @ *)
-  (* sequencing_tests @ *)
+  wf_tests @
+  input @
+  desugar_tests @
+  anf_tests @
+  pair_tests @
+  basic_pair_tests @
+  stdin_tests @
+  sequencing_tests @
   let_tests @
   dup_exn_tests
 
