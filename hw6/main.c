@@ -287,7 +287,7 @@ void error(uint64_t errCode, uint64_t val)
   }
   else if (errCode == NIL_DEREF) 
   {
-    fprintf(stderr, "unable to dereference value, got %s\n", valueStr);
+    fprintf(stderr, "access component of nil, got %s\n", valueStr);
   }
   else if (errCode == DESTRUCTURE_INVALID_LEN)
   {

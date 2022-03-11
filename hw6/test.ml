@@ -155,7 +155,7 @@ let basic_pair_tests = [
   terr "tuple_access_idx_wrong_type" "(1, 2)[true]" "" "unable to access tuple position bool(true)";
   t "nil_list_1" "(1, nil)" "" "(1, nil)";
   t "nil_list_2" "(1, (2, nil))" "" "(1, (2, nil))";
-  terr "tuple_access_idx_wrong_type_nil_access" "nil[true]" "" "unable to dereference value, got nil";
+  terr "tuple_access_idx_wrong_type_nil_access" "nil[true]" "" "access component of nil, got nil";
   terr "tuple_access_idx_wrong_type_nil_idx" "(1, 2)[nil]" "" "unable to access tuple position nil";
   t "get_value_from_tuple_0_set" "(1, 2, 3, 4, 5)[0] := 3" "" "3";
   t "get_value_from_tuple_4_set" "(1, 2, 3, 4, 5)[4] := 3" "" "3";
@@ -399,7 +399,7 @@ let suite =
 let () =
   run_test_tt_main ("all_tests">:::[
     suite; 
-    (* old_tests; *) 
+    old_tests; 
     input_file_test_suite ();
     ])
 ;;
