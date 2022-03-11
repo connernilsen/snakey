@@ -321,6 +321,53 @@ let let_tests = [
         a"
     ""
     "(<cyclic tuple 1>, (<cyclic tuple 2>, (<cyclic tuple 3>, <cyclic tuple 1>, <cyclic tuple 2>), <cyclic tuple 1>), (<cyclic tuple 2>, <cyclic tuple 1>, (<cyclic tuple 3>, <cyclic tuple 2>, <cyclic tuple 1>)))";
+  t "deep_equal"
+    "let a = (nil, nil, 1),
+         b = (a, nil, 1) in
+        a[0] := a; a[1] := b; 
+        b[1] := b;
+        equal(a, b)"
+    ""
+    "true";
+  t "deep_equal_tuple_len"
+    "equal((1, 2, 3, (4, 5)), (1, 2, 3, (4, 5, 6)))"
+    ""
+    "false";
+  t "deep_equal_tuple_values"
+    "equal((1, 2, 3, (4, 5)), (1, 2, 3, (4, 4)))"
+    ""
+    "false";
+  t "deep_equal_cycles_different_value"
+    "let a = (nil, nil, 1),
+         b = (a, nil, 2) in
+        a[0] := a; a[1] := b; 
+        b[1] := b;
+        equal(a, b)"
+    ""
+    "false";
+  t "deep_equal_cycles_different_reference_1"
+    "let a = (nil, 1),
+         b = (a, 1),
+         c = (b, 2) in
+        a[0] := c; 
+        equal(a, b)"
+    ""
+    "false";
+  t "deep_equal_cycles_different_reference_2"
+    "let a = (nil, 1),
+         b = (a, 1),
+         c = (b, 2) in
+        a[0] := c; 
+        equal(b, a)"
+    ""
+    "false";
+  t "deep_equal_cycles_different_reference_3"
+    "let a = (nil, 1),
+         b = (a, 1) in
+        a[0] := a; 
+        equal(a, b)"
+    ""
+    "true";
 ]
 
 let sequencing_tests = [
