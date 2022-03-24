@@ -74,7 +74,6 @@ let rec find ls x =
 let count_vars e =
   let rec helpA e =
     match e with
-    | ASeq(e1, e2, _) -> max (helpC e1) (helpA e2)
     | ALet(_, bind, body, _) -> 1 + (max (helpC bind) (helpA body))
     | ALetRec(binds, body, _) ->
        (List.length binds) + List.fold_left max (helpA body) (List.map (fun (_, rhs) -> helpC rhs) binds)
@@ -101,13 +100,39 @@ let rec find_one (l : 'a list) (elt : 'a) : bool =
     | [] -> false
     | x::xs -> (elt = x) || (find_one xs elt)
 
-let rec find_dup (l : 'a list) : 'a option =
+let rec find_dups_by (l : 'a list) (eq : ('a -> 'a -> bool)) : ('a * 'a) list =
   match l with
-    | [] -> None
-    | [x] -> None
-    | x::xs ->
-      if find_one xs x then Some(x) else find_dup xs
+  | [] -> []
+  | x :: [] -> []
+  | first :: rest -> let (dups, other) = (List.partition (eq first) rest) in
+    (List.map (fun dup -> (dup, first)) dups) @ (find_dups_by other eq)
 ;;
+
+let rec find_dup_exns_by_env (e : (string * sourcespan) list) : exn list =
+  let rec find_dups_by_env (e : (string * sourcespan) list) : ((string * sourcespan) * (string * sourcespan)) list =
+    (find_dups_by e (fun e1 e2 -> match e1 with (name, loc) -> match e2 with (name2, loc) -> name = name2))
+  in (List.map 
+      (fun (e1, e2) -> 
+        match e1 with (name, span) -> match e2 with (_, span2) -> DuplicateId(name, span2, span))
+      (find_dups_by_env e))
+
+let rec binds_to_env (binds : sourcespan bind list) : (string * sourcespan) list =
+  let bind_to_env (acc : (string * sourcespan) list) (bind : sourcespan bind) : (string * sourcespan) list =
+    match bind with 
+    | BBlank(_) -> acc
+    | BName(name, _, pos) -> (name, pos)::acc
+    | BTuple(vals, _) -> (binds_to_env vals) @ acc
+  in List.fold_left bind_to_env [] binds
+
+type funenvt = call_type envt;;
+let initial_fun_env : funenvt = [
+  ("input", Native);
+  ("equal", Native);
+  ("print", Native);
+];;
+let initial_fun_arity = [
+  0; 2; 1
+]
 
 let rename_and_tag (p : tag program) : tag program =
   let rec rename env p =
@@ -190,7 +215,6 @@ let rec deepest_stack e env =
     match e with
     | ALet(name, bind, body, _) -> List.fold_left max 0 [name_to_offset name; helpC bind; helpA body]
     | ALetRec(binds, body, _) -> List.fold_left max (helpA body) (List.map (fun (_, bind) -> helpC bind) binds)
-    | ASeq(first, rest, _) -> max (helpC first) (helpA rest)
     | ACExpr e -> helpC e
   and helpC e =
     match e with
@@ -225,7 +249,6 @@ let rec deepest_stack e env =
    letrec from let. Essentially, it accumulates just enough information 
    in our binding list to tell us how to reconstruct an appropriate aexpr. *)
 type 'a anf_bind =
-  | BSeq of 'a cexpr
   | BLet of string * 'a cexpr
   | BLetRec of (string * 'a cexpr) list
 
@@ -250,17 +273,15 @@ let anf (p : tag program) : unit aprogram =
     | ELet((BBlank _, exp, _)::rest, body, pos) ->
        let (exp_ans, exp_setup) = helpC exp in
        let (body_ans, body_setup) = helpC (ELet(rest, body, pos)) in
-       (body_ans, exp_setup @ [BSeq(exp_ans)] @ body_setup)
+       (* TODO: confirm this is OK.  *)
+       (body_ans, exp_setup @ body_setup)
     | ELet((BName(bind, _, _), exp, _)::rest, body, pos) ->
        let (exp_ans, exp_setup) = helpC exp in
        let (body_ans, body_setup) = helpC (ELet(rest, body, pos)) in
        (body_ans, exp_setup @ [BLet(bind, exp_ans)] @ body_setup)
     | ELet((BTuple(binds, _), exp, _)::rest, body, pos) ->
        raise (InternalCompilerError("Tuple bindings should have been desugared away"))
-    | ESeq(e1, e2, _) ->
-       let (e1_ans, e1_setup) = helpC e1 in
-       let (e2_ans, e2_setup) = helpC e2 in
-       (e2_ans, e1_setup @ [BSeq e1_ans] @ e2_setup)
+    | ESeq(e1, e2, _) -> raise (InternalCompilerError "Should not have seq after desugaring")
     | EApp(func, args, _, _) ->
        raise (NotYetImplemented("Revise this case"))
     | ETuple(args, _) ->
@@ -341,7 +362,6 @@ let anf (p : tag program) : unit aprogram =
            Syntactically it looks like we're just replacing Bwhatever with Awhatever,
            but that's exactly the information needed to know which aexpr to build. *)
         match bind with
-        | BSeq(exp) -> ASeq(exp, body, ())
         | BLet(name, exp) -> ALet(name, exp, body, ())
         | BLetRec(names) -> ALetRec(names, body, ()))
       ans_setup (ACExpr ans)
@@ -351,40 +371,98 @@ let anf (p : tag program) : unit aprogram =
 
 
 let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
-  let rec wf_E (e : sourcespan expr) (* other parameters may be needed here *) =
-    Error([NotYetImplemented "Implement well-formedness checking for expressions"])
-  and wf_D (d : sourcespan decl) (* other parameters may be needed here *) =
-    Error([NotYetImplemented "Implement well-formedness checking for definitions"])
+  let rec wf_E (e : sourcespan expr) (env : (string * sourcespan) list) =
+    match e with
+    | EBool _ -> []
+    | ENumber(n, loc) -> 
+      if n > (Int64.div Int64.max_int 2L) || n < (Int64.div Int64.min_int 2L)
+      then [Overflow(n, loc)]
+      else []
+    | EId (x, loc) ->
+      begin 
+      match (List.assoc_opt x env) with
+      | None -> [UnboundId(x, loc)]
+      | Some(_) -> []
+      end
+    | ENil(_) -> []
+    | EPrim1(_, e, _) -> (wf_E e env)
+    | EPrim2(_, l, r, _) -> (wf_E l env) @ (wf_E r env)
+    | EIf(c, t, f, _) -> (wf_E c env) @ (wf_E t env) @ (wf_E f env)
+    | ELet(bindings, body, _) ->
+      let (env, bindings_env, errors) =
+        (List.fold_left
+          (fun (env, bindings_env, found_errors) (bind, expr, loc) ->
+              let curr_errors = (wf_E expr env) @ found_errors in
+              let new_binds = (binds_to_env [bind])
+              in (new_binds @ env, new_binds @ bindings_env, curr_errors))
+          (env, [], []) bindings) in
+          errors @ find_dup_exns_by_env bindings_env @ (wf_E body env)
+    | EApp(f, args, _, loc) -> 
+      let args_errors = List.flatten (List.map (fun expr -> wf_E expr env) args) in
+      let fun_errors = wf_E f env in
+      fun_errors @ args_errors
+    | ESeq(s1, s2, _) -> (wf_E s1 env) @ (wf_E s2 env)
+    | ETuple(elements, _) -> List.flatten (List.map (fun e -> wf_E e env) elements)
+    | EGetItem(tuple, idx, _) -> (wf_E tuple env) @ (wf_E idx env)
+    | ESetItem(tuple, idx, set, _) -> (wf_E tuple env) @ (wf_E idx env) @ (wf_E set env)
+    | ELambda(_, _, _) -> [NotYetImplemented "Implement lambda well formed"]
+    | ELetRec(_, _, _) -> [NotYetImplemented "Implement letrec well formed"]
+  and wf_D (d : sourcespan decl) (env : (string * sourcespan) list): exn list =
+    [NotYetImplemented "Implement well-formedness checking for definitions"]
+  and get_env (decls : sourcespan decl list) : sourcespan envt = 
+    let fun_env = (List.map (fun x -> 
+         begin 
+           match x with 
+           | DFun(name, args, _, ss) -> 
+             (name, ss)
+         end) decls)
+    and builtin_env = List.map (fun (name, _) -> (name, (create_ss "builtin" 0 0 0 0))) initial_fun_env in
+    fun_env @ builtin_env
+  and d_errors (decls : sourcespan decl list) (env: sourcespan envt): exn list = 
+    (List.flatten (List.map (fun (decl) -> (wf_D decl env)) decls))
   in
   match p with
   | Program(decls, body, _) ->
-     Error([NotYetImplemented "Implement well-formedness checking for programs"])
+    let envs = List.map (fun decls -> (get_env decls)) decls in 
+    (* TODO: do we need this? we allow shadowing *)
+    (* let dup_fun_errors = dup_d_errors decls in *)
+    let d_errs = (List.flatten (List.map2 (fun (decls) (env) -> (d_errors decls env)) decls envs)) in
+    let e_errs = wf_E body (List.flatten envs) in 
+    begin
+      match d_errs @ e_errs with 
+      | [] -> Ok p
+      | e -> Error e
+    end
 ;;
 
-
-let desugar (p : sourcespan program) : sourcespan program =
-  let gensym =
-    let next = ref 0 in
-    (fun name ->
-      next := !next + 1;
-      sprintf "%s_%d" name (!next)) in
-  let rec helpE (e : sourcespan expr) (* other parameters may be needed here *) =
-    Error([NotYetImplemented "Implement desugaring for expressions"])
-  and helpD (d : sourcespan decl) (* other parameters may be needed here *) =
-    Error([NotYetImplemented "Implement desugaring for definitions"])
-  in
-  match p with
-  | Program(decls, body, _) ->
-      raise (NotYetImplemented "Implement desugaring for programs")
-;;
 
 let free_vars (e: 'a aexpr) : string list =
   raise (NotYetImplemented "Implement free_vars for expressions")
 ;;
 
 
+(* ASSUMES that the program has been alpha-renamed and all names are unique *)
 let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =
-  raise (NotYetImplemented "Implement stack allocation for egg-eater")
+  let rec get_aexpr_envt (expr : tag aexpr) (si : int) : arg envt =
+    match expr with 
+    | ALet(name, bind, body, _) ->
+      (name, RegOffset(~-si * word_size, RBP))
+      :: (get_cexpr_envt bind (si + 1))
+      @ (get_aexpr_envt body (si + 1))
+    | ACExpr(body) ->
+      (get_cexpr_envt body si)
+    | ALetRec(binds, body, _) -> raise (NotYetImplemented "letrec stack allocation")
+  and get_cexpr_envt (expr : tag cexpr) (si : int) : arg envt =
+    match expr with 
+    | CIf(_, l, r, _) -> 
+      (get_aexpr_envt l si)
+      @ (get_aexpr_envt r si)
+    | _ -> []
+  in
+  match prog with 
+  | AProgram(expr, _) ->
+    (prog, 
+     (get_aexpr_envt expr 1))
 ;;
 
 let rec compile_fun (fun_name : string) args body env : instruction list =
@@ -417,9 +495,82 @@ let compile_prog ((anfed : tag aprogram), (env: arg envt)) : string =
      
      raise (NotYetImplemented "... combine main with any needed extra setup and error handling ...")
            
-(* Feel free to add additional phases to your pipeline.
-   The final pipeline phase needs to return a string,
-   but everything else is up to you. *)
+let desugar (p : tag program) : unit program =
+  let rec helpBind (bind : 'a bind) (exp : 'a expr) : unit binding list =
+    match bind with
+    | BBlank(_) | BName(_, _, _) -> [(untagB bind, helpE exp, ())]
+    | BTuple(bindings, tag) ->
+      let original_tuple_id = sprintf "bind_temp%d" tag in
+      let updated_bindings = List.flatten (List.mapi 
+        (fun (i : int) (b : tag bind) -> (helpBind b (EGetItem(EId(original_tuple_id, tag), ENumber(Int64.of_int i, tag), tag)))) 
+        bindings) in
+      let tuple = helpE exp in
+        (BName(original_tuple_id, false, ()), EPrim2(CheckSize, tuple, ENumber(Int64.of_int (List.length bindings), ()), ()), ()) :: updated_bindings
+  and helpE (e : tag expr) : unit expr (* other parameters may be needed here *) =
+    match e with 
+    | ESeq(e1, e2, _) -> ELet([(BBlank(()), helpE e1, ())], helpE e2, ())
+    | ETuple(e, _) -> ETuple(List.map helpE e, ())
+    | EGetItem(item, idx, _) -> EGetItem(helpE item, helpE idx, ())
+    | ESetItem(item, idx, set, _) -> ESetItem(helpE item, helpE idx, helpE set, ())
+    | ELet(bindings, body, _) -> 
+      ELet(
+        List.flatten (List.map (fun (bind, exp, _) -> helpBind bind exp) bindings),
+        helpE body, 
+        ())
+    | EPrim1(op, e, _) ->
+      EPrim1(op, helpE e, ())
+    | EPrim2(op, e1, e2, a) ->
+      begin
+        match op with
+        | And -> EIf(
+            helpE e1,
+            EIf(
+              helpE e2,
+              EBool(true, ()),
+              EBool(false, ()),
+              ()),
+            EBool(false, ()),
+            ())
+        | Or -> EIf(
+            helpE e1,
+            EBool(true, ()),
+            EIf(
+              helpE e2,
+              EBool(true, ()),
+              EBool(false, ()),
+              ()),
+            ())
+        | p -> EPrim2(p, helpE e1, helpE e2, ())
+      end
+    | EIf(cond, thn, els, _) ->
+      EIf(helpE cond, helpE thn, helpE els, ())
+    | ENumber(n, _) -> ENumber(n, ())
+    | EBool(b, _) -> EBool(b, ())
+    | ENil(_) -> ENil(())
+    | EId(id, _) -> EId(id, ())
+    | EApp(f, args, allow_shadow, _) -> EApp(helpE f, List.map helpE args, allow_shadow, ())
+    | ELambda(_, _, _) -> (raise (NotYetImplemented "Implement lambda desugar"))
+    | ELetRec(_, _, _) -> (raise (NotYetImplemented "implement letrec desugar"))
+  and helpD (d : tag decl) : unit decl =
+    match d with
+    | DFun(name, args, body, tag) -> 
+      let (env, new_binds) = List.fold_right (fun bind (env, new_binds) ->
+        match bind with 
+          | BBlank(_) | BName(_, _, _) -> (env, (untagB bind) :: new_binds)
+          | BTuple(_, tag) -> 
+            (* TODO: we shouldn't need to use gensym since tag should be unique? *)
+            let new_name = sprintf "fun_arg#%d" tag in
+            let prologue_binds = helpBind bind (EId(new_name, tag)) in
+            (prologue_binds @ env, (BName(new_name, false, ())) :: new_binds)
+        ) args ([], []) in
+      match env with 
+      | [] -> DFun(name, new_binds, helpE body, ())
+      | _::_ -> DFun(name, new_binds, ELet(env, helpE body, ()), ())
+  in
+  match p with
+  | Program(decls, body, _) ->
+    Program((List.map (fun (d) -> (List.map helpD d)) decls), helpE body, ())
+;;
 
 
 let run_if should_run f =
@@ -432,6 +583,8 @@ let compile_to_string (prog : sourcespan program pipeline) : string pipeline =
   |> (add_err_phase well_formed is_well_formed)
   |> (add_phase tagged tag)
   |> (add_phase renamed rename_and_tag)
+  |> (add_phase desugared desugar)
+  |> (add_phase tagged tag)
   |> (add_phase anfed (fun p -> atag (anf p)))
   |> (add_phase locate_bindings naive_stack_allocation)
   |> (add_phase result compile_prog)

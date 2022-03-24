@@ -11,6 +11,11 @@ let debug_printf fmt =
 type tag = int
 type sourcespan = (Lexing.position * Lexing.position)
 
+let create_ss (file : string) (start_l : int) (start_c : int) (end_l : int) (end_c : int) : sourcespan =
+  ({pos_fname=file; pos_lnum=start_l; pos_bol=0; pos_cnum=start_c},
+   {pos_fname=file; pos_lnum=end_l; pos_bol=0; pos_cnum=end_c})
+;;
+
 type prim1 =
   | Add1
   | Sub1
@@ -82,7 +87,6 @@ and 'a cexpr = (* compound expressions *)
   | CSetItem of 'a immexpr * 'a immexpr * 'a immexpr * 'a
   | CLambda of string list * 'a aexpr * 'a
 and 'a aexpr = (* anf expressions *)
-  | ASeq of 'a cexpr * 'a aexpr * 'a
   | ALet of string * 'a cexpr * 'a aexpr * 'a
   | ALetRec of (string * 'a cexpr) list * 'a aexpr * 'a
   | ACExpr of 'a cexpr
@@ -261,9 +265,6 @@ let atag (p : 'a aprogram) : tag aprogram =
     !next in
   let rec helpA (e : 'a aexpr) : tag aexpr =
     match e with
-    | ASeq(e1, e2, _) ->
-       let seq_tag = tag() in
-       ASeq(helpC e1, helpA e2, seq_tag)
     | ALet(x, c, b, _) ->
        let let_tag = tag() in
        ALet(x, helpC c, helpA b, let_tag)

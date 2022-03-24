@@ -151,7 +151,6 @@ let rec string_of_aexpr_with (depth : int) (print_a : 'a -> string) (e : 'a aexp
   let string_of_cexpr = string_of_cexpr_with (depth - 1) print_a in
   if depth <= 0 then "..." else
   match e with
-  | ASeq(e1, e2, a) -> sprintf "(%s ; %s)%s" (string_of_cexpr e1) (string_of_aexpr e2) (print_a a)
   | ALet(x, e, b, a) -> sprintf "(alet %s = %s in %s)%s" x (string_of_cexpr e) (string_of_aexpr b) (print_a a)
   | ALetRec(xes, b, a) ->
      let xes_strings = List.map (fun (x, c) -> (sprintf "%s = %s" x (string_of_cexpr c))) xes in
