@@ -103,6 +103,12 @@ let nil = HexConst(tuple_tag)
 
 (* You may find some of these helpers useful *)
 
+let stringset_of_list : (string list -> StringSet.t) =
+  List.fold_left 
+    (fun acc arg -> StringSet.add arg acc)
+    StringSet.empty
+;;
+
 let rec find ls x =
   match ls with
   | [] -> raise (InternalCompilerError (sprintf "Name %s not found" x))
@@ -576,7 +582,61 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : strin
 ;;
 
 let free_vars (e: 'a aexpr) : string list =
-  raise (NotYetImplemented "Implement free_vars for expressions")
+  let rec help_imm (e : 'a immexpr) (env : StringSet.t) : StringSet.t = 
+    match e with
+    | ImmId(name, _) -> 
+      if StringSet.mem name env
+      then StringSet.empty
+      else StringSet.singleton name
+    | _ -> StringSet.empty
+  and help_cexpr (e : 'a cexpr) (env : StringSet.t) : StringSet.t =
+    match e with 
+    | CIf(cnd, thn, els, _) -> 
+      StringSet.(union (help_imm cnd env) (help_aexpr thn env) 
+                 |> union (help_aexpr els env))
+    | CPrim1(_, e, _) -> help_imm e env 
+    | CPrim2(_, e1, e2, _) ->
+      StringSet.union (help_imm e1 env) (help_imm e2 env)
+    | CApp(func, args, _, _) -> 
+      StringSet.union 
+        (help_imm func env) 
+        (List.fold_left 
+           (fun acc arg -> StringSet.union acc (help_imm arg env)) 
+           StringSet.empty 
+           args)
+    | CImmExpr(e) -> help_imm e env
+    | CTuple(exprs, _) ->
+      List.fold_left 
+        (fun acc arg -> StringSet.union acc (help_imm arg env))
+        StringSet.empty
+        exprs
+    | CGetItem(tuple, pos, _) -> 
+      StringSet.union (help_imm tuple env) (help_imm pos env)
+    | CSetItem(tuple, pos, value, _) ->
+      StringSet.(union (help_imm tuple env) (help_imm pos env)
+                 |> union (help_imm value env))
+    | CLambda(args, body, _) ->
+      let newenv = StringSet.union (stringset_of_list args) env in 
+      help_aexpr body newenv 
+  and help_aexpr (e : 'a aexpr) (env : StringSet.t) : StringSet.t = 
+    match e with 
+    | ALet(name, bind, body, _) -> 
+      let newenv = StringSet.add name env in 
+      StringSet.union (help_cexpr bind newenv) (help_aexpr body newenv)
+    | ALetRec(name_binds, body, _) -> 
+      let newenv, bind_frees =
+        List.fold_left
+          (fun (newenv, frees) (name, bind) ->
+             (StringSet.add name newenv, 
+              StringSet.union (help_cexpr bind newenv) frees))
+          (env, StringSet.empty)
+          name_binds
+      in 
+      StringSet.union bind_frees (help_aexpr body newenv)
+    | ACExpr(e) ->
+      help_cexpr e env
+  in 
+  StringSet.elements (help_aexpr e StringSet.empty)
 ;;
 
 

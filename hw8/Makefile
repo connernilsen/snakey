@@ -75,12 +75,12 @@ output/dont_err/%.s: input/dont_err/%.$(SNAKE_EXT) main
 	./main $< > $@
 
 clean-test-out:
-        rm -rf output/*.o output/*.s output/*.dSYM output/*.run *.log
-        rm -rf output/*/*.o output/*/*.s output/*/*.dSYM output/*/*.run
-        rm -f test
+	rm -rf output/*.o output/*.s output/*.dSYM output/*.run *.log
+	rm -rf output/*/*.o output/*/*.s output/*/*.dSYM output/*/*.run
+	rm -f test
 
 clean: clean-test-out 
-        rm -rf _build/
-        rm -f main 
+	rm -rf _build/
+	rm -f main 
 
 ct: clean-test-out test
