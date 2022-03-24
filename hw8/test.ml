@@ -131,7 +131,7 @@ let free_vars_tests = [
     ["a"; "b"; "c"];
   tfvs "tfvs_prim1"
     "print(a)"
-    ["print"; "a"];
+    ["a"];
   tfvs "tfvs_app"
     "abcd(efgh(123, r))"
     ["abcd"; "efgh"; "r"];
