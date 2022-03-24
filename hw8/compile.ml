@@ -1066,7 +1066,6 @@ let desugar (p : tag program) : unit program =
           match bind with 
           | BBlank(_) | BName(_, _, _) -> (env, (untagB bind) :: new_binds)
           | BTuple(_, tag) -> 
-            (* TODO: we shouldn't need to use gensym since tag should be unique? *)
             let new_name = sprintf "fun_arg#%d" tag in
             let prologue_binds = helpBind bind (EId(new_name, tag)) in
             (prologue_binds @ env, (BName(new_name, false, ())) :: new_binds)
@@ -1074,10 +1073,16 @@ let desugar (p : tag program) : unit program =
       match env with 
       | [] -> DFun(name, new_binds, helpE body, ())
       | _::_ -> DFun(name, new_binds, ELet(env, helpE body, ()), ())
+  and helpDs (d : tag decl list) : unit decl list =
+    (List.map helpD d)
+  and decl_list_to_bind_list (d : unit decl list): unit binding list =
+    (List.map (fun (d: unit decl) -> match d with | DFun(name, args, body, _) -> (BName(name, false, ()), ELambda(args, body, ()), ())) d)
+  and combine_decls_into_letrec (decls : unit decl list list) (body : unit expr) : unit expr =
+    (List.fold_right (fun (d: unit decl list) (acc: unit expr) -> ELetRec((decl_list_to_bind_list d), acc, ())) decls body)
   in
   match p with
   | Program(decls, body, _) ->
-    Program((List.map (fun (d) -> (List.map helpD d)) decls), helpE body, ())
+    Program([], combine_decls_into_letrec (List.map helpDs decls) (helpE body), ())
 ;;
 
 
