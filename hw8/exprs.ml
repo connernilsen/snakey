@@ -78,7 +78,7 @@ and 'a expr =
 
 type 'a decl =
   | DFun of string * 'a bind list * 'a expr * 'a
-                                                            
+
 type 'a program =
   | Program of 'a decl list list * 'a expr * 'a
 
@@ -132,7 +132,7 @@ let get_tag_D d = match d with
   | DFun(_, _, _, t) -> t
 ;;
 
-           
+
 let rec map_tag_E (f : 'a -> 'b) (e : 'a expr) =
   match e with
   | ESeq(e1, e2, a) -> ESeq(map_tag_E f e1, map_tag_E f e2, f a)
@@ -144,68 +144,68 @@ let rec map_tag_E (f : 'a -> 'b) (e : 'a expr) =
   | EBool(b, a) -> EBool(b, f a)
   | ENil a -> ENil(f a)
   | EPrim1(op, e, a) ->
-     let tag_prim = f a in
-     EPrim1(op, map_tag_E f e, tag_prim)
+    let tag_prim = f a in
+    EPrim1(op, map_tag_E f e, tag_prim)
   | EPrim2(op, e1, e2, a) ->
-     let tag_prim = f a in
-     let tag_e1 = map_tag_E f e1 in
-     let tag_e2 = map_tag_E f e2 in
-     EPrim2(op, tag_e1, tag_e2, tag_prim)
+    let tag_prim = f a in
+    let tag_e1 = map_tag_E f e1 in
+    let tag_e2 = map_tag_E f e2 in
+    EPrim2(op, tag_e1, tag_e2, tag_prim)
   | ELet(binds, body, a) ->
-     let tag_let = f a in
-     let tag_binding (b, e, t) =
-       let tag_bind = f t in
-       let tag_b = map_tag_B f b in
-       let tag_e = map_tag_E f e in
-       (tag_b, tag_e, tag_bind) in
-     let tag_binds = List.map tag_binding binds in
-     let tag_body = map_tag_E f body in
-     ELet(tag_binds, tag_body, tag_let)
+    let tag_let = f a in
+    let tag_binding (b, e, t) =
+      let tag_bind = f t in
+      let tag_b = map_tag_B f b in
+      let tag_e = map_tag_E f e in
+      (tag_b, tag_e, tag_bind) in
+    let tag_binds = List.map tag_binding binds in
+    let tag_body = map_tag_E f body in
+    ELet(tag_binds, tag_body, tag_let)
   | ELetRec(binds, body, a) ->
-     let tag_let = f a in
-     let tag_binding (b, e, t) =
-       let tag_bind = f t in
-       let tag_b = map_tag_B f b in
-       let tag_e = map_tag_E f e in
-       (tag_b, tag_e, tag_bind) in
-     let tag_binds = List.map tag_binding binds in
-     let tag_body = map_tag_E f body in
-     ELetRec(tag_binds, tag_body, tag_let)
+    let tag_let = f a in
+    let tag_binding (b, e, t) =
+      let tag_bind = f t in
+      let tag_b = map_tag_B f b in
+      let tag_e = map_tag_E f e in
+      (tag_b, tag_e, tag_bind) in
+    let tag_binds = List.map tag_binding binds in
+    let tag_body = map_tag_E f body in
+    ELetRec(tag_binds, tag_body, tag_let)
   | EIf(cond, thn, els, a) ->
-     let tag_if = f a in
-     let tag_cond = map_tag_E f cond in
-     let tag_thn = map_tag_E f thn in
-     let tag_els = map_tag_E f els in
-     EIf(tag_cond, tag_thn, tag_els, tag_if)
+    let tag_if = f a in
+    let tag_cond = map_tag_E f cond in
+    let tag_thn = map_tag_E f thn in
+    let tag_els = map_tag_E f els in
+    EIf(tag_cond, tag_thn, tag_els, tag_if)
   | EApp(func, args, native, a) ->
-     let tag_app = f a in
-     EApp(map_tag_E f func, List.map (map_tag_E f) args, native, tag_app)
+    let tag_app = f a in
+    EApp(map_tag_E f func, List.map (map_tag_E f) args, native, tag_app)
   | ELambda(binds, body, a) ->
-     let tag_lam = f a in
-     ELambda(List.map (map_tag_B f) binds, map_tag_E f body, tag_lam)
+    let tag_lam = f a in
+    ELambda(List.map (map_tag_B f) binds, map_tag_E f body, tag_lam)
 and map_tag_B (f : 'a -> 'b) b =
   match b with
   | BBlank tag -> BBlank(f tag)
   | BName(x, allow_shadow, ax) ->
-     let tag_ax = f ax in
-     BName(x, allow_shadow, tag_ax)
+    let tag_ax = f ax in
+    BName(x, allow_shadow, tag_ax)
   | BTuple(binds, t) ->
-     let tag_tup = f t in
-     BTuple(List.map (map_tag_B f) binds, tag_tup)
+    let tag_tup = f t in
+    BTuple(List.map (map_tag_B f) binds, tag_tup)
 and map_tag_D (f : 'a -> 'b) d =
   match d with
   | DFun(name, args, body, a) ->
-     let tag_fun = f a in
-     let tag_args = List.map (map_tag_B f) args in
-     let tag_body = map_tag_E f body in
-     DFun(name, tag_args, tag_body, tag_fun)
+    let tag_fun = f a in
+    let tag_args = List.map (map_tag_B f) args in
+    let tag_body = map_tag_E f body in
+    DFun(name, tag_args, tag_body, tag_fun)
 and map_tag_P (f : 'a -> 'b) p =
   match p with
   | Program(declgroups, body, a) ->
-     let tag_a = f a in
-     let tag_decls = List.map (fun group -> List.map (map_tag_D f) group) declgroups in
-     let tag_body = map_tag_E f body in
-     Program(tag_decls, tag_body, tag_a)
+    let tag_a = f a in
+    let tag_decls = List.map (fun group -> List.map (map_tag_D f) group) declgroups in
+    let tag_body = map_tag_E f body in
+    Program(tag_decls, tag_body, tag_a)
 
 let tag (p : 'a program) : tag program =
   let next = ref 0 in
@@ -215,7 +215,7 @@ let tag (p : 'a program) : tag program =
   map_tag_P tag p
 ;;
 
-           
+
 let combine_tags (f1 : 'a -> 'b) (f2 : 'a -> 'c) (p : 'a program) : ('b * 'c) program =
   map_tag_P (fun a -> (f1 a, f2 a)) p
 ;;
@@ -229,11 +229,11 @@ let prog_and_tag (p : 'a program) : ('a * tag) program =
     !next in
   tag_and_map tag p
 ;;
-           
+
 let rec untagP (p : 'a program) : unit program =
   match p with
   | Program(decls, body, _) ->
-     Program(List.map (fun group -> List.map untagD group) decls, untagE body, ())
+    Program(List.map (fun group -> List.map untagD group) decls, untagE body, ())
 and untagE e =
   match e with
   | ESeq(e1, e2, _) -> ESeq(untagE e1, untagE e2, ())
@@ -245,19 +245,19 @@ and untagE e =
   | EBool(b, _) -> EBool(b, ())
   | ENil _ -> ENil ()
   | EPrim1(op, e, _) ->
-     EPrim1(op, untagE e, ())
+    EPrim1(op, untagE e, ())
   | EPrim2(op, e1, e2, _) ->
-     EPrim2(op, untagE e1, untagE e2, ())
+    EPrim2(op, untagE e1, untagE e2, ())
   | ELet(binds, body, _) ->
-     ELet(List.map (fun (b, e, _) -> (untagB b, untagE e, ())) binds, untagE body, ())
+    ELet(List.map (fun (b, e, _) -> (untagB b, untagE e, ())) binds, untagE body, ())
   | EIf(cond, thn, els, _) ->
-     EIf(untagE cond, untagE thn, untagE els, ())
+    EIf(untagE cond, untagE thn, untagE els, ())
   | EApp(func, args, native, _) ->
-     EApp(untagE func, List.map untagE args, native, ())
+    EApp(untagE func, List.map untagE args, native, ())
   | ELetRec(binds, body, _) ->
-     ELetRec(List.map (fun (b, e, _) -> (untagB b, untagE e, ())) binds, untagE body, ())
+    ELetRec(List.map (fun (b, e, _) -> (untagB b, untagE e, ())) binds, untagE body, ())
   | ELambda(binds, body, _) ->
-     ELambda(List.map untagB binds, untagE body, ())
+    ELambda(List.map untagB binds, untagE body, ())
 and untagB b =
   match b with
   | BBlank _ -> BBlank ()
@@ -266,7 +266,7 @@ and untagB b =
 and untagD d =
   match d with
   | DFun(name, args, body, _) ->
-     DFun(name, List.map untagB args, untagE body, ())
+    DFun(name, List.map untagB args, untagE body, ())
 ;;
 
 let atag (p : 'a aprogram) : tag aprogram =
@@ -277,39 +277,39 @@ let atag (p : 'a aprogram) : tag aprogram =
   let rec helpA (e : 'a aexpr) : tag aexpr =
     match e with
     | ALet(x, c, b, _) ->
-       let let_tag = tag() in
-       ALet(x, helpC c, helpA b, let_tag)
+      let let_tag = tag() in
+      ALet(x, helpC c, helpA b, let_tag)
     | ALetRec(xcs, b, _) ->
-       let let_tag = tag() in
-       ALetRec(List.map (fun (x, c) -> (x, helpC c)) xcs, helpA b, let_tag)
+      let let_tag = tag() in
+      ALetRec(List.map (fun (x, c) -> (x, helpC c)) xcs, helpA b, let_tag)
     | ACExpr c -> ACExpr (helpC c)
   and helpC (c : 'a cexpr) : tag cexpr =
     match c with
     | CPrim1(op, e, _) ->
-       let prim_tag = tag() in
-       CPrim1(op, helpI e, prim_tag)
+      let prim_tag = tag() in
+      CPrim1(op, helpI e, prim_tag)
     | CPrim2(op, e1, e2, _) ->
-       let prim_tag = tag() in
-       CPrim2(op, helpI e1, helpI e2, prim_tag)
+      let prim_tag = tag() in
+      CPrim2(op, helpI e1, helpI e2, prim_tag)
     | CIf(cond, thn, els, _) ->
-       let if_tag = tag() in
-       CIf(helpI cond, helpA thn, helpA els, if_tag)
+      let if_tag = tag() in
+      CIf(helpI cond, helpA thn, helpA els, if_tag)
     | CApp(func, args, native, _) ->
-       let app_tag = tag() in
-       CApp(helpI func, List.map helpI args, native, app_tag)
+      let app_tag = tag() in
+      CApp(helpI func, List.map helpI args, native, app_tag)
     | CImmExpr i -> CImmExpr (helpI i)
     | CTuple(es, _) ->
-       let tup_tag = tag() in
-       CTuple(List.map helpI es, tup_tag)
+      let tup_tag = tag() in
+      CTuple(List.map helpI es, tup_tag)
     | CGetItem(e, idx, _) ->
-       let get_tag = tag() in
-       CGetItem(helpI e, helpI idx, get_tag)
+      let get_tag = tag() in
+      CGetItem(helpI e, helpI idx, get_tag)
     | CSetItem(e, idx, newval, _) ->
-       let set_tag = tag() in
-       CSetItem(helpI e, helpI idx, helpI newval, set_tag)
+      let set_tag = tag() in
+      CSetItem(helpI e, helpI idx, helpI newval, set_tag)
     | CLambda(args, body, _) ->
-       let lam_tag = tag() in
-       CLambda(args, helpA body, lam_tag)
+      let lam_tag = tag() in
+      CLambda(args, helpA body, lam_tag)
   and helpI (i : 'a immexpr) : tag immexpr =
     match i with
     | ImmNil(_) -> ImmNil(tag())
@@ -319,5 +319,5 @@ let atag (p : 'a aprogram) : tag aprogram =
   and helpP p =
     match p with
     | AProgram(body, _) ->
-       AProgram(helpA body, 0)
+      AProgram(helpA body, 0)
   in helpP p

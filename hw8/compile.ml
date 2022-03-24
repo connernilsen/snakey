@@ -5,7 +5,7 @@ open Exprs
 open Assembly
 open Errors
 (* Add at least one of these two *)
-       
+
 type 'a envt = (string * 'a) list
 
 let rec is_anf (e : 'a expr) : bool =
@@ -13,8 +13,8 @@ let rec is_anf (e : 'a expr) : bool =
   | EPrim1(_, e, _) -> is_imm e
   | EPrim2(_, e1, e2, _) -> is_imm e1 && is_imm e2
   | ELet(binds, body, _) ->
-     List.for_all (fun (_, e, _) -> is_anf e) binds
-     && is_anf body
+    List.for_all (fun (_, e, _) -> is_anf e) binds
+    && is_anf body
   | EIf(cond, thn, els, _) -> is_imm cond && is_anf thn && is_anf els
   | _ -> is_imm e
 and is_imm e =
@@ -52,22 +52,22 @@ let err_GET_NOT_NUM         = 9L
 let err_DESTRUCTURE_INVALID_LEN         = 10L
 
 (* let err_COMP_NOT_NUM     = 1L
-let err_ARITH_NOT_NUM    = 2L
-let err_LOGIC_NOT_BOOL   = 3L
-let err_IF_NOT_BOOL      = 4L
-let err_OVERFLOW         = 5L
-let err_GET_NOT_TUPLE    = 6L
-let err_GET_LOW_INDEX    = 7L
-let err_GET_HIGH_INDEX   = 8L
-let err_GET_NOT_NUM      = 9L
-let err_NIL_DEREF        = 10L
-let err_OUT_OF_MEMORY    = 11L
-let err_SET_NOT_TUPLE    = 12L
-let err_SET_LOW_INDEX    = 13L
-let err_SET_NOT_NUM      = 14L
-let err_SET_HIGH_INDEX   = 15L
-let err_CALL_NOT_CLOSURE = 16L
-let err_CALL_ARITY_ERR   = 17L *)
+   let err_ARITH_NOT_NUM    = 2L
+   let err_LOGIC_NOT_BOOL   = 3L
+   let err_IF_NOT_BOOL      = 4L
+   let err_OVERFLOW         = 5L
+   let err_GET_NOT_TUPLE    = 6L
+   let err_GET_LOW_INDEX    = 7L
+   let err_GET_HIGH_INDEX   = 8L
+   let err_GET_NOT_NUM      = 9L
+   let err_NIL_DEREF        = 10L
+   let err_OUT_OF_MEMORY    = 11L
+   let err_SET_NOT_TUPLE    = 12L
+   let err_SET_LOW_INDEX    = 13L
+   let err_SET_NOT_NUM      = 14L
+   let err_SET_HIGH_INDEX   = 15L
+   let err_CALL_NOT_CLOSURE = 16L
+   let err_CALL_ARITY_ERR   = 17L *)
 
 (* label names for errors *)
 let label_COMP_NOT_NUM         = "error_comp_not_num"
@@ -107,14 +107,14 @@ let rec find ls x =
   match ls with
   | [] -> raise (InternalCompilerError (sprintf "Name %s not found" x))
   | (y,v)::rest ->
-     if y = x then v else find rest x
+    if y = x then v else find rest x
 
 let count_vars e =
   let rec helpA e =
     match e with
     | ALet(_, bind, body, _) -> 1 + (max (helpC bind) (helpA body))
     | ALetRec(binds, body, _) ->
-       (List.length binds) + List.fold_left max (helpA body) (List.map (fun (_, rhs) -> helpC rhs) binds)
+      (List.length binds) + List.fold_left max (helpA body) (List.map (fun (_, rhs) -> helpC rhs) binds)
     | ACExpr e -> helpC e
   and helpC e =
     match e with
@@ -129,14 +129,14 @@ let rec replicate x i =
 
 let rec find_decl (ds : 'a decl list) (name : string) : 'a decl option =
   match ds with
-    | [] -> None
-    | (DFun(fname, _, _, _) as d)::ds_rest ->
-      if name = fname then Some(d) else find_decl ds_rest name
+  | [] -> None
+  | (DFun(fname, _, _, _) as d)::ds_rest ->
+    if name = fname then Some(d) else find_decl ds_rest name
 
 let rec find_one (l : 'a list) (elt : 'a) : bool =
   match l with
-    | [] -> false
-    | x::xs -> (elt = x) || (find_one xs elt)
+  | [] -> false
+  | x::xs -> (elt = x) || (find_one xs elt)
 
 let rec find_dups_by (l : 'a list) (eq : ('a -> 'a -> bool)) : ('a * 'a) list =
   match l with
@@ -150,9 +150,9 @@ let rec find_dup_exns_by_env (e : (string * sourcespan) list) : exn list =
   let rec find_dups_by_env (e : (string * sourcespan) list) : ((string * sourcespan) * (string * sourcespan)) list =
     (find_dups_by e (fun e1 e2 -> match e1 with (name, loc) -> match e2 with (name2, loc) -> name = name2))
   in (List.map 
-      (fun (e1, e2) -> 
-        match e1 with (name, span) -> match e2 with (_, span2) -> DuplicateId(name, span2, span))
-      (find_dups_by_env e))
+        (fun (e1, e2) -> 
+           match e1 with (name, span) -> match e2 with (_, span2) -> DuplicateId(name, span2, span))
+        (find_dups_by_env e))
 
 let rec binds_to_env (binds : sourcespan bind list) : (string * sourcespan) list =
   let bind_to_env (acc : (string * sourcespan) list) (bind : sourcespan bind) : (string * sourcespan) list =
@@ -176,36 +176,36 @@ let rename_and_tag (p : tag program) : tag program =
   let rec rename env p =
     match p with
     | Program(decls, body, tag) ->
-       Program(List.map (fun group -> List.map (helpD env) group) decls, helpE env body, tag)
+      Program(List.map (fun group -> List.map (helpD env) group) decls, helpE env body, tag)
   and helpD env decl =
     match decl with
     | DFun(name, args, body, tag) ->
-       let (newArgs, env') = helpBS env args in
-       DFun(name, newArgs, helpE env' body, tag)
+      let (newArgs, env') = helpBS env args in
+      DFun(name, newArgs, helpE env' body, tag)
   and helpB env b =
     match b with
     | BBlank tag -> (b, env)
     | BName(name, allow_shadow, tag) ->
-       let name' = sprintf "%s_%d" name tag in
-       (BName(name', allow_shadow, tag), (name, name') :: env)
+      let name' = sprintf "%s_%d" name tag in
+      (BName(name', allow_shadow, tag), (name, name') :: env)
     | BTuple(binds, tag) ->
-       let (binds', env') = helpBS env binds in
-       (BTuple(binds', tag), env')
+      let (binds', env') = helpBS env binds in
+      (BTuple(binds', tag), env')
   and helpBS env (bs : tag bind list) =
     match bs with
     | [] -> ([], env)
     | b::bs ->
-       let (b', env') = helpB env b in
-       let (bs', env'') = helpBS env' bs in
-       (b'::bs', env'')
+      let (b', env') = helpB env b in
+      let (bs', env'') = helpBS env' bs in
+      (b'::bs', env'')
   and helpBG env (bindings : tag binding list) =
     match bindings with
     | [] -> ([], env)
     | (b, e, a)::bindings ->
-       let (b', env') = helpB env b in
-       let e' = helpE env e in
-       let (bindings', env'') = helpBG env' bindings in
-       ((b', e', a)::bindings', env'')
+      let (b', env') = helpB env b in
+      let e' = helpE env e in
+      let (bindings', env'') = helpBG env' bindings in
+      ((b', e', a)::bindings', env'')
   and helpE env e =
     match e with
     | ESeq(e1, e2, tag) -> ESeq(helpE env e1, helpE env e2, tag)
@@ -219,30 +219,30 @@ let rename_and_tag (p : tag program) : tag program =
     | EBool _ -> e
     | ENil _ -> e
     | EId(name, tag) ->
-       (try
+      (try
          EId(find env name, tag)
        with InternalCompilerError _ -> e)
     | EApp(func, args, native, tag) ->
-       let func = helpE env func in
-       let call_type =
-         (* TODO: If you want, try to determine whether func is a known function name, and if so,
-            whether it's a Snake function or a Native function *)
-         Snake in
-       EApp(func, List.map (helpE env) args, call_type, tag)
+      let func = helpE env func in
+      let call_type =
+        (* TODO: If you want, try to determine whether func is a known function name, and if so,
+           whether it's a Snake function or a Native function *)
+        Snake in
+      EApp(func, List.map (helpE env) args, call_type, tag)
     | ELet(binds, body, tag) ->
-       let (binds', env') = helpBG env binds in
-       let body' = helpE env' body in
-       ELet(binds', body', tag)
+      let (binds', env') = helpBG env binds in
+      let body' = helpE env' body in
+      ELet(binds', body', tag)
     | ELetRec(bindings, body, tag) ->
-       let (revbinds, env) = List.fold_left (fun (revbinds, env) (b, e, t) ->
-                                 let (b, env) = helpB env b in ((b, e, t)::revbinds, env)) ([], env) bindings in
-       let bindings' = List.fold_left (fun bindings (b, e, tag) -> (b, helpE env e, tag)::bindings) [] revbinds in
-       let body' = helpE env body in
-       ELetRec(bindings', body', tag)
+      let (revbinds, env) = List.fold_left (fun (revbinds, env) (b, e, t) ->
+          let (b, env) = helpB env b in ((b, e, t)::revbinds, env)) ([], env) bindings in
+      let bindings' = List.fold_left (fun bindings (b, e, tag) -> (b, helpE env e, tag)::bindings) [] revbinds in
+      let body' = helpE env body in
+      ELetRec(bindings', body', tag)
     | ELambda(binds, body, tag) ->
-       let (binds', env') = helpBS env binds in
-       let body' = helpE env' body in
-       ELambda(binds', body', tag)
+      let (binds', env') = helpBS env binds in
+      let body' = helpE env' body in
+      ELambda(binds', body', tag)
   in (rename [] p)
 ;;
 
@@ -310,41 +310,41 @@ let anf (p : tag program) : unit aprogram =
   and helpC (e : tag expr) : (unit cexpr * unit anf_bind list) = 
     match e with
     | EPrim1(op, arg, _) ->
-       let (arg_imm, arg_setup) = helpI arg in
-       (CPrim1(op, arg_imm, ()), arg_setup)
+      let (arg_imm, arg_setup) = helpI arg in
+      (CPrim1(op, arg_imm, ()), arg_setup)
     | EPrim2(op, left, right, _) ->
-       let (left_imm, left_setup) = helpI left in
-       let (right_imm, right_setup) = helpI right in
-       (CPrim2(prim2_to_sprim2 op, left_imm, right_imm, ()), left_setup @ right_setup)
+      let (left_imm, left_setup) = helpI left in
+      let (right_imm, right_setup) = helpI right in
+      (CPrim2(prim2_to_sprim2 op, left_imm, right_imm, ()), left_setup @ right_setup)
     | EIf(cond, _then, _else, _) ->
-       let (cond_imm, cond_setup) = helpI cond in
-       (CIf(cond_imm, helpA _then, helpA _else, ()), cond_setup)
+      let (cond_imm, cond_setup) = helpI cond in
+      (CIf(cond_imm, helpA _then, helpA _else, ()), cond_setup)
     | ELet([], body, _) -> helpC body
     | ELet((BBlank _, exp, _)::rest, body, pos) ->
-       let (exp_ans, exp_setup) = helpC exp in
-       let (body_ans, body_setup) = helpC (ELet(rest, body, pos)) in
-       (* TODO: confirm this is OK.  *)
-       (body_ans, exp_setup @ body_setup)
+      let (exp_ans, exp_setup) = helpC exp in
+      let (body_ans, body_setup) = helpC (ELet(rest, body, pos)) in
+      (* TODO: confirm this is OK.  *)
+      (body_ans, exp_setup @ body_setup)
     | ELet((BName(bind, _, _), exp, _)::rest, body, pos) ->
-       let (exp_ans, exp_setup) = helpC exp in
-       let (body_ans, body_setup) = helpC (ELet(rest, body, pos)) in
-       (body_ans, exp_setup @ [BLet(bind, exp_ans)] @ body_setup)
+      let (exp_ans, exp_setup) = helpC exp in
+      let (body_ans, body_setup) = helpC (ELet(rest, body, pos)) in
+      (body_ans, exp_setup @ [BLet(bind, exp_ans)] @ body_setup)
     | ELet((BTuple(binds, _), exp, _)::rest, body, pos) ->
-       raise (InternalCompilerError("Tuple bindings should have been desugared away"))
+      raise (InternalCompilerError("Tuple bindings should have been desugared away"))
     | ESeq(e1, e2, _) -> raise (InternalCompilerError "Should not have seq after desugaring")
     | EApp(func, args, _, _) ->
-       raise (NotYetImplemented("Revise this case"))
+      raise (NotYetImplemented("Revise this case"))
     | ETuple(args, _) ->
-       raise (NotYetImplemented("Finish this case"))
+      raise (NotYetImplemented("Finish this case"))
     | EGetItem(tup, idx, _) ->
-       raise (NotYetImplemented("Finish this case"))
+      raise (NotYetImplemented("Finish this case"))
     | ESetItem(tup, idx, newval, _) ->
-       raise (NotYetImplemented("Finish this case"))
-         
+      raise (NotYetImplemented("Finish this case"))
+
     | ELambda(binds, body, _) ->
-       raise (NotYetImplemented("Finish this case"))
+      raise (NotYetImplemented("Finish this case"))
     | ELetRec(binds, body, _) ->
-       raise (NotYetImplemented("Finish this case"))
+      raise (NotYetImplemented("Finish this case"))
 
     | _ -> let (imm, setup) = helpI e in (CImmExpr imm, setup)
 
@@ -356,64 +356,64 @@ let anf (p : tag program) : unit aprogram =
     | ENil _ -> (ImmNil(), [])
 
     | ESeq(e1, e2, _) ->
-       let (e1_imm, e1_setup) = helpI e1 in
-       let (e2_imm, e2_setup) = helpI e2 in
-       (e2_imm, e1_setup @ e2_setup)
+      let (e1_imm, e1_setup) = helpI e1 in
+      let (e2_imm, e2_setup) = helpI e2 in
+      (e2_imm, e1_setup @ e2_setup)
 
 
     | ETuple(args, tag) ->
-       raise (NotYetImplemented("Finish this case"))
-       (* Hint: use BLet to bind the result *)
+      raise (NotYetImplemented("Finish this case"))
+    (* Hint: use BLet to bind the result *)
     | EGetItem(tup, idx, tag) ->
-       raise (NotYetImplemented("Finish this case"))
+      raise (NotYetImplemented("Finish this case"))
     | ESetItem(tup, idx, newval, tag) ->
-       raise (NotYetImplemented("Finish this case"))
+      raise (NotYetImplemented("Finish this case"))
 
     | EPrim1(op, arg, tag) ->
-       let tmp = sprintf "unary_%d" tag in
-       let (arg_imm, arg_setup) = helpI arg in
-       (ImmId(tmp, ()), arg_setup @ [BLet(tmp, CPrim1(op, arg_imm, ()))])
+      let tmp = sprintf "unary_%d" tag in
+      let (arg_imm, arg_setup) = helpI arg in
+      (ImmId(tmp, ()), arg_setup @ [BLet(tmp, CPrim1(op, arg_imm, ()))])
     | EPrim2(op, left, right, tag) ->
-       let tmp = sprintf "binop_%d" tag in
-       let (left_imm, left_setup) = helpI left in
-       let (right_imm, right_setup) = helpI right in
-       (ImmId(tmp, ()), left_setup @ right_setup @ [BLet(tmp, CPrim2(prim2_to_sprim2 op, left_imm, right_imm, ()))])
+      let tmp = sprintf "binop_%d" tag in
+      let (left_imm, left_setup) = helpI left in
+      let (right_imm, right_setup) = helpI right in
+      (ImmId(tmp, ()), left_setup @ right_setup @ [BLet(tmp, CPrim2(prim2_to_sprim2 op, left_imm, right_imm, ()))])
     | EIf(cond, _then, _else, tag) ->
-       let tmp = sprintf "if_%d" tag in
-       let (cond_imm, cond_setup) = helpI cond in
-       (ImmId(tmp, ()), cond_setup @ [BLet(tmp, CIf(cond_imm, helpA _then, helpA _else, ()))])
+      let tmp = sprintf "if_%d" tag in
+      let (cond_imm, cond_setup) = helpI cond in
+      (ImmId(tmp, ()), cond_setup @ [BLet(tmp, CIf(cond_imm, helpA _then, helpA _else, ()))])
     | EApp(func, args, _, tag) ->
-       raise (NotYetImplemented("Revise this case"))
+      raise (NotYetImplemented("Revise this case"))
     | ELet([], body, _) -> helpI body
     | ELet((BBlank _, exp, _)::rest, body, pos) ->
-       let (exp_ans, exp_setup) = helpI exp in (* MUST BE helpI, to avoid any missing final steps *)
-       let (body_ans, body_setup) = helpI (ELet(rest, body, pos)) in
-       (body_ans, exp_setup @ body_setup)
+      let (exp_ans, exp_setup) = helpI exp in (* MUST BE helpI, to avoid any missing final steps *)
+      let (body_ans, body_setup) = helpI (ELet(rest, body, pos)) in
+      (body_ans, exp_setup @ body_setup)
     | ELambda(binds, body, tag) ->
-       raise (NotYetImplemented("Finish this case"))
-       (* Hint: use BLet to bind the answer *)
+      raise (NotYetImplemented("Finish this case"))
+    (* Hint: use BLet to bind the answer *)
     | ELet((BName(bind, _, _), exp, _)::rest, body, pos) ->
-       let (exp_ans, exp_setup) = helpC exp in
-       let (body_ans, body_setup) = helpI (ELet(rest, body, pos)) in
-       (body_ans, exp_setup @ [BLet(bind, exp_ans)] @ body_setup)
+      let (exp_ans, exp_setup) = helpC exp in
+      let (body_ans, body_setup) = helpI (ELet(rest, body, pos)) in
+      (body_ans, exp_setup @ [BLet(bind, exp_ans)] @ body_setup)
     | ELet((BTuple(binds, _), exp, _)::rest, body, pos) ->
-       raise (InternalCompilerError("Tuple bindings should have been desugared away"))
+      raise (InternalCompilerError("Tuple bindings should have been desugared away"))
     | ELetRec(binds, body, tag) ->
-       raise (NotYetImplemented("Finish this case"))
-       (* Hint: use BLetRec for each of the binds, and BLet for the final answer *)
+      raise (NotYetImplemented("Finish this case"))
+  (* Hint: use BLetRec for each of the binds, and BLet for the final answer *)
   and helpA e : unit aexpr = 
     let (ans, ans_setup) = helpC e in
     List.fold_right
       (fun bind body ->
-        (* Here's where the anf_bind datatype becomes most useful:
-             BSeq binds get dropped, and turned into ASeq aexprs.
-             BLet binds get wrapped back into ALet aexprs.
-             BLetRec binds get wrapped back into ALetRec aexprs.
-           Syntactically it looks like we're just replacing Bwhatever with Awhatever,
-           but that's exactly the information needed to know which aexpr to build. *)
-        match bind with
-        | BLet(name, exp) -> ALet(name, exp, body, ())
-        | BLetRec(names) -> ALetRec(names, body, ()))
+         (* Here's where the anf_bind datatype becomes most useful:
+              BSeq binds get dropped, and turned into ASeq aexprs.
+              BLet binds get wrapped back into ALet aexprs.
+              BLetRec binds get wrapped back into ALetRec aexprs.
+            Syntactically it looks like we're just replacing Bwhatever with Awhatever,
+            but that's exactly the information needed to know which aexpr to build. *)
+         match bind with
+         | BLet(name, exp) -> ALet(name, exp, body, ())
+         | BLetRec(names) -> ALetRec(names, body, ()))
       ans_setup (ACExpr ans)
   in
   helpP p
@@ -430,9 +430,9 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
       else []
     | EId (x, loc) ->
       begin 
-      match (List.assoc_opt x env) with
-      | None -> [UnboundId(x, loc)]
-      | Some(_) -> []
+        match (List.assoc_opt x env) with
+        | None -> [UnboundId(x, loc)]
+        | Some(_) -> []
       end
     | ENil(_) -> []
     | EPrim1(_, e, _) -> (wf_E e env)
@@ -441,12 +441,12 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
     | ELet(bindings, body, _) ->
       let (env, bindings_env, errors) =
         (List.fold_left
-          (fun (env, bindings_env, found_errors) (bind, expr, loc) ->
+           (fun (env, bindings_env, found_errors) (bind, expr, loc) ->
               let curr_errors = (wf_E expr env) @ found_errors in
               let new_binds = (binds_to_env [bind])
               in (new_binds @ env, new_binds @ bindings_env, curr_errors))
-          (env, [], []) bindings) in
-          errors @ find_dup_exns_by_env bindings_env @ (wf_E body env)
+           (env, [], []) bindings) in
+      errors @ find_dup_exns_by_env bindings_env @ (wf_E body env)
     | EApp(f, args, _, loc) -> 
       let args_errors = List.flatten (List.map (fun expr -> wf_E expr env) args) in
       let fun_errors = wf_E f env in
@@ -461,11 +461,11 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
     [NotYetImplemented "Implement well-formedness checking for definitions"]
   and get_env (decls : sourcespan decl list) : sourcespan envt = 
     let fun_env = (List.map (fun x -> 
-         begin 
-           match x with 
-           | DFun(name, args, _, ss) -> 
-             (name, ss)
-         end) decls)
+        begin 
+          match x with 
+          | DFun(name, args, _, ss) -> 
+            (name, ss)
+        end) decls)
     and builtin_env = List.map (fun (name, _) -> (name, (create_ss "builtin" 0 0 0 0))) initial_fun_env in
     fun_env @ builtin_env
   and d_errors (decls : sourcespan decl list) (env: sourcespan envt): exn list = 
@@ -636,13 +636,13 @@ let generate_cmp_func_with
     (tag : int)
     (tag_suffix : string)
     (tag_checks : bool)
-    : (instruction list) =
+  : (instruction list) =
   let label_done = (sprintf "%s%n%s_cmp" label_DONE tag tag_suffix) in
   let body = ([IMov(Reg(R10), e2_reg); ICmp(Reg(RAX), Reg(R10));]
-          @ if_true
-          @ [(jmp_instr_constructor label_done);]
-          @ if_false @ 
-          [ILabel(label_done)]) in
+              @ if_true
+              @ [(jmp_instr_constructor label_done);]
+              @ if_false @ 
+              [ILabel(label_done)]) in
   if tag_checks then
     IMov(Reg(RAX), e2_reg) ::
     (num_tag_check label_COMP_NOT_NUM)
@@ -659,7 +659,7 @@ let generate_cmp_func
     (e2_reg : arg) 
     (jmp_instr_constructor : (string -> instruction)) 
     (tag : int)
-    : (instruction list) =
+  : (instruction list) =
   generate_cmp_func_with e1_reg e2_reg jmp_instr_constructor [IMov(Reg(RAX), const_true)] [IMov(Reg(RAX), const_false)] tag "" true
 ;;
 
@@ -715,11 +715,11 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
       | Add1 -> 
         IMov(Reg(RAX), e_reg) ::
         (num_tag_check label_ARITH_NOT_NUM)
-          @ [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(2L))); IJo(Label(label_OVERFLOW))]
+        @ [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(2L))); IJo(Label(label_OVERFLOW))]
       | Sub1 -> 
         IMov(Reg(RAX), e_reg) ::
         (num_tag_check label_ARITH_NOT_NUM)
-          @ [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(Int64.neg 2L))); IJo(Label(label_OVERFLOW))]
+        @ [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(Int64.neg 2L))); IJo(Label(label_OVERFLOW))]
       | IsBool -> 
         let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
         let label_done = (sprintf "%s%n_bool" label_DONE tag) in
@@ -738,13 +738,13 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
         IMov(Reg(RAX), e_reg) :: 
         (* check if value is a num, and if not, then jump to label_not_num *)
         (num_tag_check label_not_num)
-           @ [
-             IMov(Reg(RAX), const_true);
-             IJmp(Label(label_done));
-             ILabel(label_not_num);
-             IMov(Reg(RAX), const_false);
-             ILabel(label_done);
-           ]
+        @ [
+          IMov(Reg(RAX), const_true);
+          IJmp(Label(label_done));
+          ILabel(label_not_num);
+          IMov(Reg(RAX), const_false);
+          ILabel(label_done);
+        ]
       | IsTuple ->
         let label_not_tuple = (sprintf "%s%n" label_IS_NOT_TUPLE tag) in 
         let label_done = (sprintf "%s%n_tuple" label_DONE tag) in
@@ -752,11 +752,11 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
         (* check if value is a tuple, and if not, then jump to label_not_tuple *)
         (tag_check const_true label_not_tuple tuple_tag_mask tuple_tag)
         @ [
-             IJmp(Label(label_done));
-             ILabel(label_not_tuple);
-             IMov(Reg(RAX), const_false);
-             ILabel(label_done);
-           ]
+          IJmp(Label(label_done));
+          ILabel(label_not_tuple);
+          IMov(Reg(RAX), const_false);
+          ILabel(label_done);
+        ]
       | Not -> 
         IMov(Reg(RAX), e_reg) ::
         (tag_check e_reg label_NOT_BOOL bool_tag_mask bool_tag)
@@ -821,78 +821,78 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
     in let size_bytes = (length + 1) * word_size in 
     (* length at [0] *)
     IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int length)) :: 
-        (* items at [1:length + 1] *)
-        List.flatten (List.mapi (fun idx v -> 
-          [
-            IMov(Reg(R11), compile_imm v env);
-            IMov(Sized(QWORD_PTR, RegOffset((idx + 1) * word_size, heap_reg)), Reg(R11));
-          ]) vals)
-        (* filler at [length + 1:16 byte alignment]?*)
-        @ [
-          (* Move result to result place *)
-          IMov(Reg(RAX), Reg(heap_reg));
-          IAdd(Reg(RAX), Const(tuple_tag));
-          (* mov heap_reg to new aligned heap_reg 1 space later *)
-          IAdd(Reg(heap_reg), Const(Int64.of_int (16 * (Int.max length 1) + 1)));
-          IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
-          ]
+    (* items at [1:length + 1] *)
+    List.flatten (List.mapi (fun idx v -> 
+        [
+          IMov(Reg(R11), compile_imm v env);
+          IMov(Sized(QWORD_PTR, RegOffset((idx + 1) * word_size, heap_reg)), Reg(R11));
+        ]) vals)
+    (* filler at [length + 1:16 byte alignment]?*)
+    @ [
+      (* Move result to result place *)
+      IMov(Reg(RAX), Reg(heap_reg));
+      IAdd(Reg(RAX), Const(tuple_tag));
+      (* mov heap_reg to new aligned heap_reg 1 space later *)
+      IAdd(Reg(heap_reg), Const(Int64.of_int (16 * (Int.max length 1) + 1)));
+      IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
+    ]
   | CGetItem(tuple, idx, tag) -> 
-        let tuple = compile_imm tuple env in
-        let idx = compile_imm idx env in
-        (* Check tuple is tuple *)
-        (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
-         (* Check index is num *)
-         @ [ (* ensure tuple isn't nil *)
-           IMov(Reg(R11), nil);
-           ICmp(Reg(RAX), Reg(R11));
-           IJe(Label(label_NIL_DEREF));
-           IMov(Reg(RAX), idx) 
-         ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM)
-                @ [ (* convert to machine num *)
-                  IMov(Reg(RAX), tuple);
-                  IMov(Reg(R11), idx);
-                  ISar(Reg(R11), Const(1L));
-                  (* check bounds *)
-                  ISub(Reg(RAX), Const(tuple_tag));
-                  IMov(Reg(RAX), RegOffset(0, RAX));
-                  ICmp(Reg(R11), Reg(RAX));
-                  IMov(Reg(RAX), tuple);
-                  IJge(Label(label_GET_HIGH_INDEX));
-                  ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
-                  IJl(Label(label_GET_LOW_INDEX));
-                  ISub(Reg(RAX), Const(tuple_tag));
-                  (* get value *)
-                  IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, word_size))])
+    let tuple = compile_imm tuple env in
+    let idx = compile_imm idx env in
+    (* Check tuple is tuple *)
+    (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
+     (* Check index is num *)
+     @ [ (* ensure tuple isn't nil *)
+       IMov(Reg(R11), nil);
+       ICmp(Reg(RAX), Reg(R11));
+       IJe(Label(label_NIL_DEREF));
+       IMov(Reg(RAX), idx) 
+     ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM)
+     @ [ (* convert to machine num *)
+       IMov(Reg(RAX), tuple);
+       IMov(Reg(R11), idx);
+       ISar(Reg(R11), Const(1L));
+       (* check bounds *)
+       ISub(Reg(RAX), Const(tuple_tag));
+       IMov(Reg(RAX), RegOffset(0, RAX));
+       ICmp(Reg(R11), Reg(RAX));
+       IMov(Reg(RAX), tuple);
+       IJge(Label(label_GET_HIGH_INDEX));
+       ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
+       IJl(Label(label_GET_LOW_INDEX));
+       ISub(Reg(RAX), Const(tuple_tag));
+       (* get value *)
+       IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, word_size))])
   | CSetItem(tuple, idx, set, _) -> 
-        let tuple = compile_imm tuple env in
-        let idx = compile_imm idx env in
-        let set = compile_imm set env in
-        (* Check tuple is tuple *)
-        (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
-         (* Check index is num *)
-         @ [ (* ensure tuple isn't nil *)
-           IMov(Reg(R11), nil);
-           ICmp(Reg(RAX), Reg(R11));
-           IJe(Label(label_NIL_DEREF));
-           IMov(Reg(RAX), idx) 
-         ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM)
-                @ [ (* convert to machine num *)
-                  IMov(Reg(RAX), tuple);
-                  IMov(Reg(R11), idx);
-                  ISar(Reg(R11), Const(1L));
-                  (* check bounds *)
-                  ISub(Reg(RAX), Const(tuple_tag));
-                  IMov(Reg(RAX), RegOffset(0, RAX));
-                  ICmp(Reg(R11), Reg(RAX));
-                  IMov(Reg(RAX), tuple);
-                  IJge(Label(label_GET_HIGH_INDEX));
-                  ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
-                  IJl(Label(label_GET_LOW_INDEX));
-                  ISub(Reg(RAX), Const(tuple_tag));
-                  (* get value *)
-                  IMov(Reg(R12), set);
-                  IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, R11, word_size, word_size)), Reg(R12));
-                  IMov(Reg(RAX), set)])
+    let tuple = compile_imm tuple env in
+    let idx = compile_imm idx env in
+    let set = compile_imm set env in
+    (* Check tuple is tuple *)
+    (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
+     (* Check index is num *)
+     @ [ (* ensure tuple isn't nil *)
+       IMov(Reg(R11), nil);
+       ICmp(Reg(RAX), Reg(R11));
+       IJe(Label(label_NIL_DEREF));
+       IMov(Reg(RAX), idx) 
+     ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM)
+     @ [ (* convert to machine num *)
+       IMov(Reg(RAX), tuple);
+       IMov(Reg(R11), idx);
+       ISar(Reg(R11), Const(1L));
+       (* check bounds *)
+       ISub(Reg(RAX), Const(tuple_tag));
+       IMov(Reg(RAX), RegOffset(0, RAX));
+       ICmp(Reg(R11), Reg(RAX));
+       IMov(Reg(RAX), tuple);
+       IJge(Label(label_GET_HIGH_INDEX));
+       ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
+       IJl(Label(label_GET_LOW_INDEX));
+       ISub(Reg(RAX), Const(tuple_tag));
+       (* get value *)
+       IMov(Reg(R12), set);
+       IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, R11, word_size, word_size)), Reg(R12));
+       IMov(Reg(RAX), set)])
   | CLambda(_, _, _) -> raise (NotYetImplemented "implement compile lambda")
 and compile_imm e env =
   match e with
@@ -928,21 +928,21 @@ let compile_prog ((anfed : tag aprogram), (env: arg envt)) : string =
   | AProgram(body, _) ->
     let comp_body = compile_ocsh body env in 
     let body_epilogue = (List.flatten (List.map compile_error_handler [
-             (label_COMP_NOT_NUM, err_COMP_NOT_NUM);
-             (label_ARITH_NOT_NUM, err_ARITH_NOT_NUM);
-             (label_NOT_BOOL, err_NOT_BOOL);
-             (label_NOT_TUPLE, err_GET_NOT_TUPLE);
-             (label_GET_LOW_INDEX, err_GET_LOW_INDEX);
-             (label_GET_HIGH_INDEX, err_GET_HIGH_INDEX);
-             (label_TUPLE_ACCESS_NOT_NUM, err_GET_NOT_NUM);
-             (label_OVERFLOW, err_OVERFLOW);
-             (label_NIL_DEREF, err_NIL_DEREF);
-             (label_DESTRUCTURE_INVALID_LEN, err_DESTRUCTURE_INVALID_LEN);
-           ])) in
+        (label_COMP_NOT_NUM, err_COMP_NOT_NUM);
+        (label_ARITH_NOT_NUM, err_ARITH_NOT_NUM);
+        (label_NOT_BOOL, err_NOT_BOOL);
+        (label_NOT_TUPLE, err_GET_NOT_TUPLE);
+        (label_GET_LOW_INDEX, err_GET_LOW_INDEX);
+        (label_GET_HIGH_INDEX, err_GET_HIGH_INDEX);
+        (label_TUPLE_ACCESS_NOT_NUM, err_GET_NOT_NUM);
+        (label_OVERFLOW, err_OVERFLOW);
+        (label_NIL_DEREF, err_NIL_DEREF);
+        (label_DESTRUCTURE_INVALID_LEN, err_DESTRUCTURE_INVALID_LEN);
+      ])) in
 
     let main = to_asm (comp_body @ body_epilogue) in
     sprintf "%s%s\n" prelude main
-           
+
 let desugar (p : tag program) : unit program =
   let rec helpBind (bind : 'a bind) (exp : 'a expr) : unit binding list =
     match bind with
@@ -950,10 +950,10 @@ let desugar (p : tag program) : unit program =
     | BTuple(bindings, tag) ->
       let original_tuple_id = sprintf "bind_temp%d" tag in
       let updated_bindings = List.flatten (List.mapi 
-        (fun (i : int) (b : tag bind) -> (helpBind b (EGetItem(EId(original_tuple_id, tag), ENumber(Int64.of_int i, tag), tag)))) 
-        bindings) in
+                                             (fun (i : int) (b : tag bind) -> (helpBind b (EGetItem(EId(original_tuple_id, tag), ENumber(Int64.of_int i, tag), tag)))) 
+                                             bindings) in
       let tuple = helpE exp in
-        (BName(original_tuple_id, false, ()), EPrim2(CheckSize, tuple, ENumber(Int64.of_int (List.length bindings), ()), ()), ()) :: updated_bindings
+      (BName(original_tuple_id, false, ()), EPrim2(CheckSize, tuple, ENumber(Int64.of_int (List.length bindings), ()), ()), ()) :: updated_bindings
   and helpE (e : tag expr) : unit expr (* other parameters may be needed here *) =
     match e with 
     | ESeq(e1, e2, _) -> ELet([(BBlank(()), helpE e1, ())], helpE e2, ())
@@ -1003,7 +1003,7 @@ let desugar (p : tag program) : unit program =
     match d with
     | DFun(name, args, body, tag) -> 
       let (env, new_binds) = List.fold_right (fun bind (env, new_binds) ->
-        match bind with 
+          match bind with 
           | BBlank(_) | BName(_, _, _) -> (env, (untagB bind) :: new_binds)
           | BTuple(_, tag) -> 
             (* TODO: we shouldn't need to use gensym since tag should be unique? *)
