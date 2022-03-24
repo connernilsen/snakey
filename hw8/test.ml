@@ -114,13 +114,50 @@ let default_tests =
     terr "overflow" "add1(5073741823000000000)" "" "overflow";
 
     (* tvg "funcalls" "def fact(n): if n < 2: 1 else: n * fact(n - 1)\n\nfact(5)" "" "120" *)
-
   ]
+
+let free_vars_tests = [
+  tfvs "tfvs_simple_none"
+    "let a = 5, b = 10 in a + b"
+    [];
+  tfvs "tfvs_simple_some"
+    "let a = 5 in a + b"
+    ["b"];
+  tfvs "tfvs_let_rec"
+    "let rec a = 5 in a + b"
+    ["b"];
+  tfvs "tfvs_if"
+    "if a: b else: c"
+    ["a"; "b"; "c"];
+  tfvs "tfvs_prim1"
+    "print(a)"
+    ["print"; "a"];
+  tfvs "tfvs_app"
+    "abcd(efgh(123, r))"
+    ["abcd"; "efgh"; "r"];
+  tfvs "tfvs_imm"
+    "q"
+    ["q"];
+  tfvs "tfvs_tuple"
+    "(a, b, 123)"
+    ["a"; "b"];
+  tfvs "tfvs_get"
+    "(1, 2, 3)[a]"
+    ["a"];
+  tfvs "tfvs_set"
+    "(1, 2, 3)[1] := a"
+    ["a"];
+  tfvs "tfvs_lambda"
+    "(lambda(x, y): x + y + z)"
+    ["z"];
+];;
+
 
 let suite =
   "suite">:::
-  default_tests @
-  desugar_tests
+  (* default_tests @ *)
+  desugar_tests @
+  free_vars_tests
 ;;
 
 
