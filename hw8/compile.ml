@@ -38,7 +38,20 @@ let tuple_tag        = 0x0000000000000001L
 let tuple_tag_mask   = 0x0000000000000007L
 let const_nil        = HexConst(tuple_tag)
 
-let err_COMP_NOT_NUM     = 1L
+
+(* error codes *)
+let err_COMP_NOT_NUM        = 1L
+let err_ARITH_NOT_NUM       = 2L
+let err_NOT_BOOL            = 3L
+let err_OVERFLOW            = 4L
+let err_GET_NOT_TUPLE       = 5L
+let err_GET_LOW_INDEX       = 6L
+let err_GET_HIGH_INDEX      = 7L
+let err_NIL_DEREF           = 8L
+let err_GET_NOT_NUM         = 9L
+let err_DESTRUCTURE_INVALID_LEN         = 10L
+
+(* let err_COMP_NOT_NUM     = 1L
 let err_ARITH_NOT_NUM    = 2L
 let err_LOGIC_NOT_BOOL   = 3L
 let err_IF_NOT_BOOL      = 4L
@@ -54,14 +67,39 @@ let err_SET_LOW_INDEX    = 13L
 let err_SET_NOT_NUM      = 14L
 let err_SET_HIGH_INDEX   = 15L
 let err_CALL_NOT_CLOSURE = 16L
-let err_CALL_ARITY_ERR   = 17L
+let err_CALL_ARITY_ERR   = 17L *)
 
+(* label names for errors *)
+let label_COMP_NOT_NUM         = "error_comp_not_num"
+let label_ARITH_NOT_NUM        = "error_arith_not_num"
+let label_TUPLE_ACCESS_NOT_NUM = "error_tuple_access_not_num"
+let label_NOT_BOOL             = "error_not_bool"
+let label_NOT_TUPLE            = "error_not_tuple"
+let label_OVERFLOW             = "error_overflow"
+let label_GET_LOW_INDEX        = "error_get_low_index"
+let label_GET_HIGH_INDEX       = "error_get_high_index"
+let label_NIL_DEREF            = "error_nil_deref"
+let label_DESTRUCTURE_INVALID_LEN         = "destructure_invalid_len"
+
+(* label names for conditionals *)
+let label_IS_NOT_BOOL  = "is_not_bool"
+let label_IS_NOT_NUM   = "is_not_num"
+let label_IS_NOT_TUPLE = "is_not_tuple"
+let label_DONE         = "done"
 
 let first_six_args_registers = [RDI; RSI; RDX; RCX; R8; R9]
 let heap_reg = R15
 let scratch_reg = R11
 
+let prelude = "section .text
+extern error
+extern print
+extern input
+extern equal
+global our_code_starts_here"
+
 module StringSet = Set.Make(String)
+let nil = HexConst(tuple_tag)
 
 (* You may find some of these helpers useful *)
 
@@ -243,6 +281,18 @@ let rec deepest_stack e env =
 ;;
 
 (* IMPLEMENT EVERYTHING BELOW *)
+let prim2_to_sprim2 (p : prim2): sprim2 =
+  match p with
+  | And | Or -> raise (InternalCompilerError (sprintf "prim2 %s not allowed in desugared expr" (name_of_op2 p)))
+  | Plus -> SPlus
+  | Minus -> SMinus
+  | Times -> STimes
+  | Greater -> SGreater
+  | GreaterEq -> SGreaterEq
+  | Less -> SLess
+  | LessEq -> SLessEq
+  | Eq -> SEq
+  | CheckSize -> SCheckSize
 
 (* This data type lets us keep track of how a binding was introduced.
    We'll use it to discard unnecessary Seq bindings, and to distinguish 
@@ -265,7 +315,7 @@ let anf (p : tag program) : unit aprogram =
     | EPrim2(op, left, right, _) ->
        let (left_imm, left_setup) = helpI left in
        let (right_imm, right_setup) = helpI right in
-       (CPrim2(op, left_imm, right_imm, ()), left_setup @ right_setup)
+       (CPrim2(prim2_to_sprim2 op, left_imm, right_imm, ()), left_setup @ right_setup)
     | EIf(cond, _then, _else, _) ->
        let (cond_imm, cond_setup) = helpI cond in
        (CIf(cond_imm, helpA _then, helpA _else, ()), cond_setup)
@@ -327,7 +377,7 @@ let anf (p : tag program) : unit aprogram =
        let tmp = sprintf "binop_%d" tag in
        let (left_imm, left_setup) = helpI left in
        let (right_imm, right_setup) = helpI right in
-       (ImmId(tmp, ()), left_setup @ right_setup @ [BLet(tmp, CPrim2(op, left_imm, right_imm, ()))])
+       (ImmId(tmp, ()), left_setup @ right_setup @ [BLet(tmp, CPrim2(prim2_to_sprim2 op, left_imm, right_imm, ()))])
     | EIf(cond, _then, _else, tag) ->
        let tmp = sprintf "if_%d" tag in
        let (cond_imm, cond_setup) = helpI cond in
@@ -435,6 +485,95 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
     end
 ;;
 
+(* sets up a function call (x64) by putting args in the proper registers/stack positions, 
+ * calling the given function, and cleaning up the stack after 
+*)
+let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : string) : (instruction list) =
+  (* how many call args must go on the stack *)
+  let stack_args = max ((List.length args) - 6) 0 in
+  (* whether an extra stack align var should be used 
+   * (are there an odd number of stack args and registers being pushed? ) *)
+  let should_stack_align = ((stack_args + num_regs_to_save) mod 2) != 0 in
+  (* how many args should be popped off the stack before possible register 
+   * restoration? *)
+  let cleanup_stack = if should_stack_align 
+  (* if stack alignment was needed, then pop off pushed args + the extra align value *)
+    then Int64.of_int ((stack_args + 1) * word_size)
+    (* otherwise, just pop off pushed args *)
+    else Int64.of_int (stack_args * word_size)
+  in
+  (* Backs up all registers used by the function we're in *)
+  let rec backup_caller_saved_registers (rem_args : int) (registers : reg list) : (instruction list) =
+    if rem_args = 0
+    then []
+    else
+      begin
+        match registers with 
+        | [] -> []
+        | next_reg :: rest_regs -> 
+          IPush(Reg(next_reg)) 
+          :: (backup_caller_saved_registers (rem_args - 1) rest_regs)
+      end in
+  (* Restores all registers used by the function we're in. Reverse of backup_caller_saved_registers *)
+  let rec restore_caller_saved_registers (args_to_skip : int) (registers : reg list) : (instruction list) =
+    match registers with 
+    | [] -> []
+    | next_reg :: rest_regs -> 
+      if args_to_skip = 0
+      then IPop(Reg(next_reg)) :: (restore_caller_saved_registers 0 rest_regs) 
+      else (restore_caller_saved_registers (args_to_skip - 1) rest_regs)
+  in
+  (* sets up args by putting them in the first 6 registers needed for a call
+   * and placing any remaining values on the stack 
+  *)
+  let rec setup_args (args : arg list) (registers : reg list) : (instruction list) =
+    (* assoc list of args to their position in the call regs list *)
+    let reg_assoc_list = List.mapi (fun pos value -> (value, pos + 1)) first_six_args_registers in
+    (* put the next argument in the appropriate register or onto the stack.
+     * reverses the args list before pushing on the stack so they're in the right order *)
+    let use_reg (next_arg : arg) (rest_args : arg list) : instruction list =
+      match registers with 
+      | [] -> IPush(next_arg) :: (setup_args rest_args registers)
+      | last_reg :: [] -> 
+        IMov(Reg(last_reg), next_arg) :: (setup_args (List.rev rest_args) [])
+      | next_reg :: rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
+    in
+    (* if a value being passed into the next function is an arg passed into this
+     * function by a register, then convert that reference to 
+     * the stack offset of the arg pushed previously.
+     * if the register isn't one of first_six_args_registers, then just use the register *)
+    let swap_reg (register : reg) (rest_args : arg list) : instruction list =
+      match List.assoc_opt register reg_assoc_list with 
+      | Some(idx) -> 
+        (* skip the extra stack align spot if applicable *)
+        let align_off = if should_stack_align then 1 else 0 in
+        (* get the offset = RSP + 8 * (number of spots to get to the pushed reg value) *)
+        let off = (align_off + num_regs_to_save - idx) in
+        use_reg (RegOffset(off * word_size, RSP)) rest_args
+      | None -> use_reg (Reg(register)) rest_args
+    in
+    match args with 
+    | [] -> []
+    (* replace the register if it's one passed in *)
+    | Reg(some_reg) :: rest_args ->
+      swap_reg some_reg rest_args
+    (* just use the arg *)
+    | next_arg :: rest_args ->
+      use_reg next_arg rest_args
+  in 
+  (* push args passed into this function so they don't get overwritten *)
+  (backup_caller_saved_registers num_regs_to_save first_six_args_registers)
+  (* align the stack if necessary *)
+  @ (if should_stack_align then [IPush(Const(0L))] else [])
+  (* put the args for the next function in registers/on the stack *)
+  @ (setup_args args first_six_args_registers) 
+  (* call *)
+  @ [ICall(Label(label))]
+  (* pop off values added to the stack up to pushed register values *)
+  @ (if Int64.equal cleanup_stack 0L then [] else [IAdd(Reg(RSP), Const(cleanup_stack))])
+  (* restore register values for the rest of this function to use *)
+  @ (restore_caller_saved_registers ((List.length first_six_args_registers) - num_regs_to_save) (List.rev first_six_args_registers))
+;;
 
 let free_vars (e: 'a aexpr) : string list =
   raise (NotYetImplemented "Implement free_vars for expressions")
@@ -465,12 +604,296 @@ let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =
      (get_aexpr_envt expr 1))
 ;;
 
+(* Jumps to to_label if not a num *)
+let num_tag_check (to_label : string) : instruction list =
+  [IMov(Reg(R10), HexConst(num_tag_mask)); ITest(Reg(RAX), Reg(R10)); IJnz(Label(to_label))]
+
+(* Jumps to to_label if not type and puts final_rax_value in RAX on exiting.
+ * final_rax_value does not have to be the original RAX value, but
+ * in *most* cases should be (except for isbool())
+ *
+ * Note: the value to test should be in RAX before calling
+*)
+let tag_check (final_rax_value : arg) (to_label : string) (tag_mask : int64) (tag : int64) : instruction list = [
+  IMov(Reg(R10), HexConst(tag_mask)); 
+  IAnd(Reg(RAX), Reg(R10)); 
+  IMov(Reg(R10), HexConst(tag));
+  ICmp(Reg(RAX), Reg(R10));
+  IMov(Reg(RAX), final_rax_value); 
+  IJnz(Label(to_label));
+] 
+
+(* generates the instructions for comparing the args e1_reg and e2_reg and 
+  * constructs an auto-generated jump label using the jmp_instr_constructor.
+  * jump_instr_constructor should take in a label name and create the appropriate jump instruction.
+*)
+let generate_cmp_func_with
+    (e1_reg : arg)
+    (e2_reg : arg)
+    (jmp_instr_constructor : (string -> instruction))
+    (if_true: instruction list)
+    (if_false: instruction list)
+    (tag : int)
+    (tag_suffix : string)
+    (tag_checks : bool)
+    : (instruction list) =
+  let label_done = (sprintf "%s%n%s_cmp" label_DONE tag tag_suffix) in
+  let body = ([IMov(Reg(R10), e2_reg); ICmp(Reg(RAX), Reg(R10));]
+          @ if_true
+          @ [(jmp_instr_constructor label_done);]
+          @ if_false @ 
+          [ILabel(label_done)]) in
+  if tag_checks then
+    IMov(Reg(RAX), e2_reg) ::
+    (num_tag_check label_COMP_NOT_NUM)
+    @ [(IMov(Reg(RAX), e1_reg))] 
+    @ (num_tag_check label_COMP_NOT_NUM)
+    @ body
+  else body
+(* generates the instructions for comparing the args e1_reg and e2_reg and 
+  * constructs an auto-generated jump label using the jmp_instr_constructor.
+  * jump_instr_constructor should take in a label name and create the appropriate jump instruction
+*)
+let generate_cmp_func
+    (e1_reg : arg) 
+    (e2_reg : arg) 
+    (jmp_instr_constructor : (string -> instruction)) 
+    (tag : int)
+    : (instruction list) =
+  generate_cmp_func_with e1_reg e2_reg jmp_instr_constructor [IMov(Reg(RAX), const_true)] [IMov(Reg(RAX), const_false)] tag "" true
+;;
+
 let rec compile_fun (fun_name : string) args body env : instruction list =
-  raise (NotYetImplemented "Compile funs not yet implemented")
-and compile_aexpr (e : tag aexpr) (si : int) (env : arg envt) (num_args : int) (is_tail : bool) : instruction list =
-  raise (NotYetImplemented "Compile aexpr not yet implemented")
-and compile_cexpr (e : tag cexpr) si env num_args is_tail =
-  raise (NotYetImplemented "Compile cexpr not yet implemented")
+  (* get max allocation needed as an even value, possibly rounded up *)
+  let stack_alloc_space = (((deepest_stack body env) + 1) / 2 ) * 2 in
+  [
+    ILabel(fun_name);
+    IPush(Reg(RBP));
+    IMov(Reg(RBP), Reg(RSP));
+    ISub(Reg(RSP), Const(Int64.of_int (stack_alloc_space * word_size)));
+    (* TODO: change to maybe when implementing tail recursion *)
+  ] @ (compile_aexpr body env (List.length args) false) @ [
+    IMov(Reg(RSP), Reg(RBP));
+    IPop(Reg(RBP));
+    IRet;
+  ]
+and compile_aexpr (e : tag aexpr) (env : arg envt) (num_args : int) (is_tail : bool) : instruction list =
+  match e with
+  | ALet(id, bind, body, _) ->
+    let prelude = compile_cexpr bind env num_args is_tail in
+    let body = compile_aexpr body env num_args is_tail in
+    prelude
+    @ [ IMov(find env id, Reg(RAX)) ]
+    @ body
+  | ACExpr(body) -> 
+    (compile_cexpr body env num_args is_tail)
+  | ALetRec(_, _, _) -> raise (NotYetImplemented "implement compile letrec")
+and compile_cexpr (e : tag cexpr) env num_args is_tail =
+  match e with 
+  | CIf(cond, thn, els, tag) ->
+    let if_t = (sprintf "if_true_%n" tag) and
+    if_f = (sprintf "if_false_%n" tag) and
+    done_txt = (sprintf "done_%n" tag) and
+    thn = compile_aexpr thn env num_args is_tail and
+    els = compile_aexpr els env num_args is_tail and
+    cond_value = compile_imm cond env in
+    IMov(Reg(RAX), cond_value) ::
+    (tag_check cond_value label_NOT_BOOL bool_tag_mask bool_tag)
+    @ [
+      IMov(Reg(R10), bool_mask); ITest(Reg(RAX), Reg(R10));
+      IJz(Label(if_f));
+      ILabel(if_t);
+    ] @ thn @ [
+      IJmp(Label(done_txt));
+      ILabel(if_f); 
+    ] @ els @ [
+      ILabel(done_txt);
+    ]
+  | CPrim1(op, body, tag) ->
+    let e_reg = compile_imm body env in
+    begin match op with
+      | Add1 -> 
+        IMov(Reg(RAX), e_reg) ::
+        (num_tag_check label_ARITH_NOT_NUM)
+          @ [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(2L))); IJo(Label(label_OVERFLOW))]
+      | Sub1 -> 
+        IMov(Reg(RAX), e_reg) ::
+        (num_tag_check label_ARITH_NOT_NUM)
+          @ [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(Int64.neg 2L))); IJo(Label(label_OVERFLOW))]
+      | IsBool -> 
+        let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
+        let label_done = (sprintf "%s%n_bool" label_DONE tag) in
+        IMov(Reg(RAX), e_reg) ::
+        (* check if value is a bool, and if not, then jump to label_not_bool *)
+        (tag_check const_true label_not_bool bool_tag_mask bool_tag)
+        @ [
+          IJmp(Label(label_done));
+          ILabel(label_not_bool);
+          IMov(Reg(RAX), const_false);
+          ILabel(label_done);
+        ]
+      | IsNum ->
+        let label_not_num = (sprintf "%s%n" label_IS_NOT_NUM tag) in 
+        let label_done = (sprintf "%s%n_num" label_DONE tag) in
+        IMov(Reg(RAX), e_reg) :: 
+        (* check if value is a num, and if not, then jump to label_not_num *)
+        (num_tag_check label_not_num)
+           @ [
+             IMov(Reg(RAX), const_true);
+             IJmp(Label(label_done));
+             ILabel(label_not_num);
+             IMov(Reg(RAX), const_false);
+             ILabel(label_done);
+           ]
+      | IsTuple ->
+        let label_not_tuple = (sprintf "%s%n" label_IS_NOT_TUPLE tag) in 
+        let label_done = (sprintf "%s%n_tuple" label_DONE tag) in
+        IMov(Reg(RAX), e_reg) :: 
+        (* check if value is a tuple, and if not, then jump to label_not_tuple *)
+        (tag_check const_true label_not_tuple tuple_tag_mask tuple_tag)
+        @ [
+             IJmp(Label(label_done));
+             ILabel(label_not_tuple);
+             IMov(Reg(RAX), const_false);
+             ILabel(label_done);
+           ]
+      | Not -> 
+        IMov(Reg(RAX), e_reg) ::
+        (tag_check e_reg label_NOT_BOOL bool_tag_mask bool_tag)
+        @ [ 
+          IMov(Reg(R10), bool_mask);
+          IXor(Reg(RAX), Reg(R10));
+        ]
+      | Print -> raise (InternalCompilerError "Print not implemented yet")
+      | PrintStack -> raise (InternalCompilerError "Not implemented yet")
+    end
+  | CPrim2(op, l, r, tag) ->
+    let e1_reg = (compile_imm l env) in
+    let e2_reg = (compile_imm r env) in
+    (* generates the instructions for performing a Prim2 arith operation on args e1_reg and e2_reg.
+     * the body should perform operations using RAX and R10, where e1_reg and e2_reg 
+     * will be moved to respectively.
+     * after the arith operation completes, the result is checked for overflow.
+    *)
+    let generate_arith_func 
+        (e1_reg : arg) 
+        (e2_reg : arg) 
+        (body : instruction list) : instruction list =
+      IMov(Reg(RAX), e2_reg) :: 
+      (num_tag_check label_ARITH_NOT_NUM) @ [IMov(Reg(RAX), e1_reg)]
+      @ (num_tag_check label_ARITH_NOT_NUM) @ [IMov(Reg(R10), e2_reg)]
+      @ body
+      @ [IJo(Label(label_OVERFLOW))]
+    in
+    begin match op with
+      | SPlus -> 
+        (generate_arith_func e1_reg e2_reg [IAdd(Reg(RAX), Reg(R10))])
+      | SMinus -> 
+        (generate_arith_func e1_reg e2_reg [ISub(Reg(RAX), Reg(R10))])
+      | STimes -> 
+        (generate_arith_func e1_reg e2_reg 
+           [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), Reg(R10))])
+      | SGreater -> 
+        (generate_cmp_func e1_reg e2_reg (fun l -> IJg(Label(l))) tag)
+      | SGreaterEq -> 
+        (generate_cmp_func e1_reg e2_reg (fun l -> IJge(Label(l))) tag)
+      | SLess -> 
+        (generate_cmp_func e1_reg e2_reg (fun l -> IJl(Label(l))) tag)
+      | SLessEq ->
+        (generate_cmp_func e1_reg e2_reg (fun l -> IJle(Label(l))) tag)
+      | SEq ->
+        let label_done = (sprintf "%s%n_eq" label_DONE tag) in
+        [IMov(Reg(RAX), e1_reg); IMov(Reg(R10), e2_reg); 
+         ICmp(Reg(RAX), Reg(R10)); IMov(Reg(RAX), const_true);
+         IJe(Label(label_done)); IMov(Reg(RAX), const_false);
+         ILabel(label_done)]
+      | SCheckSize ->
+        (* convert to snake val then compare *)
+        (* Then move to RAX *)
+        [IMov(Reg(R11), Sized(QWORD_PTR, e1_reg)); ISub(Reg(R11), Const(1L)); IMov(Reg(R11), RegOffset(0, R11)); IShl(Reg(R11), Const(1L));
+         ICmp(Reg(R11), Sized(QWORD_PTR, e2_reg)); IJne(Label(label_DESTRUCTURE_INVALID_LEN));
+         IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
+    end
+  | CApp(fun_name, args, _, _) -> raise (NotYetImplemented "Implement function application")
+  | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env)]
+  | CTuple(vals, _) ->
+    let length = List.length vals 
+    in let size_bytes = (length + 1) * word_size in 
+    (* length at [0] *)
+    IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int length)) :: 
+        (* items at [1:length + 1] *)
+        List.flatten (List.mapi (fun idx v -> 
+          [
+            IMov(Reg(R11), compile_imm v env);
+            IMov(Sized(QWORD_PTR, RegOffset((idx + 1) * word_size, heap_reg)), Reg(R11));
+          ]) vals)
+        (* filler at [length + 1:16 byte alignment]?*)
+        @ [
+          (* Move result to result place *)
+          IMov(Reg(RAX), Reg(heap_reg));
+          IAdd(Reg(RAX), Const(tuple_tag));
+          (* mov heap_reg to new aligned heap_reg 1 space later *)
+          IAdd(Reg(heap_reg), Const(Int64.of_int (16 * (Int.max length 1) + 1)));
+          IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
+          ]
+  | CGetItem(tuple, idx, tag) -> 
+        let tuple = compile_imm tuple env in
+        let idx = compile_imm idx env in
+        (* Check tuple is tuple *)
+        (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
+         (* Check index is num *)
+         @ [ (* ensure tuple isn't nil *)
+           IMov(Reg(R11), nil);
+           ICmp(Reg(RAX), Reg(R11));
+           IJe(Label(label_NIL_DEREF));
+           IMov(Reg(RAX), idx) 
+         ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM)
+                @ [ (* convert to machine num *)
+                  IMov(Reg(RAX), tuple);
+                  IMov(Reg(R11), idx);
+                  ISar(Reg(R11), Const(1L));
+                  (* check bounds *)
+                  ISub(Reg(RAX), Const(tuple_tag));
+                  IMov(Reg(RAX), RegOffset(0, RAX));
+                  ICmp(Reg(R11), Reg(RAX));
+                  IMov(Reg(RAX), tuple);
+                  IJge(Label(label_GET_HIGH_INDEX));
+                  ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
+                  IJl(Label(label_GET_LOW_INDEX));
+                  ISub(Reg(RAX), Const(tuple_tag));
+                  (* get value *)
+                  IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, word_size))])
+  | CSetItem(tuple, idx, set, _) -> 
+        let tuple = compile_imm tuple env in
+        let idx = compile_imm idx env in
+        let set = compile_imm set env in
+        (* Check tuple is tuple *)
+        (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
+         (* Check index is num *)
+         @ [ (* ensure tuple isn't nil *)
+           IMov(Reg(R11), nil);
+           ICmp(Reg(RAX), Reg(R11));
+           IJe(Label(label_NIL_DEREF));
+           IMov(Reg(RAX), idx) 
+         ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM)
+                @ [ (* convert to machine num *)
+                  IMov(Reg(RAX), tuple);
+                  IMov(Reg(R11), idx);
+                  ISar(Reg(R11), Const(1L));
+                  (* check bounds *)
+                  ISub(Reg(RAX), Const(tuple_tag));
+                  IMov(Reg(RAX), RegOffset(0, RAX));
+                  ICmp(Reg(R11), Reg(RAX));
+                  IMov(Reg(RAX), tuple);
+                  IJge(Label(label_GET_HIGH_INDEX));
+                  ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
+                  IJl(Label(label_GET_LOW_INDEX));
+                  ISub(Reg(RAX), Const(tuple_tag));
+                  (* get value *)
+                  IMov(Reg(R12), set);
+                  IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, R11, word_size, word_size)), Reg(R12));
+                  IMov(Reg(RAX), set)])
+  | CLambda(_, _, _) -> raise (NotYetImplemented "implement compile lambda")
 and compile_imm e env =
   match e with
   | ImmNum(n, _) -> Const(Int64.shift_left n 1)
@@ -479,21 +902,46 @@ and compile_imm e env =
   | ImmId(x, _) -> (find env x)
   | ImmNil(_) -> raise (NotYetImplemented "Finish this")
 
+let compile_error_handler ((err_name : string), (err_code : int64)) : instruction list =
+  ILabel(err_name) :: setup_call_to_func 0 [Const(err_code); Reg(RAX)] "error"
+
+let rec compile_ocsh (body : tag aexpr) (env: arg envt) : instruction list =
+  (* get max allocation needed as an even value, possibly rounded up *)
+  let stack_alloc_space = (((deepest_stack body env) + 1) / 2 ) * 2 in
+  [
+    ILabel("our_code_starts_here");
+    IPush(Reg(RBP));
+    IMov(Reg(RBP), Reg(RSP));
+    ISub(Reg(RSP), Const(Int64.of_int (stack_alloc_space * word_size)));
+    ILineComment("heap start");
+    IInstrComment(IMov(Reg(heap_reg), Reg(List.nth first_six_args_registers 0)), "Load heap_reg with our argument, the heap pointer");
+    IInstrComment(IAdd(Reg(heap_reg), Const(15L)), "Align it to the nearest multiple of 16");
+    IInstrComment(IAnd(Reg(heap_reg), HexConst(0xFFFFFFFFFFFFFFF0L)), "by adding no more than 15 to it")
+  ] @ (compile_aexpr body env 0 false) @ [
+    IMov(Reg(RSP), Reg(RBP));
+    IPop(Reg(RBP));
+    IRet;
+  ]
+
 let compile_prog ((anfed : tag aprogram), (env: arg envt)) : string =
   match anfed with
   | AProgram(body, _) ->
-     let (body_prologue, comp_body, body_epilogue) = raise (NotYetImplemented "... do stuff with body ...") in
-     
-     let heap_start = [
-         ILineComment("heap start");
-         IInstrComment(IMov(Sized(QWORD_PTR, Reg(heap_reg)), Reg(List.nth first_six_args_registers 0)), "Load heap_reg with our argument, the heap pointer");
-         IInstrComment(IAdd(Sized(QWORD_PTR, Reg(heap_reg)), Const(15L)), "Align it to the nearest multiple of 16");
-         IMov(Reg scratch_reg, HexConst(0xFFFFFFFFFFFFFFF0L));
-         IInstrComment(IAnd(Sized(QWORD_PTR, Reg(heap_reg)), Reg scratch_reg), "by adding no more than 15 to it")
-       ] in
-     let main = to_asm (body_prologue @ heap_start @ comp_body @ body_epilogue) in
-     
-     raise (NotYetImplemented "... combine main with any needed extra setup and error handling ...")
+    let comp_body = compile_ocsh body env in 
+    let body_epilogue = (List.flatten (List.map compile_error_handler [
+             (label_COMP_NOT_NUM, err_COMP_NOT_NUM);
+             (label_ARITH_NOT_NUM, err_ARITH_NOT_NUM);
+             (label_NOT_BOOL, err_NOT_BOOL);
+             (label_NOT_TUPLE, err_GET_NOT_TUPLE);
+             (label_GET_LOW_INDEX, err_GET_LOW_INDEX);
+             (label_GET_HIGH_INDEX, err_GET_HIGH_INDEX);
+             (label_TUPLE_ACCESS_NOT_NUM, err_GET_NOT_NUM);
+             (label_OVERFLOW, err_OVERFLOW);
+             (label_NIL_DEREF, err_NIL_DEREF);
+             (label_DESTRUCTURE_INVALID_LEN, err_DESTRUCTURE_INVALID_LEN);
+           ])) in
+
+    let main = to_asm (comp_body @ body_epilogue) in
+    sprintf "%s%s\n" prelude main
            
 let desugar (p : tag program) : unit program =
   let rec helpBind (bind : 'a bind) (exp : 'a expr) : unit binding list =

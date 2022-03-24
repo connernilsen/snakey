@@ -39,6 +39,17 @@ type prim2 =
   | Eq
   | CheckSize
 
+type sprim2 =
+  | SPlus
+  | SMinus
+  | STimes
+  | SGreater
+  | SGreaterEq
+  | SLess
+  | SLessEq
+  | SEq
+  | SCheckSize
+
 and 'a bind =
   | BBlank of 'a
   | BName of string * bool * 'a
@@ -79,7 +90,7 @@ type 'a immexpr = (* immediate expressions *)
 and 'a cexpr = (* compound expressions *)
   | CIf of 'a immexpr * 'a aexpr * 'a aexpr * 'a
   | CPrim1 of prim1 * 'a immexpr * 'a
-  | CPrim2 of prim2 * 'a immexpr * 'a immexpr * 'a
+  | CPrim2 of sprim2 * 'a immexpr * 'a immexpr * 'a
   | CApp of 'a immexpr * 'a immexpr list * call_type * 'a
   | CImmExpr of 'a immexpr (* for when you just need an immediate value *)
   | CTuple of 'a immexpr list * 'a

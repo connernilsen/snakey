@@ -44,6 +44,18 @@ let string_of_op2 op =
   | LessEq -> "<="
   | Eq -> "=="
   | CheckSize -> "check_size"
+let string_of_sop2 op =
+  match op with
+  | SPlus -> "+"
+  | SMinus -> "-"
+  | STimes -> "*"
+  | SGreater -> ">"
+  | SLess -> "<"
+  | SGreaterEq -> ">="
+  | SLessEq -> "<="
+  | SEq -> "=="
+  | SCheckSize -> "check_size"
+
 let name_of_op2 op =
   match op with
   | Plus -> "Plus"
@@ -167,7 +179,7 @@ and string_of_cexpr_with (depth : int) (print_a : 'a -> string) (c : 'a cexpr) :
   | CPrim1(op, e, a) ->
      sprintf "%s(%s)%s" (string_of_op1 op) (string_of_immexpr e) (print_a a)
   | CPrim2(op, left, right, a) ->
-     sprintf "(%s %s %s)%s" (string_of_immexpr left) (string_of_op2 op) (string_of_immexpr right) (print_a a)
+     sprintf "(%s %s %s)%s" (string_of_immexpr left) (string_of_sop2 op) (string_of_immexpr right) (print_a a)
   | CIf(cond, thn, els, a) ->
      sprintf "(if %s: %s else: %s)%s"
              (string_of_immexpr cond)
