@@ -338,43 +338,77 @@ let anf (p : tag program) : unit aprogram =
     | ELet((BTuple(binds, _), exp, _)::rest, body, pos) ->
       raise (InternalCompilerError("Tuple bindings should have been desugared away"))
     | ESeq(e1, e2, _) -> raise (InternalCompilerError "Should not have seq after desugaring")
-    | EApp(func, args, _, _) ->
-      raise (NotYetImplemented("Revise this case"))
-    | ETuple(args, _) ->
-      raise (NotYetImplemented("Finish this case"))
-    | EGetItem(tup, idx, _) ->
-      raise (NotYetImplemented("Finish this case"))
-    | ESetItem(tup, idx, newval, _) ->
-      raise (NotYetImplemented("Finish this case"))
-
+    | EApp(func, args, ct, _) ->
+      let (new_args, new_setup) = List.split (List.map helpI args) in
+      let (fun_name, fun_setup) = helpI func in
+      (CApp(fun_name, new_args, ct, ()), fun_setup @ (List.concat new_setup))
+    | ETuple(e, _) -> 
+      let id_setup = List.map helpI e in 
+      let ids = (List.map (fun (id, _) -> id) id_setup) in
+      let setups = (List.map (fun (_, setup) -> setup) id_setup) in 
+      (CTuple(ids, ()), List.flatten setups)
+    | EGetItem(tuple, index, _) -> 
+      let (tuple_id, tuple_setup) = helpI tuple 
+      and (index_id, index_setup) = helpI index in 
+      (CGetItem(tuple_id, index_id, ()), tuple_setup @ index_setup)
+    | ESetItem(tuple, index, set, _) -> 
+      let (tuple_id, tuple_setup) = helpI tuple 
+      and (index_id, index_setup) = helpI index
+      and (set_id, set_setup) = helpI set in 
+      (CSetItem(tuple_id, index_id, set_id, ()), tuple_setup @ index_setup @ set_setup)
     | ELambda(binds, body, _) ->
-      raise (NotYetImplemented("Finish this case"))
-    | ELetRec(binds, body, _) ->
-      raise (NotYetImplemented("Finish this case"))
-
+      let binds = List.map (fun a ->
+          match a with
+          | BName(a, _, _) -> a
+          | _ ->  raise (InternalCompilerError "Tuple destructuring should have been desugared away")) binds
+      in 
+      (CLambda(binds, helpA body, ()), [])
+    | ELetRec(binds, body, pos) ->
+      let bind_setup, binds =
+        List.fold_right 
+          (fun (bind, exp, _) (bind_setup, binds) ->
+             let (exp_ans, exp_setup) = helpC exp in
+             match bind with 
+             | BName(name, _, _) -> 
+               (exp_setup @ bind_setup, (name, exp_ans) :: binds)
+             | _ -> raise (InternalCompilerError "Tuple destructuring not allowed in let rec")
+          )
+          binds
+          ([], [])
+      in 
+      let body_ans, body_setup = helpC body in
+      (body_ans, bind_setup @ [BLetRec(binds)] @ body_setup)
     | _ -> let (imm, setup) = helpI e in (CImmExpr imm, setup)
-
   and helpI (e : tag expr) : (unit immexpr * unit anf_bind list) =
     match e with
     | ENumber(n, _) -> (ImmNum(n, ()), [])
     | EBool(b, _) -> (ImmBool(b, ()), [])
     | EId(name, _) -> (ImmId(name, ()), [])
     | ENil _ -> (ImmNil(), [])
-
     | ESeq(e1, e2, _) ->
       let (e1_imm, e1_setup) = helpI e1 in
       let (e2_imm, e2_setup) = helpI e2 in
       (e2_imm, e1_setup @ e2_setup)
-
-
-    | ETuple(args, tag) ->
-      raise (NotYetImplemented("Finish this case"))
-    (* Hint: use BLet to bind the result *)
-    | EGetItem(tup, idx, tag) ->
-      raise (NotYetImplemented("Finish this case"))
-    | ESetItem(tup, idx, newval, tag) ->
-      raise (NotYetImplemented("Finish this case"))
-
+    | ETuple(e, tag) ->
+      let tmp = sprintf "tuple_%d" tag 
+      and id_setup = List.map helpI e in 
+      let ids = (List.map (fun (id, _) -> id) id_setup) 
+      and setups = (List.map (fun (_, setup) -> setup) id_setup) in 
+      (ImmId(tmp, ()), (List.flatten setups) @ [BLet(tmp, CTuple(ids, ()))])
+    | EGetItem(tuple, index, tag) ->
+      let tmp = sprintf "get_%d" tag 
+      and (tuple_id, tuple_setup) = helpI tuple 
+      and (index_id, index_setup) = helpI index in 
+      (ImmId(tmp, ()), tuple_setup 
+                       @ index_setup 
+                       @ [BLet(tmp, CGetItem(tuple_id, index_id, ()))])
+    | ESetItem(tuple, index, newval, tag) ->
+      let tmp = sprintf "get_%d" tag 
+      and (tuple_id, tuple_setup) = helpI tuple 
+      and (index_id, index_setup) = helpI index in 
+      (ImmId(tmp, ()), tuple_setup 
+                       @ index_setup 
+                       @ [BLet(tmp, CGetItem(tuple_id, index_id, ()))])
     | EPrim1(op, arg, tag) ->
       let tmp = sprintf "unary_%d" tag in
       let (arg_imm, arg_setup) = helpI arg in
@@ -388,16 +422,26 @@ let anf (p : tag program) : unit aprogram =
       let tmp = sprintf "if_%d" tag in
       let (cond_imm, cond_setup) = helpI cond in
       (ImmId(tmp, ()), cond_setup @ [BLet(tmp, CIf(cond_imm, helpA _then, helpA _else, ()))])
-    | EApp(func, args, _, tag) ->
-      raise (NotYetImplemented("Revise this case"))
+    | EApp(func, args, ct, tag) ->
+      let tmp = sprintf "app_%d" tag in
+      let (new_args, new_setup) = List.split (List.map helpI args) in
+      let (fun_name, fun_setup) = helpI func in
+      (ImmId(tmp, ()), (List.concat new_setup) 
+                       @ fun_setup
+                       @ [BLet(tmp, CApp(fun_name, new_args, ct, ()))])
     | ELet([], body, _) -> helpI body
     | ELet((BBlank _, exp, _)::rest, body, pos) ->
       let (exp_ans, exp_setup) = helpI exp in (* MUST BE helpI, to avoid any missing final steps *)
       let (body_ans, body_setup) = helpI (ELet(rest, body, pos)) in
       (body_ans, exp_setup @ body_setup)
     | ELambda(binds, body, tag) ->
-      raise (NotYetImplemented("Finish this case"))
-    (* Hint: use BLet to bind the answer *)
+      let binds = List.map (fun a ->
+          match a with
+          | BName(a, _, _) -> a
+          | _ ->  raise (InternalCompilerError "Tuple destructuring should have been desugared away")) binds
+      in 
+      let tmp = sprintf "lam_%d" tag in
+      (ImmId(tmp, ()), [BLet(tmp, CLambda(binds, helpA body, ()))])
     | ELet((BName(bind, _, _), exp, _)::rest, body, pos) ->
       let (exp_ans, exp_setup) = helpC exp in
       let (body_ans, body_setup) = helpI (ELet(rest, body, pos)) in
@@ -405,8 +449,21 @@ let anf (p : tag program) : unit aprogram =
     | ELet((BTuple(binds, _), exp, _)::rest, body, pos) ->
       raise (InternalCompilerError("Tuple bindings should have been desugared away"))
     | ELetRec(binds, body, tag) ->
-      raise (NotYetImplemented("Finish this case"))
-  (* Hint: use BLetRec for each of the binds, and BLet for the final answer *)
+      let tmp = sprintf "let_rec_%d" tag in
+      let bind_setup, binds =
+        List.fold_right 
+          (fun (bind, exp, _) (bind_setup, binds) ->
+             let (exp_ans, exp_setup) = helpC exp in
+             match bind with 
+             | BName(name, _, _) -> 
+               (exp_setup @ bind_setup, (name, exp_ans) :: binds)
+             | _ -> raise (InternalCompilerError "Tuple destructuring not allowed in let rec")
+          )
+          binds
+          ([], [])
+      in 
+      let body_ans, body_setup = helpC body in
+      (ImmId(tmp, ()), bind_setup @ [BLetRec(binds)] @ body_setup @ [BLet(tmp, body_ans)])
   and helpA e : unit aexpr = 
     let (ans, ans_setup) = helpC e in
     List.fold_right
