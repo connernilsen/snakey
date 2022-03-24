@@ -358,6 +358,10 @@ let let_tests = [
         equal(a, b)"
     ""
     "true";
+  t "let_with_print"
+    "let x = print(1) in isnum(x)"
+    ""
+    "";
 ]
 
 let sequencing_tests = [
@@ -393,7 +397,7 @@ let suite =
 let () =
   run_test_tt_main ("all_tests">:::[
     suite; 
-    old_tests; 
+    (* old_tests; *) 
     input_file_test_suite ();
     ])
 ;;
