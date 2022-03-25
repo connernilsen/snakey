@@ -1115,6 +1115,10 @@ let desugar (p : tag program) : unit program =
                                              bindings) in
       let tuple = helpE exp in
       (BName(original_tuple_id, false, ()), EPrim2(CheckSize, tuple, ENumber(Int64.of_int (List.length bindings), ()), ()), ()) :: updated_bindings
+  and helpLetRecBinding (bind, expr, _ : 'a binding) : unit binding =
+    match bind with
+    | BName(name, _, _) -> (untagB bind, helpE expr, ())
+    | BBlank(_) | BTuple(_) -> raise (InternalCompilerError "Unable to have blanks or destructure in let rec")
   and helpE (e : tag expr) : unit expr (* other parameters may be needed here *) =
     match e with 
     | ESeq(e1, e2, _) -> ELet([(BBlank(()), helpE e1, ())], helpE e2, ())
@@ -1158,8 +1162,8 @@ let desugar (p : tag program) : unit program =
     | ENil(_) -> ENil(())
     | EId(id, _) -> EId(id, ())
     | EApp(f, args, allow_shadow, _) -> EApp(helpE f, List.map helpE args, allow_shadow, ())
-    | ELambda(_, _, _) -> (raise (NotYetImplemented "Implement lambda desugar"))
-    | ELetRec(_, _, _) -> (raise (NotYetImplemented "implement letrec desugar"))
+    | ELambda(args, body, _) -> ELambda(List.map untagB args, helpE body, ())
+    | ELetRec(bindings, body, _) -> ELetRec(List.map helpLetRecBinding bindings, helpE body, ())
   and helpD (d : tag decl) : unit decl =
     match d with
     | DFun(name, args, body, tag) -> 

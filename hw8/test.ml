@@ -66,6 +66,12 @@ let desugar_tests = [
   tdesugar "desugar_decl_with_destructure_and_blank"
     "def f((a, _), c): ((a,), c)\nf((1, 2), 3)"
     "\n(let-rec f = (lam(fun_arg#3, c) (let bind_temp3 = (fun_arg#3 check_size 2), a = bind_temp3[0], _ = bind_temp3[1] in ((a,), c))) in (?f((1, 2), 3)))";
+  tdesugar "desugar_letrec"
+    "let rec x = 5 in x"
+    "\n(let-rec x = 5 in x)";
+  tdesugar "desugar_lambda"
+    "(lambda (x): x)"
+    "\n(lam(x) x)";
 ]
 
 let default_tests =
