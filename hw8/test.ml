@@ -28,6 +28,12 @@ let tparse name program expected = name>::fun _ ->
 let teq name actual expected = name>::fun _ ->
     assert_equal expected actual ~printer:(fun s -> s);;
 
+let te name program expected_err = name>::test_err ~vg:false program name expected_err;;
+
+let print_te (exns : exn list) : string =
+  String.concat "\n" (print_errors exns)
+;;
+
 let tfvs name program expected = name>::
                                  (fun _ ->
                                     let ast = parse_string name program in
@@ -152,12 +158,28 @@ let free_vars_tests = [
     ["z"];
 ];;
 
+let wf_tests = [
+  te "wf_lambda_unbound_id" "(lambda (x): y)" (print_te [UnboundId("y",
+                                                                   (create_ss "wf_lambda_unbound_id" 1 13 1 14))]);
+  te "wf_lambda_app_unbound_id" "(lambda (x): y)(5)" (print_te [UnboundId("y",
+                                                                          (create_ss "wf_lambda_app_unbound_id" 1 13 1 14))]);
+  te "wf_lambda_dup_args" "(lambda (x, x): x)" (print_te [DuplicateId("x", (create_ss "wf_lambda_dup_args" 1 12 1 13),
+                                                                      (create_ss "wf_lambda_dup_args" 1 9 1 10))]);
+  te "wf_lambda_app_dup_args" "(lambda (x, x): x)(5, 5)" (print_te [DuplicateId("x", (create_ss "wf_lambda_app_dup_args" 1 12 1 13),
+                                                                                (create_ss "wf_lambda_app_dup_args" 1 9 1 10))]);
+  te "wf_letrec_dup" "let rec x = 5, x = 6 in x" (print_te [DuplicateId("x", (create_ss "wf_letrec_dup" 1 8 1 13),
+                                                                        (create_ss "wf_letrec_dup" 1 15 1 20))]);
+  te "wf_letrec_unbound_id" "let rec x = 5 in y" (print_te [UnboundId("y", (create_ss "wf_letrec_unbound_id" 1 17 1 18))]);
+  t "wf_letrec" "let rec x = y, y = x in 6" "" "6";
+]
+
 
 let suite =
   "suite">:::
   (* default_tests @ *)
   desugar_tests @
-  free_vars_tests
+  free_vars_tests @
+  wf_tests
 ;;
 
 

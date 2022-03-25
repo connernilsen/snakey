@@ -533,7 +533,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
              (fun (_, body, _) -> (wf_E body (env @ bind_env)))
              binds)
       in
-      bind_errors @ (wf_E body bind_env)
+      find_dup_exns_by_env bind_env @ bind_errors @ (wf_E body bind_env)
   and wf_D (d : sourcespan decl) (env : (string * sourcespan) list): exn list =
     match d with 
     | DFun(_, binds, body, _) ->
