@@ -1046,7 +1046,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
         [
           IMov(Reg(R11), (find env id));
           IMov(Sized(QWORD_PTR, RegOffset((idx + 1) * word_size, heap_reg)), Reg(R11));
-        ]) (free_vars body))
+        ]) frees)
     @ [
       (* Move result to result place *)
       IMov(Reg(RAX), Reg(heap_reg));

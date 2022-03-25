@@ -194,7 +194,8 @@ let suite =
   (* default_tests @ *)
   desugar_tests @
   free_vars_tests @
-  wf_tests
+  wf_tests @
+  compile_tests
 ;;
 
 
