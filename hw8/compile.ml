@@ -109,11 +109,14 @@ let stringset_of_list : (string list -> StringSet.t) =
     StringSet.empty
 ;;
 
-let rec find ls x =
+let rec find_helper orig_ls ls x =
   match ls with
-  | [] -> raise (InternalCompilerError (sprintf "Name %s not found" x))
+  | [] -> raise (InternalCompilerError (sprintf "Name %s not found in %s" x (List.fold_right (fun (s, _) acc -> acc ^ " " ^ s) orig_ls "")))
   | (y,v)::rest ->
-    if y = x then v else find rest x
+    if y = x then v else find_helper orig_ls rest x
+
+let rec find ls x =
+  find_helper ls ls x
 
 let count_vars e =
   let rec helpA e =
@@ -655,7 +658,7 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (label : strin
   @ (restore_caller_saved_registers ((List.length first_six_args_registers) - num_regs_to_save) (List.rev first_six_args_registers))
 ;;
 
-let free_vars (e: 'a aexpr) : string list =
+let free_vars (e: 'a aexpr) (args : string list) : string list =
   let rec help_imm (e : 'a immexpr) (env : StringSet.t) : StringSet.t = 
     match e with
     | ImmId(name, _) -> 
@@ -710,9 +713,38 @@ let free_vars (e: 'a aexpr) : string list =
     | ACExpr(e) ->
       help_cexpr e env
   in 
-  StringSet.elements (help_aexpr e StringSet.empty)
+  let arg_set = stringset_of_list args in
+  StringSet.(diff (help_aexpr e arg_set) arg_set |> elements)
 ;;
 
+(** Gets an environment mapping id names to register names or stack offsets.
+ * This makes it easy for callee functions to use args *)
+let get_func_call_params (params : string list) : arg envt =
+  let rec pair_stack (params : string list) (next_off : int) : arg envt =
+    match params with 
+    | [] -> []
+    | first :: rest ->
+      (first, RegOffset(next_off * word_size, RBP))
+      :: (pair_stack rest (next_off + 1))
+  and pair_regs (params : string list) (regs : reg list) : arg envt =
+    match regs with 
+    | [] -> 
+      begin 
+        match params with 
+        | [] -> [] 
+        | _ -> (pair_stack params 2)
+      end 
+    | reg_first :: reg_rest ->
+      begin
+        match params with 
+        | [] -> []
+        | param_first :: param_rest ->
+          (param_first, Reg(reg_first))
+          :: (pair_regs param_rest reg_rest)
+      end
+  in
+  (pair_regs params first_six_args_registers)
+;;
 
 (* ASSUMES that the program has been alpha-renamed and all names are unique *)
 let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =
@@ -730,7 +762,10 @@ let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =
     | CIf(_, l, r, _) -> 
       (get_aexpr_envt l si)
       @ (get_aexpr_envt r si)
-    | _ -> []
+    | CLambda(binds, body, _) -> 
+      (* TODO: is this right? *)
+      get_func_call_params binds @ get_aexpr_envt body 1
+    | CPrim1(_) | CPrim2(_) | CApp(_) | CImmExpr(_) | CTuple(_) | CGetItem(_) | CSetItem(_) -> []
   in
   match prog with 
   | AProgram(expr, _) ->
@@ -1031,7 +1066,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
        IMov(Reg(RAX), set)])
   | CLambda(args, body, tag) -> 
     let name = sprintf "fun_%d" tag in
-    let frees = free_vars body in
+    let frees = free_vars body args in
     compile_fun name args body env
     @ [
       (* store arity in first slot as a machine number since it's never accessed in our language *)
@@ -1050,7 +1085,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
     @ [
       (* Move result to result place *)
       IMov(Reg(RAX), Reg(heap_reg));
-      IAdd(Reg(RAX), Const(tuple_tag));
+      IAdd(Reg(RAX), Const(closure_tag));
       (* mov heap_reg to new aligned heap_reg *)
       IAdd(Reg(heap_reg), Const(Int64.of_int (16 * ((List.length frees) + 3) + 1)));
       IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));

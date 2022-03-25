@@ -34,16 +34,16 @@ let print_te (exns : exn list) : string =
   String.concat "\n" (print_errors exns)
 ;;
 
-let tfvs name program expected = name>::
-                                 (fun _ ->
-                                    let ast = parse_string name program in
-                                    let anfed = anf (tag ast) in
-                                    match anfed with
-                                    | AProgram(body, _) ->
-                                      let vars = free_vars body in
-                                      let c = Stdlib.compare in
-                                      let str_list_print strs = "[" ^ (ExtString.String.join ", " strs) ^ "]" in
-                                      assert_equal (List.sort c vars) (List.sort c expected) ~printer:str_list_print)
+let tfvs name ignored program expected = name>::
+                                         (fun _ ->
+                                            let ast = parse_string name program in
+                                            let anfed = anf (tag ast) in
+                                            match anfed with
+                                            | AProgram(body, _) ->
+                                              let vars = free_vars body ignored in
+                                              let c = Stdlib.compare in
+                                              let str_list_print strs = "[" ^ (ExtString.String.join ", " strs) ^ "]" in
+                                              assert_equal (List.sort c vars) (List.sort c expected) ~printer:str_list_print)
 ;;
 
 let tdesugar (name : string) (program : string) (expected : string) = (check_name name)>:: fun _ ->
@@ -129,38 +129,47 @@ let default_tests =
   ]
 
 let free_vars_tests = [
-  tfvs "tfvs_simple_none"
+  tfvs "tfvs_simple_none" []
     "let a = 5, b = 10 in a + b"
     [];
-  tfvs "tfvs_simple_some"
+  tfvs "tfvs_simple_some" []
     "let a = 5 in a + b"
     ["b"];
-  tfvs "tfvs_let_rec"
+  tfvs "tfvs_let_rec" []
     "let rec a = 5 in a + b"
     ["b"];
-  tfvs "tfvs_if"
+  tfvs "tfvs_if" []
     "if a: b else: c"
     ["a"; "b"; "c"];
-  tfvs "tfvs_prim1"
+  tfvs "tfvs_prim1" []
     "print(a)"
     ["a"];
-  tfvs "tfvs_app"
+  tfvs "tfvs_app" []
     "abcd(efgh(123, r))"
     ["abcd"; "efgh"; "r"];
-  tfvs "tfvs_imm"
+  tfvs "tfvs_imm" []
     "q"
     ["q"];
-  tfvs "tfvs_tuple"
+  tfvs "tfvs_tuple" []
     "(a, b, 123)"
     ["a"; "b"];
-  tfvs "tfvs_get"
+  tfvs "tfvs_get" []
     "(1, 2, 3)[a]"
     ["a"];
-  tfvs "tfvs_set"
+  tfvs "tfvs_set" []
     "(1, 2, 3)[1] := a"
     ["a"];
-  tfvs "tfvs_lambda"
+  tfvs "tfvs_lambda" []
     "(lambda(x, y): x + y + z)"
+    ["z"];
+  tfvs "tfvs_ignored" ["ignored"]
+    "(lambda(x, y): x + y + z + ignored)"
+    ["z"];
+  tfvs "tfvs_lambda_body" ["x"]
+    "x"
+    [];
+  tfvs "tfvs_lambda_body_2" ["x"; "y"]
+    "x + y + z"
     ["z"];
 ];;
 
@@ -180,6 +189,7 @@ let wf_tests = [
 ]
 
 let compile_tests = [
+  t "compile_lambda_1_noapp" "(lambda (x): x)" "" "<function>";
   t "compile_lambda_1" "(lambda (x): x)(5)" "" "5";
   t "compile_lambda_2" "(lambda (x, y): x + y)(5, 10)" "" "15";
   t "compile_lambda_in_lambda" "(lambda (x, y): (lambda (x): x)(5) + x + y)(5, 10)" "" "20";
