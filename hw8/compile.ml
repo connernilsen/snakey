@@ -518,10 +518,30 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
     | ETuple(elements, _) -> List.flatten (List.map (fun e -> wf_E e env) elements)
     | EGetItem(tuple, idx, _) -> (wf_E tuple env) @ (wf_E idx env)
     | ESetItem(tuple, idx, set, _) -> (wf_E tuple env) @ (wf_E idx env) @ (wf_E set env)
-    | ELambda(_, _, _) -> [NotYetImplemented "Implement lambda well formed"]
-    | ELetRec(_, _, _) -> [NotYetImplemented "Implement letrec well formed"]
+    | ELambda(binds, body, _) -> 
+      let binds_env = (binds_to_env binds) in 
+      find_dup_exns_by_env binds_env @ (wf_E body (binds_env @ env))
+    | ELetRec(binds, body, _) -> 
+      (* get the bind env first so that function recursion is allowed *)
+      let bind_env = List.map 
+          (fun (bind, _, span) -> 
+             match bind with 
+             | BName(name, _, _) -> (name, span)
+             | _ -> raise (InternalCompilerError "let rec binds must be named"))
+          binds
+      in
+      let bind_errors = 
+        List.concat 
+          (List.map
+             (fun (_, body, _) -> (wf_E body (env @ bind_env)))
+             binds)
+      in
+      bind_errors @ (wf_E body bind_env)
   and wf_D (d : sourcespan decl) (env : (string * sourcespan) list): exn list =
-    [NotYetImplemented "Implement well-formedness checking for definitions"]
+    match d with 
+    | DFun(_, binds, body, _) ->
+      let binds_env = (binds_to_env binds) in 
+      find_dup_exns_by_env binds_env @ (wf_E body (binds_env @ env))
   and get_env (decls : sourcespan decl list) : sourcespan envt = 
     let fun_env = (List.map (fun x -> 
         begin 
