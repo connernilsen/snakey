@@ -360,7 +360,7 @@ let anf (p : tag program) : unit aprogram =
       let binds = List.map (fun a ->
           match a with
           | BName(a, _, _) -> a
-          | _ ->  raise (InternalCompilerError "Tuple destructuring should have been desugared away")) binds
+          | BBlank(_) | BTuple(_) ->  raise (InternalCompilerError "Tuple destructuring should have been desugared away")) binds
       in 
       (CLambda(binds, helpA body, ()), [])
     | ELetRec(binds, body, pos) ->
@@ -371,7 +371,7 @@ let anf (p : tag program) : unit aprogram =
              match bind with 
              | BName(name, _, _) -> 
                (exp_setup @ bind_setup, (name, exp_ans) :: binds)
-             | _ -> raise (InternalCompilerError "Tuple destructuring not allowed in let rec")
+             | BBlank(_) | BTuple(_) -> raise (InternalCompilerError "Tuple destructuring not allowed in let rec")
           )
           binds
           ([], [])
@@ -385,10 +385,7 @@ let anf (p : tag program) : unit aprogram =
     | EBool(b, _) -> (ImmBool(b, ()), [])
     | EId(name, _) -> (ImmId(name, ()), [])
     | ENil _ -> (ImmNil(), [])
-    | ESeq(e1, e2, _) ->
-      let (e1_imm, e1_setup) = helpI e1 in
-      let (e2_imm, e2_setup) = helpI e2 in
-      (e2_imm, e1_setup @ e2_setup)
+    | ESeq(e1, e2, _) -> raise (InternalCompilerError "Should not have seq after desugaring")
     | ETuple(e, tag) ->
       let tmp = sprintf "tuple_%d" tag 
       and id_setup = List.map helpI e in 
@@ -438,7 +435,7 @@ let anf (p : tag program) : unit aprogram =
       let binds = List.map (fun a ->
           match a with
           | BName(a, _, _) -> a
-          | _ ->  raise (InternalCompilerError "Tuple destructuring should have been desugared away")) binds
+          | BBlank(_) | BTuple(_) ->  raise (InternalCompilerError "Tuple destructuring should have been desugared away")) binds
       in 
       let tmp = sprintf "lam_%d" tag in
       (ImmId(tmp, ()), [BLet(tmp, CLambda(binds, helpA body, ()))])
@@ -457,7 +454,7 @@ let anf (p : tag program) : unit aprogram =
              match bind with 
              | BName(name, _, _) -> 
                (exp_setup @ bind_setup, (name, exp_ans) :: binds)
-             | _ -> raise (InternalCompilerError "Tuple destructuring not allowed in let rec")
+             | BBlank(_) | BTuple(_) -> raise (InternalCompilerError "Tuple destructuring not allowed in let rec")
           )
           binds
           ([], [])
@@ -527,7 +524,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
           (fun (bind, _, span) -> 
              match bind with 
              | BName(name, _, _) -> (name, span)
-             | _ -> raise (InternalCompilerError "let rec binds must be named"))
+             | BBlank(_) | BTuple(_) -> raise (InternalCompilerError "let rec binds must not contain blanks or destructuring"))
           binds
       in
       let bind_errors = 
@@ -902,7 +899,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
           IXor(Reg(RAX), Reg(R10));
         ]
       | Print -> raise (InternalCompilerError "Print not implemented yet")
-      | PrintStack -> raise (InternalCompilerError "Not implemented yet")
+      | PrintStack -> raise (InternalCompilerError "printstack Not implemented yet")
     end
   | CPrim2(op, l, r, tag) ->
     let e1_reg = (compile_imm l env) in
