@@ -801,6 +801,7 @@ let rec compile_fun (fun_name : string) args body env : instruction list =
   (* get max allocation needed as an even value, possibly rounded up *)
   let stack_alloc_space = (((deepest_stack body env) + 1) / 2 ) * 2 in
   [
+    IJmp(Label(sprintf "%s_end" fun_name));
     ILabel(fun_name);
     IPush(Reg(RBP));
     IMov(Reg(RBP), Reg(RSP));
@@ -810,6 +811,7 @@ let rec compile_fun (fun_name : string) args body env : instruction list =
     IMov(Reg(RSP), Reg(RBP));
     IPop(Reg(RBP));
     IRet;
+    ILabel(sprintf "%s_end" fun_name);
   ]
 and compile_aexpr (e : tag aexpr) (env : arg envt) (num_args : int) (is_tail : bool) : instruction list =
   match e with
@@ -1027,7 +1029,32 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
        IMov(Reg(R12), set);
        IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, R11, word_size, word_size)), Reg(R12));
        IMov(Reg(RAX), set)])
-  | CLambda(_, _, _) -> raise (NotYetImplemented "implement compile lambda")
+  | CLambda(args, body, tag) -> 
+    let name = sprintf "fun_%d" tag in
+    let frees = free_vars body in
+    compile_fun name args body env
+    @ [
+      (* store arity in first slot as a machine number since it's never accessed in our language *)
+      IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (List.length args)));
+      (* store the function address in the second slot TODO: is name good?*)
+      IMov(Sized(QWORD_PTR, RegOffset(1, heap_reg)), Label(name));
+      (* store the # of free variables in the 3rd slot as a machine # since it's never accessed in our language *)
+      IMov(Sized(QWORD_PTR, RegOffset(1, heap_reg)), Const(Int64.of_int (List.length frees)));
+    ]
+    (* store free variables at [3:] *)
+    @ List.flatten (List.mapi (fun idx (id: string) -> 
+        [
+          IMov(Reg(R11), (find env id));
+          IMov(Sized(QWORD_PTR, RegOffset((idx + 1) * word_size, heap_reg)), Reg(R11));
+        ]) (free_vars body))
+    @ [
+      (* Move result to result place *)
+      IMov(Reg(RAX), Reg(heap_reg));
+      IAdd(Reg(RAX), Const(tuple_tag));
+      (* mov heap_reg to new aligned heap_reg *)
+      IAdd(Reg(heap_reg), Const(Int64.of_int (16 * ((List.length frees) + 3) + 1)));
+      IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
+    ]
 and compile_imm e env =
   match e with
   | ImmNum(n, _) -> Const(Int64.shift_left n 1)
