@@ -50,6 +50,8 @@ let err_GET_HIGH_INDEX      = 7L
 let err_NIL_DEREF           = 8L
 let err_GET_NOT_NUM         = 9L
 let err_DESTRUCTURE_INVALID_LEN         = 10L
+let err_SHOULD_BE_FUN         = 11L
+let err_ARITY         = 12L
 
 (* let err_COMP_NOT_NUM     = 1L
    let err_ARITH_NOT_NUM    = 2L
@@ -80,6 +82,8 @@ let label_GET_LOW_INDEX        = "error_get_low_index"
 let label_GET_HIGH_INDEX       = "error_get_high_index"
 let label_NIL_DEREF            = "error_nil_deref"
 let label_DESTRUCTURE_INVALID_LEN         = "destructure_invalid_len"
+let label_SHOULD_BE_FUN         = "error_should_be_fun"
+let label_ARITY         = "error_arity"
 
 (* label names for conditionals *)
 let label_IS_NOT_BOOL  = "is_not_bool"
@@ -832,6 +836,99 @@ let generate_cmp_func
   generate_cmp_func_with e1_reg e2_reg jmp_instr_constructor [IMov(Reg(RAX), const_true)] [IMov(Reg(RAX), const_false)] tag "" true
 ;;
 
+let setup_call_to_snake_func (func : Assembly.arg) (args : arg list) : (instruction list) =
+  []
+
+(* sets up a function call (x64) by putting args in the proper registers/stack positions, 
+ * calling the given function, and cleaning up the stack after 
+*)
+let setup_call_to_native_func (num_regs_to_save : int) (args : arg list) (label : string) : (instruction list) =
+  (* how many call args must go on the stack *)
+  let stack_args = max ((List.length args) - 6) 0 in
+  (* whether an extra stack align var should be used 
+   * (are there an odd number of stack args and registers being pushed? ) *)
+  let should_stack_align = ((stack_args + num_regs_to_save) mod 2) != 0 in
+  (* how many args should be popped off the stack before possible register 
+   * restoration? *)
+  let cleanup_stack = if should_stack_align 
+  (* if stack alignment was needed, then pop off pushed args + the extra align value *)
+    then Int64.of_int ((stack_args + 1) * word_size)
+    (* otherwise, just pop off pushed args *)
+    else Int64.of_int (stack_args * word_size)
+  in
+  (* Backs up all registers used by the function we're in *)
+  let rec backup_caller_saved_registers (rem_args : int) (registers : reg list) : (instruction list) =
+    if rem_args = 0
+    then []
+    else
+      begin
+        match registers with 
+        | [] -> []
+        | next_reg :: rest_regs -> 
+          IPush(Reg(next_reg)) 
+          :: (backup_caller_saved_registers (rem_args - 1) rest_regs)
+      end in
+  (* Restores all registers used by the function we're in. Reverse of backup_caller_saved_registers *)
+  let rec restore_caller_saved_registers (args_to_skip : int) (registers : reg list) : (instruction list) =
+    match registers with 
+    | [] -> []
+    | next_reg :: rest_regs -> 
+      if args_to_skip = 0
+      then IPop(Reg(next_reg)) :: (restore_caller_saved_registers 0 rest_regs) 
+      else (restore_caller_saved_registers (args_to_skip - 1) rest_regs)
+  in
+  (* sets up args by putting them in the first 6 registers needed for a call
+   * and placing any remaining values on the stack 
+  *)
+  let rec setup_args (args : arg list) (registers : reg list) : (instruction list) =
+    (* assoc list of args to their position in the call regs list *)
+    let reg_assoc_list = List.mapi (fun pos value -> (value, pos + 1)) first_six_args_registers in
+    (* put the next argument in the appropriate register or onto the stack.
+     * reverses the args list before pushing on the stack so they're in the right order *)
+    let use_reg (next_arg : arg) (rest_args : arg list) : instruction list =
+      match registers with 
+      | [] -> IPush(next_arg) :: (setup_args rest_args registers)
+      | last_reg :: [] -> 
+        IMov(Reg(last_reg), next_arg) :: (setup_args (List.rev rest_args) [])
+      | next_reg :: rest_regs -> IMov(Reg(next_reg), next_arg) :: (setup_args rest_args rest_regs)
+    in
+    (* if a value being passed into the next function is an arg passed into this
+     * function by a register, then convert that reference to 
+     * the stack offset of the arg pushed previously.
+     * if the register isn't one of first_six_args_registers, then just use the register *)
+    let swap_reg (register : reg) (rest_args : arg list) : instruction list =
+      match List.assoc_opt register reg_assoc_list with 
+      | Some(idx) -> 
+        (* skip the extra stack align spot if applicable *)
+        let align_off = if should_stack_align then 1 else 0 in
+        (* get the offset = RSP + 8 * (number of spots to get to the pushed reg value) *)
+        let off = (align_off + num_regs_to_save - idx) in
+        use_reg (RegOffset(off * word_size, RSP)) rest_args
+      | None -> use_reg (Reg(register)) rest_args
+    in
+    match args with 
+    | [] -> []
+    (* replace the register if it's one passed in *)
+    | Reg(some_reg) :: rest_args ->
+      swap_reg some_reg rest_args
+    (* just use the arg *)
+    | next_arg :: rest_args ->
+      use_reg next_arg rest_args
+  in 
+  (* push args passed into this function so they don't get overwritten *)
+  (backup_caller_saved_registers num_regs_to_save first_six_args_registers)
+  (* align the stack if necessary *)
+  @ (if should_stack_align then [IPush(Const(0L))] else [])
+  (* put the args for the next function in registers/on the stack *)
+  @ (setup_args args first_six_args_registers) 
+  (* call *)
+  @ [ICall(Label(label))]
+  (* pop off values added to the stack up to pushed register values *)
+  @ (if Int64.equal cleanup_stack 0L then [] else [IAdd(Reg(RSP), Const(cleanup_stack))])
+  (* restore register values for the rest of this function to use *)
+  @ (restore_caller_saved_registers ((List.length first_six_args_registers) - num_regs_to_save) (List.rev first_six_args_registers))
+;;
+
 let rec compile_fun (fun_name : string) args body env : instruction list =
   (* get max allocation needed as an even value, possibly rounded up *)
   let stack_alloc_space = (((deepest_stack body env) + 1) / 2 ) * 2 in
@@ -985,7 +1082,9 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
          ICmp(Reg(R11), Sized(QWORD_PTR, e2_reg)); IJne(Label(label_DESTRUCTURE_INVALID_LEN));
          IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
     end
-  | CApp(fun_name, args, _, _) -> raise (NotYetImplemented "Implement function application")
+  | CApp(func, args, Native, _) -> (setup_call_to_func num_args (List.map (fun e -> compile_imm e env) args) "TODO")
+  | CApp(func, args, Snake, _) -> (setup_call_to_snake_func (compile_imm func env) (List.map (fun e -> compile_imm e env) args))
+  | CApp(func, args, _, _) -> (raise (NotYetImplemented "unknown function type"))
   | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env)]
   | CTuple(vals, _) ->
     let length = List.length vals 
@@ -1134,6 +1233,8 @@ let compile_prog ((anfed : tag aprogram), (env: arg envt)) : string =
         (label_OVERFLOW, err_OVERFLOW);
         (label_NIL_DEREF, err_NIL_DEREF);
         (label_DESTRUCTURE_INVALID_LEN, err_DESTRUCTURE_INVALID_LEN);
+        (label_SHOULD_BE_FUN, err_SHOULD_BE_FUN);
+        (label_ARITY, err_ARITY);
       ])) in
 
     let main = to_asm (comp_body @ body_epilogue) in
