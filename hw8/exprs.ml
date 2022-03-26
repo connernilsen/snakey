@@ -321,3 +321,9 @@ let atag (p : 'a aprogram) : tag aprogram =
     | AProgram(body, _) ->
       AProgram(helpA body, 0)
   in helpP p
+
+(* Returns the function name or "" if the expr is not an ID *)
+let get_func_name (func : 'a expr) : string = 
+  match func with 
+  | EId(name, _) -> name
+  | _ -> ""
