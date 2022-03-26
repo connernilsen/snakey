@@ -753,8 +753,8 @@ let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =
       (get_aexpr_envt l si)
       @ (get_aexpr_envt r si)
     | CLambda(binds, body, _) -> 
-      (* TODO: is this right? *)
-      get_snake_func_call_params binds @ get_aexpr_envt body 1
+      let frees = (free_vars body binds) in 
+      get_snake_func_call_params (binds @ frees) @ get_aexpr_envt body 1
     | CPrim1(_) | CPrim2(_) | CApp(_) | CImmExpr(_) | CTuple(_) | CGetItem(_) | CSetItem(_) -> []
   in
   match prog with 
@@ -823,7 +823,7 @@ let generate_cmp_func
 ;;
 
 let setup_call_to_snake_func (func : Assembly.arg) (args : arg list) : (instruction list) =
-  let align = (List.length args) mod 2 == 1 in 
+  let align = (1 + (List.length args)) mod 2 == 1 in 
   IMov(Reg(RAX), func) :: (tag_check func label_SHOULD_BE_FUN closure_tag_mask closure_tag)
   @ [
     (* remove tag *)
@@ -832,17 +832,18 @@ let setup_call_to_snake_func (func : Assembly.arg) (args : arg list) : (instruct
     IMov(Reg(R10), RegOffset(0, RAX));
     ICmp(Reg(R10), Const(Int64.of_int (List.length args)));
     IJne(Label(label_ARITY))
-    (* TODO: push closure values *)
   ]
   (* stack align *)
   @ begin match align with | false -> [] | true -> [IPush(Const(0L))] end
   (* push args *)
   @ List.rev_map (fun (arg) -> IPush(arg)) args
   @ [
+    (* push closure *)
+    IPush(Reg(RAX));
     (* Call *)
     ICall(RegOffset(1 * word_size, RAX));
     (* reset stack pointer *)
-    IAdd(Reg(RSP), Const(Int64.of_int ((((List.length args) + (if align then 1 else 0)) * word_size))));
+    IAdd(Reg(RSP), Const(Int64.of_int ((((List.length args) + 1 + (if align then 1 else 0)) * word_size))));
   ]
 
 (* sets up a function call (x64) by putting args in the proper registers/stack positions, 
@@ -935,7 +936,7 @@ let setup_call_to_native_func (num_regs_to_save : int) (args : arg list) (label 
   @ (restore_caller_saved_registers ((List.length first_six_args_registers) - num_regs_to_save) (List.rev first_six_args_registers))
 ;;
 
-let rec compile_fun (fun_name : string) args body env : instruction list =
+let rec compile_fun (fun_name : string) args frees body env : instruction list =
   (* get max allocation needed as an even value, possibly rounded up *)
   let stack_alloc_space = (((deepest_stack body env) + 1) / 2 ) * 2 in
   [
@@ -945,8 +946,14 @@ let rec compile_fun (fun_name : string) args body env : instruction list =
     IMov(Reg(RBP), Reg(RSP));
     ISub(Reg(RSP), Const(Int64.of_int (stack_alloc_space * word_size)));
     (* TODO: change to maybe when implementing tail recursion *)
-    (* todo: add args to env *)
-  ] @ (compile_aexpr body env (List.length args) false) @ [
+    (* add closure to stack *)
+    ILineComment("Move closure to stack");
+    IMov(Reg(R11), RegOffset(2 * word_size, RBP));
+    ISub(Reg(R11), Const(5L));
+    ISub(Reg(RSP), Const(Int64.of_int (List.length frees)));
+  ] 
+  @ (List.mapi (fun (i: int) (f: string) -> IMov(RegOffset(word_size * i * -1, RBP), RegOffset((i + 3) * word_size, R11))) frees)
+  @ (compile_aexpr body env (List.length args) false) @ [
     IMov(Reg(RSP), Reg(RBP));
     IPop(Reg(RBP));
     IRet;
@@ -1173,7 +1180,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
   | CLambda(args, body, tag) -> 
     let name = sprintf "fun_%d" tag in
     let frees = free_vars body args in
-    compile_fun name args body env
+    compile_fun name args frees body env
     @ [
       (* store arity in first slot as a machine number since it's never accessed in our language *)
       IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (List.length args)));
