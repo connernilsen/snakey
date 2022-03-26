@@ -49,12 +49,16 @@ let tfvs name ignored program expected = name>::
 let tdesugar (name : string) (program : string) (expected : string) = (check_name name)>:: fun _ ->
     assert_equal (expected ^ "\n") (string_of_program (desugar (tag (parse_string name program)))) ~printer:(fun s->s);;
 
+let tct (name : string) (program : string) (expected : string) = (check_name name)>:: fun _ ->
+    assert_equal (expected ^ "\n") (string_of_program (rename_and_tag (tag (parse_string name program)))) ~printer:(fun s->s);;
+
 let forty_one = "41";;
 
 let forty_one_a = (AProgram(ACExpr(CImmExpr(ImmNum(41L, ()))), ()))
 
 let test_prog = "let x = if sub1(55) < 54: (if 1 > 0: add1(2) else: add1(3)) else: (if 0 == 0: sub1(4) else: sub1(5)) in x"
 let anf1 = (anf     (tag (parse_string "test" test_prog)))
+
 
 let desugar_tests = [
   tdesugar "desugar_decl_one" "def f(x): x\nf(1)" "\n(let-rec f = (lam(x) x) in (?f(1)))";
@@ -190,6 +194,21 @@ let wf_tests = [
                                                                                                                            (create_ss "wf_unrelated_in_lambda_in_lambda" 1 31 1 32))]);
 ]
 
+let call_type_tests = [
+  tct "tct_prims" 
+    "print(5 + 5)"
+    "\nprint((5 + 5))";
+  tct "tct_natives"
+    "equal(5, 25); print(25)"
+    "\n(*equal(5, 25)); print(25)";
+  tct "tct_non_natives"
+    "def test(a, b): a + b
+    (lambda(b, a): test(a, b))(5, 25)"
+    "(def test(a_3, b_4):
+  (a_3 + b_4))
+((lam(b_16, a_17) (test(a_17, b_16)))(5, 25))";
+]
+
 let compile_tests = [
   t "compile_lambda_1_noapp" "(lambda (x): x)" "" "<function>";
   t "compile_lambda_2_noapp" "(lambda (x): (lambda (x): x))" "" "<function>";
@@ -208,7 +227,8 @@ let suite =
   desugar_tests @
   free_vars_tests @
   wf_tests @
-  compile_tests
+  compile_tests @
+  call_type_tests
 ;;
 
 

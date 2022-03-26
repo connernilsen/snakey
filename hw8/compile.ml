@@ -238,9 +238,10 @@ let rename_and_tag (p : tag program) : tag program =
     | EApp(func, args, native, tag) ->
       let func = helpE env func in
       let call_type =
-        (* TODO: If you want, try to determine whether func is a known function name, and if so,
-           whether it's a Snake function or a Native function *)
-        Snake in
+        match List.assoc_opt (get_func_name func) initial_fun_env with 
+        | None -> Snake
+        | Some(_) -> Native
+      in
       EApp(func, List.map (helpE env) args, call_type, tag)
     | ELet(binds, body, tag) ->
       let (binds', env') = helpBG env binds in
@@ -1297,7 +1298,7 @@ let desugar (p : tag program) : unit program =
     | EBool(b, _) -> EBool(b, ())
     | ENil(_) -> ENil(())
     | EId(id, _) -> EId(id, ())
-    | EApp(f, args, allow_shadow, _) -> EApp(helpE f, List.map helpE args, allow_shadow, ())
+    | EApp(f, args, ct, _) -> EApp(helpE f, List.map helpE args, ct, ())
     | ELambda(args, body, _) -> ELambda(List.map untagB args, helpE body, ())
     | ELetRec(bindings, body, _) -> ELetRec(List.map helpLetRecBinding bindings, helpE body, ())
   and helpD (d : tag decl) : unit decl =
