@@ -186,10 +186,13 @@ let wf_tests = [
                                                                         (create_ss "wf_letrec_dup" 1 15 1 20))]);
   te "wf_letrec_unbound_id" "let rec x = 5 in y" (print_te [UnboundId("y", (create_ss "wf_letrec_unbound_id" 1 17 1 18))]);
   t "wf_letrec" "let rec x = y, y = x in 6" "" "6";
+  te "wf_unrelated_in_lambda_in_lambda" "(lambda (x): (lambda (y): (let z = 5, z = 6 in z)))(5, 5)" (print_te [DuplicateId("z", (create_ss "wf_unrelated_in_lambda_in_lambda" 1 38 1 39),
+                                                                                                                           (create_ss "wf_unrelated_in_lambda_in_lambda" 1 31 1 32))]);
 ]
 
 let compile_tests = [
   t "compile_lambda_1_noapp" "(lambda (x): x)" "" "<function>";
+  t "compile_lambda_2_noapp" "(lambda (x): (lambda (x): x))" "" "<function>";
   t "compile_lambda_1" "(lambda (x): x)(5)" "" "5";
   t "compile_lambda_2" "(lambda (x, y): x + y)(5, 10)" "" "15";
   t "compile_lambda_in_lambda" "(lambda (x, y): (lambda (x): x)(5) + x + y)(5, 10)" "" "20";
