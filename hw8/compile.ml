@@ -50,8 +50,8 @@ let err_GET_HIGH_INDEX      = 7L
 let err_NIL_DEREF           = 8L
 let err_GET_NOT_NUM         = 9L
 let err_DESTRUCTURE_INVALID_LEN         = 10L
-let err_SHOULD_BE_FUN         = 11L
-let err_ARITY         = 12L
+let err_SHOULD_BE_FUN         = 16L
+let err_ARITY         = 17L
 
 (* let err_COMP_NOT_NUM     = 1L
    let err_ARITH_NOT_NUM    = 2L
@@ -837,7 +837,24 @@ let generate_cmp_func
 ;;
 
 let setup_call_to_snake_func (func : Assembly.arg) (args : arg list) : (instruction list) =
-  []
+  let align = (List.length args) mod 2 == 1 in 
+  IMov(Reg(RAX), func) :: (tag_check func label_SHOULD_BE_FUN closure_tag_mask closure_tag)
+  @ [
+    (* remove tag *)
+    ISub(Reg(RAX), Const(5L));
+    (* TODO: check arity *)
+    (* TODO: push closure values *)
+  ]
+  (* push args *)
+  @ List.map (fun (arg) -> IPush(arg)) args
+  (* stack align *)
+  @ begin match align with | false -> [] | true -> [IPush(Const(0L))] end
+  @ [
+    (* Call *)
+    ICall(RegOffset(1 * word_size, RAX));
+    (* reset stack pointer *)
+    IAdd(Reg(RSP), Const(Int64.of_int ((((List.length args) + (if align then 1 else 0)) * word_size))));
+  ]
 
 (* sets up a function call (x64) by putting args in the proper registers/stack positions, 
  * calling the given function, and cleaning up the stack after 
@@ -939,6 +956,7 @@ let rec compile_fun (fun_name : string) args body env : instruction list =
     IMov(Reg(RBP), Reg(RSP));
     ISub(Reg(RSP), Const(Int64.of_int (stack_alloc_space * word_size)));
     (* TODO: change to maybe when implementing tail recursion *)
+    (* todo: add args to env *)
   ] @ (compile_aexpr body env (List.length args) false) @ [
     IMov(Reg(RSP), Reg(RBP));
     IPop(Reg(RBP));
@@ -1171,9 +1189,9 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
       (* store arity in first slot as a machine number since it's never accessed in our language *)
       IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (List.length args)));
       (* store the function address in the second slot TODO: is name good?*)
-      IMov(Sized(QWORD_PTR, RegOffset(1, heap_reg)), Label(name));
+      IMov(Sized(QWORD_PTR, RegOffset(word_size, heap_reg)), Label(name));
       (* store the # of free variables in the 3rd slot as a machine # since it's never accessed in our language *)
-      IMov(Sized(QWORD_PTR, RegOffset(1, heap_reg)), Const(Int64.of_int (List.length frees)));
+      IMov(Sized(QWORD_PTR, RegOffset(word_size * 2, heap_reg)), Const(Int64.of_int (List.length frees)));
     ]
     (* store free variables at [3:] *)
     @ List.flatten (List.mapi (fun idx (id: string) -> 
