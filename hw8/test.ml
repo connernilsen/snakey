@@ -216,6 +216,7 @@ let compile_tests = [
   t "compile_lambda_2" "(lambda (x, y): x + y)(5, 10)" "" "15";
   t "compile_lambda_in_lambda" "(lambda (x, y): (lambda (x): x)(5) + x + y)(5, 10)" "" "20";
   t "compile_decl" "def x(f): f + 3\n(lambda (x, y): x + y)(5, 10) + x(3)" "" "21";
+  te "invalid_arity" "(lambda (x): x)(5, 6)" "arity mismatch in call"
   (* let rec tests *)
   (* free variable tests *)
 ]

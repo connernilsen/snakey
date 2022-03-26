@@ -828,7 +828,10 @@ let setup_call_to_snake_func (func : Assembly.arg) (args : arg list) : (instruct
   @ [
     (* remove tag *)
     ISub(Reg(RAX), Const(5L));
-    (* TODO: check arity *)
+    (* check arity *)
+    IMov(Reg(R10), RegOffset(0, RAX));
+    ICmp(Reg(R10), Const(Int64.of_int (List.length args)));
+    IJne(Label(label_ARITY))
     (* TODO: push closure values *)
   ]
   (* stack align *)
