@@ -724,32 +724,17 @@ let free_vars (e: 'a aexpr) (args : string list) : string list =
 
 (** Gets an environment mapping id names to register names or stack offsets.
  * This makes it easy for callee functions to use args *)
-let get_func_call_params (params : string list) : arg envt =
+let get_snake_func_call_params (params : string list) : arg envt = 
   let rec pair_stack (params : string list) (next_off : int) : arg envt =
     match params with 
     | [] -> []
     | first :: rest ->
       (first, RegOffset(next_off * word_size, RBP))
-      :: (pair_stack rest (next_off + 1))
-  and pair_regs (params : string list) (regs : reg list) : arg envt =
-    match regs with 
-    | [] -> 
-      begin 
-        match params with 
-        | [] -> [] 
-        | _ -> (pair_stack params 2)
-      end 
-    | reg_first :: reg_rest ->
-      begin
-        match params with 
-        | [] -> []
-        | param_first :: param_rest ->
-          (param_first, Reg(reg_first))
-          :: (pair_regs param_rest reg_rest)
-      end
-  in
-  (pair_regs params first_six_args_registers)
-;;
+      :: (pair_stack rest (next_off + 1)) in
+  match params with 
+  | [] -> [] 
+  | _ -> (pair_stack params 2)
+
 
 (* ASSUMES that the program has been alpha-renamed and all names are unique *)
 let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =
@@ -769,7 +754,7 @@ let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =
       @ (get_aexpr_envt r si)
     | CLambda(binds, body, _) -> 
       (* TODO: is this right? *)
-      get_func_call_params binds @ get_aexpr_envt body 1
+      get_snake_func_call_params binds @ get_aexpr_envt body 1
     | CPrim1(_) | CPrim2(_) | CApp(_) | CImmExpr(_) | CTuple(_) | CGetItem(_) | CSetItem(_) -> []
   in
   match prog with 
@@ -846,10 +831,10 @@ let setup_call_to_snake_func (func : Assembly.arg) (args : arg list) : (instruct
     (* TODO: check arity *)
     (* TODO: push closure values *)
   ]
-  (* push args *)
-  @ List.map (fun (arg) -> IPush(arg)) args
   (* stack align *)
   @ begin match align with | false -> [] | true -> [IPush(Const(0L))] end
+  (* push args *)
+  @ List.rev_map (fun (arg) -> IPush(arg)) args
   @ [
     (* Call *)
     ICall(RegOffset(1 * word_size, RAX));
@@ -1101,7 +1086,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
          ICmp(Reg(R11), Sized(QWORD_PTR, e2_reg)); IJne(Label(label_DESTRUCTURE_INVALID_LEN));
          IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
     end
-  | CApp(func, args, Native, _) -> (setup_call_to_func num_args (List.map (fun e -> compile_imm e env) args) "TODO")
+  (* | CApp(func, args, Native, _) -> (setup_call_to_func num_args (List.map (fun e -> compile_imm e env) args) "TODO") *)
   | CApp(func, args, Snake, _) -> (setup_call_to_snake_func (compile_imm func env) (List.map (fun e -> compile_imm e env) args))
   | CApp(func, args, _, _) -> (raise (NotYetImplemented "unknown function type"))
   | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env)]
