@@ -277,10 +277,7 @@ let rec deepest_stack e env =
     | CTuple(vals, _) -> List.fold_left max 0 (List.map helpI vals)
     | CGetItem(t, _, _) -> helpI t
     | CSetItem(t, _, v, _) -> max (helpI t) (helpI v)
-    | CLambda(args, body, _) ->
-      (* let new_env = (List.mapi (fun i a -> (a, RegOffset(word_size * (i + 3), RBP))) args) @ env in
-         deepest_stack body new_env *)
-      0
+    | CLambda(args, body, _) -> 0
     | CImmExpr i -> helpI i
   and helpI i =
     match i with
