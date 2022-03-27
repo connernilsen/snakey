@@ -232,6 +232,35 @@ let tanf_tests = [
      "(binop_7 + y_16))))) in (lam_5(5, 10)))")
 ]
 
+let func_call_params_tests = [
+  "get_func_call_params_no_closure_args">::(fun _ -> 
+      assert_equal [
+        ("1", Reg(RSI));
+        ("2", Reg(RDX));
+        ("3", Reg(RCX));
+        ("4", Reg(R8));
+        ("5", Reg(R9));
+        ("6", RegOffset(16, RBP));
+        ("7", RegOffset(24, RBP));
+      ] (get_func_call_params 
+           ["1"; "2"; "3"; "4"; "5"; "6"; "7"] true [])
+        ~printer:arg_envt_printer);
+  "get_func_call_params_closure_args">::(fun _ -> 
+      assert_equal [
+        ("1", Reg(RSI));
+        ("2", Reg(RDX));
+        ("3", Reg(RCX));
+        ("4", Reg(R8));
+        ("5", Reg(R9));
+        ("6", RegOffset(16, RBP));
+        ("7", RegOffset(24, RBP));
+        ("8", RegOffset(~-8, RBP));
+        ("9", RegOffset(~-16, RBP));
+      ] (get_func_call_params 
+           ["1"; "2"; "3"; "4"; "5"; "6"; "7"] true ["8"; "9"])
+        ~printer:arg_envt_printer);
+]
+
 let compile_tests = [
   t "compile_lambda_1_noapp" "(lambda (x): x)" "" "<function>";
   t "compile_lambda_2_noapp" "(lambda (x): (lambda (x): x))" "" "<function>";
@@ -258,7 +287,8 @@ let suite =
   wf_tests @
   compile_tests @
   call_type_tests @ 
-  tanf_tests
+  tanf_tests @
+  func_call_params_tests
 ;;
 
 

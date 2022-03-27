@@ -333,10 +333,10 @@ let old_tests =
        "(if (let abcd = true in abcd): 11 else: -11))") "-23";
 
     "setup_call_to_func_1">::(fun _ -> 
-        assert_equal [ICall(Label("label"))] (setup_call_to_func 0 [] "label") ~printer:to_asm);
+        assert_equal [ICall(Label("label"))] (setup_call_to_func 0 [] (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_2">::(fun _ ->
         assert_equal [IMov(Reg(RDI), Const(1L)); ICall(Label("label"))]
-          (setup_call_to_func 0 [Const(1L)] "label") ~printer:to_asm);
+          (setup_call_to_func 0 [Const(1L)] (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_3">::(fun _ -> 
         assert_equal [
           IMov(Reg(RDI), Const(1L));
@@ -348,7 +348,7 @@ let old_tests =
           ICall(Label("label"))]
           (setup_call_to_func 0
              [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L)] 
-             "label") ~printer:to_asm);
+             (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_4">::(fun _ -> 
         assert_equal [
           IPush(Const(0L));
@@ -363,7 +363,7 @@ let old_tests =
           IAdd(Reg(RSP), Const(16L))]
           (setup_call_to_func 0
              [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
-             "label") ~printer:to_asm);
+             (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_5">::(fun _ -> 
         assert_equal [
           IMov(Reg(RDI), Const(1L));
@@ -378,7 +378,7 @@ let old_tests =
           IAdd(Reg(RSP), Const(16L))]
           (setup_call_to_func 0
              [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L)] 
-             "label") ~printer:to_asm);
+             (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_6">::(fun _ -> 
         assert_equal [
           IPush(Const(0L));
@@ -395,7 +395,7 @@ let old_tests =
           IAdd(Reg(RSP), Const(32L))]
           (setup_call_to_func 0
              [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L); Const(9L)] 
-             "label") ~printer:to_asm);
+             (Label("label")) false) ~printer:to_asm);
     tanf_improved "let_in_prim"
       "add1(let x = 5 in x)"
       "\n(alet x#5 = 5 in add1(x#5))";
@@ -728,13 +728,13 @@ test(1, 2)"
       "def run(run): print(run)
     true || run(6)"
       "true";
-    "get_native_func_call_params_1">::(fun _ -> 
-        assert_equal [] (get_native_func_call_params []) 
+    "get_func_call_params_1">::(fun _ -> 
+        assert_equal [] (get_func_call_params [] false []) 
           ~printer:arg_envt_printer);
-    "get_native_func_call_params_2">::(fun _ -> 
-        assert_equal [("first", Reg(RDI))] (get_native_func_call_params ["first"])
+    "get_func_call_params_2">::(fun _ -> 
+        assert_equal [("first", Reg(RDI))] (get_func_call_params ["first"] false [])
           ~printer:arg_envt_printer);
-    "get_native_func_call_params_3">::(fun _ -> 
+    "get_func_call_params_3">::(fun _ -> 
         assert_equal [
           ("1", Reg(RDI));
           ("2", Reg(RSI));
@@ -742,10 +742,10 @@ test(1, 2)"
           ("4", Reg(RCX));
           ("5", Reg(R8));
           ("6", Reg(R9));
-        ] (get_native_func_call_params 
-             ["1"; "2"; "3"; "4"; "5"; "6"])
+        ] (get_func_call_params 
+             ["1"; "2"; "3"; "4"; "5"; "6"] false [])
           ~printer:arg_envt_printer);
-    "get_native_func_call_params_4">::(fun _ -> 
+    "get_func_call_params_4">::(fun _ -> 
         assert_equal [
           ("1", Reg(RDI));
           ("2", Reg(RSI));
@@ -754,10 +754,10 @@ test(1, 2)"
           ("5", Reg(R8));
           ("6", Reg(R9));
           ("7", RegOffset(16, RBP));
-        ] (get_native_func_call_params 
-             ["1"; "2"; "3"; "4"; "5"; "6"; "7"])
+        ] (get_func_call_params 
+             ["1"; "2"; "3"; "4"; "5"; "6"; "7"] false [])
           ~printer:arg_envt_printer);
-    "get_native_func_call_params_5">::(fun _ -> 
+    "get_func_call_params_5">::(fun _ -> 
         assert_equal [
           ("1", Reg(RDI));
           ("2", Reg(RSI));
@@ -768,8 +768,8 @@ test(1, 2)"
           ("7", RegOffset(16, RBP));
           ("8", RegOffset(24, RBP));
           ("9", RegOffset(32, RBP));
-        ] (get_native_func_call_params 
-             ["1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9"])
+        ] (get_func_call_params 
+             ["1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9"] false [])
           ~printer:arg_envt_printer);
     "setup_call_to_func_save_regs_one_1">::(fun _ ->
         assert_equal [
@@ -780,7 +780,7 @@ test(1, 2)"
           IAdd(Reg(RSP), Const(Int64.of_int word_size));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 1 [Const(1L)] "label") ~printer:to_asm);
+          (setup_call_to_func 1 [Const(1L)] (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_one_2">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -790,7 +790,7 @@ test(1, 2)"
           IAdd(Reg(RSP), Const(Int64.of_int word_size));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 1 [Reg(RDI)] "label") ~printer:to_asm);
+          (setup_call_to_func 1 [Reg(RDI)] (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_one_3">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -801,7 +801,7 @@ test(1, 2)"
           IAdd(Reg(RSP), Const(Int64.of_int word_size));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 1 [Const(0L); Const(1L)] "label") ~printer:to_asm);
+          (setup_call_to_func 1 [Const(0L); Const(1L)] (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_one_4">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -812,7 +812,7 @@ test(1, 2)"
           IAdd(Reg(RSP), Const(Int64.of_int word_size));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 1 [Const(0L); Reg(RDI)] "label") ~printer:to_asm);
+          (setup_call_to_func 1 [Const(0L); Reg(RDI)] (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_two_1">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -822,7 +822,7 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 2 [Const(1L)] "label") ~printer:to_asm);
+          (setup_call_to_func 2 [Const(1L)] (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_two_2">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -832,7 +832,7 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 2 [Reg(RDI)] "label") ~printer:to_asm);
+          (setup_call_to_func 2 [Reg(RDI)] (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_two_3">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -843,7 +843,7 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 2 [Const(0L); Const(1L)] "label") ~printer:to_asm);
+          (setup_call_to_func 2 [Const(0L); Const(1L)] (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_two_4">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -854,7 +854,7 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 2 [Reg(RSI); Reg(RDI)] "label") ~printer:to_asm);
+          (setup_call_to_func 2 [Reg(RSI); Reg(RDI)] (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_three_1">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -868,7 +868,7 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 3 [Const(1L)] "label") ~printer:to_asm);
+          (setup_call_to_func 3 [Const(1L)] (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_three_2">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -882,7 +882,7 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 3 [Reg(RDI)] "label") ~printer:to_asm);
+          (setup_call_to_func 3 [Reg(RDI)] (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_three_3">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -897,7 +897,7 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 3 [Const(0L); Const(1L)] "label") ~printer:to_asm);
+          (setup_call_to_func 3 [Const(0L); Const(1L)] (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_three_4">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -912,7 +912,7 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 3 [Reg(RSI); Reg(RDI)] "label") ~printer:to_asm);
+          (setup_call_to_func 3 [Reg(RSI); Reg(RDI)] (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_five_equal">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
@@ -936,7 +936,7 @@ test(1, 2)"
         ]
           (setup_call_to_func 5
              [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L)] 
-             "label") ~printer:to_asm);
+             (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_five_odd">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
@@ -961,7 +961,7 @@ test(1, 2)"
         ]
           (setup_call_to_func 5
              [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
-             "label") ~printer:to_asm);
+             (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_six_equal">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
@@ -986,7 +986,7 @@ test(1, 2)"
         ]
           (setup_call_to_func 6
              [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L)] 
-             "label") ~printer:to_asm);
+             (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_six_odd">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
@@ -1014,7 +1014,7 @@ test(1, 2)"
         ]
           (setup_call_to_func 6
              [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
-             "label") ~printer:to_asm);
+             (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_six_even">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
@@ -1042,7 +1042,7 @@ test(1, 2)"
         ]
           (setup_call_to_func 6
              [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L)] 
-             "label") ~printer:to_asm);
+             (Label("label")) false) ~printer:to_asm);
     "setup_call_to_func_save_regs_six_even">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
@@ -1067,7 +1067,7 @@ test(1, 2)"
         ]
           (setup_call_to_func 6
              [Reg(RSI); Reg(RDX); Reg(RCX); Reg(R8); Reg(R9); Reg(RDI)]
-             "label") ~printer:to_asm);
+             (Label("label")) false) ~printer:to_asm);
     tdesugar "desugar_and"
       "true && false"
       "\n(if true: (if false: true else: false) else: false)";
