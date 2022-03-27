@@ -733,7 +733,7 @@ let get_snake_func_call_params (params : string list) : arg envt =
       :: (pair_stack rest (next_off + 1)) in
   match params with 
   | [] -> [] 
-  | _ -> (pair_stack params 2)
+  | _ -> (pair_stack params 3)
 
 
 (* ASSUMES that the program has been alpha-renamed and all names are unique *)
@@ -949,7 +949,6 @@ let rec compile_fun (fun_name : string) args frees body env : instruction list =
     (* add closure to stack *)
     ILineComment("Move closure to stack");
     IMov(Reg(R11), RegOffset(2 * word_size, RBP));
-    ISub(Reg(R11), Const(5L));
     ISub(Reg(RSP), Const(Int64.of_int (List.length frees)));
   ] 
   @ (List.mapi (fun (i: int) (f: string) -> IMov(RegOffset(word_size * i * -1, RBP), RegOffset((i + 3) * word_size, R11))) frees)
