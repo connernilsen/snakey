@@ -52,6 +52,11 @@ let tdesugar (name : string) (program : string) (expected : string) = (check_nam
 let tct (name : string) (program : string) (expected : string) = (check_name name)>:: fun _ ->
     assert_equal (expected ^ "\n") (string_of_program (rename_and_tag (tag (parse_string name program)))) ~printer:(fun s->s);;
 
+(* Transforms a program into ANF, and compares the output to expected *)
+let tanf_improved (name : string) (program : string) (expected : string) = (check_name name)>:: fun _ ->
+    assert_equal (expected ^ "\n") (string_of_aprogram (anf (tag (desugar (rename_and_tag (tag (parse_string name program))))))) ~printer:(fun s->s)
+;;
+
 let forty_one = "41";;
 
 let forty_one_a = (AProgram(ACExpr(CImmExpr(ImmNum(41L, ()))), ()))
@@ -175,6 +180,12 @@ let free_vars_tests = [
   tfvs "tfvs_lambda_body_2" ["x"; "y"]
     "x + y + z"
     ["z"];
+  tfvs "lambda_body_with_frees" ["y"]
+    "x + y"
+    ["x"];
+  tfvs "lambda_body_with_frees_2" ["x"; "y"]
+    "(lambda (x): x)(5) + x + y"
+    [];
 ];;
 
 let wf_tests = [
@@ -209,6 +220,17 @@ let call_type_tests = [
 ((lam(b_16, a_17) (test(a_17, b_16)))(5, 25))";
 ]
 
+let tanf_tests = [
+  tanf_improved "tct_lambda_frees" 
+    "let x = 5, y = (lambda(y): x + y) in y(6)"
+    "(alet x_4 = 5 in (alet y_7 = (lam(y_12) (x_4 + y_12)) in (y_7(6))))";
+  tanf_improved "tct_lambda_in_lambda"
+    "(lambda (x, y): (lambda (x): x)(5) + x + y)(5, 10)"
+    ("(alet lam_5 = (lam(x_15, y_16) (alet lam_10 = (lam(x_12) x_12) in " ^
+     "(alet app_8 = (lam_10(5)) in (alet binop_7 = (app_8 + x_15) in " ^
+     "(binop_7 + y_16))))) in (lam_5(5, 10)))")
+]
+
 let compile_tests = [
   t "compile_lambda_1_noapp" "(lambda (x): x)" "" "<function>";
   t "compile_lambda_2_noapp" "(lambda (x): (lambda (x): x))" "" "<function>";
@@ -216,7 +238,9 @@ let compile_tests = [
   t "compile_lambda_2" "(lambda (x, y): x + y)(5, 10)" "" "15";
   t "compile_lambda_in_lambda" "(lambda (x, y): (lambda (x): x)(5) + x + y)(5, 10)" "" "20";
   t "compile_decl" "def x(f): f + 3\n(lambda (x, y): x + y)(5, 10) + x(3)" "" "21";
-  te "invalid_arity" "(lambda (x): x)(5, 6)" "arity mismatch in call"
+  te "invalid_arity" "(lambda (x): x)(5, 6)" "arity mismatch in call";
+  t "compile_decl_with_frees"
+    "let x = 5, y = (lambda(y): x + y) in y(6)" "" "11";
   (* let rec tests *)
   (* free variable tests *)
 ]
@@ -229,7 +253,8 @@ let suite =
   free_vars_tests @
   wf_tests @
   compile_tests @
-  call_type_tests
+  call_type_tests @ 
+  tanf_tests
 ;;
 
 

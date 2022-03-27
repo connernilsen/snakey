@@ -278,8 +278,9 @@ let rec deepest_stack e env =
     | CGetItem(t, _, _) -> helpI t
     | CSetItem(t, _, v, _) -> max (helpI t) (helpI v)
     | CLambda(args, body, _) ->
-      let new_env = (List.mapi (fun i a -> (a, RegOffset(word_size * (i + 3), RBP))) args) @ env in
-      deepest_stack body new_env
+      (* let new_env = (List.mapi (fun i a -> (a, RegOffset(word_size * (i + 3), RBP))) args) @ env in
+         deepest_stack body new_env *)
+      0
     | CImmExpr i -> helpI i
   and helpI i =
     match i with
@@ -724,43 +725,42 @@ let free_vars (e: 'a aexpr) (args : string list) : string list =
 
 (** Gets an environment mapping id names to register names or stack offsets.
  * This makes it easy for callee functions to use args *)
-let get_snake_func_call_params (params : string list) : arg envt = 
-  let rec pair_stack (params : string list) (next_off : int) : arg envt =
+let get_snake_func_call_params (params : string list) (closure_args : string list) : arg envt = 
+  let rec pair_stack (params : string list) (next_off : int) (direction : int) : arg envt =
     match params with 
     | [] -> []
     | first :: rest ->
-      (first, RegOffset(next_off * word_size, RBP))
-      :: (pair_stack rest (next_off + 1)) in
+      (first, RegOffset(next_off * word_size * direction, RBP))
+      :: (pair_stack rest (next_off + 1) direction) 
+  in
   match params with 
   | [] -> [] 
-  | _ -> (pair_stack params 3)
+  | _ -> (pair_stack params 3 1) @ (pair_stack closure_args 1 ~-1)
 
 
 (* ASSUMES that the program has been alpha-renamed and all names are unique *)
-let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =
-  let rec get_aexpr_envt (expr : tag aexpr) (si : int) : arg envt =
-    match expr with 
-    | ALet(name, bind, body, _) ->
-      (name, RegOffset(~-si * word_size, RBP))
-      :: (get_cexpr_envt bind (si + 1))
-      @ (get_aexpr_envt body (si + 1))
-    | ACExpr(body) ->
-      (get_cexpr_envt body si)
-    | ALetRec(binds, body, _) -> raise (NotYetImplemented "letrec stack allocation")
-  and get_cexpr_envt (expr : tag cexpr) (si : int) : arg envt =
-    match expr with 
-    | CIf(_, l, r, _) -> 
-      (get_aexpr_envt l si)
-      @ (get_aexpr_envt r si)
-    | CLambda(binds, body, _) -> 
-      let frees = (free_vars body binds) in 
-      get_snake_func_call_params (binds @ frees) @ get_aexpr_envt body 1
-    | CPrim1(_) | CPrim2(_) | CApp(_) | CImmExpr(_) | CTuple(_) | CGetItem(_) | CSetItem(_) -> []
-  in
+let rec naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =
   match prog with 
   | AProgram(expr, _) ->
     (prog, 
      (get_aexpr_envt expr 1))
+and get_aexpr_envt (expr : tag aexpr) (si : int) : arg envt =
+  match expr with 
+  | ALet(name, bind, body, _) ->
+    (name, RegOffset(~-si * word_size, RBP))
+    :: (get_cexpr_envt bind (si + 1))
+    @ (get_aexpr_envt body (si + 1))
+  | ACExpr(body) ->
+    (get_cexpr_envt body si)
+  | ALetRec(binds, body, _) -> raise (NotYetImplemented "letrec stack allocation")
+and get_cexpr_envt (expr : tag cexpr) (si : int) : arg envt =
+  match expr with 
+  | CIf(_, l, r, _) -> 
+    (get_aexpr_envt l si)
+    @ (get_aexpr_envt r si)
+  | CLambda(_) | CPrim1(_) | CPrim2(_) | CApp(_) | CImmExpr(_) | CTuple(_) | CGetItem(_) | CSetItem(_) -> []
+and get_lambda_envt (binds : string list) (body : tag aexpr) frees : arg envt =
+  (get_snake_func_call_params binds frees) @ get_aexpr_envt body (1 + List.length frees) 
 ;;
 
 (* Jumps to to_label if not a num *)
@@ -938,20 +938,22 @@ let setup_call_to_native_func (num_regs_to_save : int) (args : arg list) (label 
 
 let rec compile_fun (fun_name : string) args frees body env : instruction list =
   (* get max allocation needed as an even value, possibly rounded up *)
-  let stack_alloc_space = (((deepest_stack body env) + 1) / 2 ) * 2 in
+  let parity_offset = (List.length frees) mod 2 in
+  let stack_alloc_space = (((deepest_stack body env) + 1 + parity_offset) / 2 ) * 2 in
   [
     IJmp(Label(sprintf "%s_end" fun_name));
     ILabel(fun_name);
     IPush(Reg(RBP));
     IMov(Reg(RBP), Reg(RSP));
-    ISub(Reg(RSP), Const(Int64.of_int (stack_alloc_space * word_size)));
     (* TODO: change to maybe when implementing tail recursion *)
     (* add closure to stack *)
-    ILineComment("Move closure to stack");
+    ILineComment("Move closure to r11");
     IMov(Reg(R11), RegOffset(2 * word_size, RBP));
-    ISub(Reg(RSP), Const(Int64.of_int (List.length frees)));
+  ]
+  @ (List.mapi (fun (i: int) (f: string) -> IPush(Sized(QWORD_PTR, RegOffset((i + 3) * word_size, R11)))) frees)
+  @ [
+    ISub(Reg(RSP), Const(Int64.of_int (stack_alloc_space * word_size)));
   ] 
-  @ (List.mapi (fun (i: int) (f: string) -> IMov(RegOffset(word_size * i * -1, RBP), RegOffset((i + 3) * word_size, R11))) frees)
   @ (compile_aexpr body env (List.length args) false) @ [
     IMov(Reg(RSP), Reg(RBP));
     IPop(Reg(RBP));
@@ -1179,7 +1181,8 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
   | CLambda(args, body, tag) -> 
     let name = sprintf "fun_%d" tag in
     let frees = free_vars body args in
-    compile_fun name args frees body env
+    let newenv = (get_lambda_envt args body frees) @ env in
+    compile_fun name args frees body newenv
     @ [
       (* store arity in first slot as a machine number since it's never accessed in our language *)
       IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (List.length args)));
@@ -1192,7 +1195,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
     @ List.flatten (List.mapi (fun idx (id: string) -> 
         [
           IMov(Reg(R11), (find env id));
-          IMov(Sized(QWORD_PTR, RegOffset((idx + 1) * word_size, heap_reg)), Reg(R11));
+          IMov(Sized(QWORD_PTR, RegOffset((idx + 3) * word_size, heap_reg)), Reg(R11));
         ]) frees)
     @ [
       (* Move result to result place *)
