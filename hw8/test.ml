@@ -6,6 +6,7 @@ open Pretty
 open Exprs
 open Phases
 open Errors
+open Libtest
 
 let check_name (name : string) : string =
   if String.contains name ' '
@@ -239,10 +240,13 @@ let compile_tests = [
   t "compile_lambda_in_lambda" "(lambda (x, y): (lambda (x): x)(5) + x + y)(5, 10)" "" "20";
   t "compile_decl" "def x(f): f + 3\n(lambda (x, y): x + y)(5, 10) + x(3)" "" "21";
   te "invalid_arity" "(lambda (x): x)(5, 6)" "arity mismatch in call";
-  t "compile_decl_with_frees"
-    "let x = 5, y = (lambda(y): x + y) in y(6)" "" "11";
   (* let rec tests *)
   (* free variable tests *)
+  t "compile_decl_with_frees"
+    "let x = 5, y = (lambda(y): x + y) in y(6)" "" "11";
+  t "compile_frees_2"
+    "let x = 5, y = (lambda(y): (lambda(z): x + y + z)) in y(4)(3)"
+    "" "12";
 ]
 
 
@@ -259,5 +263,5 @@ let suite =
 
 
 let () =
-  run_test_tt_main ("all_tests">:::[suite; input_file_test_suite ()])
+  run_test_tt_main ("all_tests">:::[suite; (* old_tests; *) input_file_test_suite ()])
 ;;

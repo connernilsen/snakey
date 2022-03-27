@@ -733,7 +733,36 @@ let get_snake_func_call_params (params : string list) (closure_args : string lis
   match params with 
   | [] -> [] 
   | _ -> (pair_stack params 3 1) @ (pair_stack closure_args 1 ~-1)
+;;
 
+(** Gets an environment mapping id names to register names or stack offsets.
+ * This makes it easy for callee functions to use args *)
+let get_native_func_call_params (params : string list) : arg envt =
+  let rec pair_stack (params : string list) (next_off : int) : arg envt =
+    match params with 
+    | [] -> []
+    | first :: rest ->
+      (first, RegOffset(next_off * word_size, RBP))
+      :: (pair_stack rest (next_off + 1))
+  and pair_regs (params : string list) (regs : reg list) : arg envt =
+    match regs with 
+    | [] -> 
+      begin 
+        match params with 
+        | [] -> [] 
+        | _ -> (pair_stack params 2)
+      end 
+    | reg_first :: reg_rest ->
+      begin
+        match params with 
+        | [] -> []
+        | param_first :: param_rest ->
+          (param_first, Reg(reg_first))
+          :: (pair_regs param_rest reg_rest)
+      end
+  in
+  (pair_regs params first_six_args_registers)
+;;
 
 (* ASSUMES that the program has been alpha-renamed and all names are unique *)
 let rec naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =
