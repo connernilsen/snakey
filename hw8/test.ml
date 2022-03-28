@@ -87,6 +87,7 @@ let desugar_tests = [
   tdesugar "desugar_lambda"
     "(lambda (x): x)"
     "\n(lam(x) x)";
+  tdesugar "sequence" "print(5); print(5)" "\n(let _ = print(5) in print(5))";
 ]
 
 let default_tests =
@@ -240,7 +241,8 @@ let tanf_tests = [
     "(lambda (x, y): (lambda (x): x)(5) + x + y)(5, 10)"
     ("(alet lam_5 = (lam(x_15, y_16) (alet lam_10 = (lam(x_12) x_12) in " ^
      "(alet app_8 = (lam_10(5)) in (alet binop_7 = (app_8 + x_15) in " ^
-     "(binop_7 + y_16))))) in (lam_5(5, 10)))")
+     "(binop_7 + y_16))))) in (lam_5(5, 10)))");
+  tanf_improved "sequence" "print(1); print(2)" "(alet unary_5 = print(1) in print(2))";
 ]
 
 let func_call_params_tests = [
@@ -305,35 +307,42 @@ let let_rec_tests = [
 ]
 
 let native_tests = [
-  t "compile_native_1" "let _ = print(10) in print(100)" "" "10\n\100\n100";
+  t "compile_native_1" "let _ = print(10) in print(100)" "" "10\n100\n100";
   t "compile_native_2" "let a = print((1, 2, 3)) in equal(a, (1, 2, 3))" "" "(1, 2, 3)\ntrue";
   t "compile_native_in_closure_let" "let a = (lambda (y): print(y)) in a(6)" "" "6\n6";
   t "compile_native_in_closure" "(lambda (y): print(y))(6)" "" "6\n6";
   t "compile_native_in_closure_temp" "let f = (lambda (x): x) in (lambda (y): f(y))(6)" "" "6";
   t "compile_native_in_closure_multiple_args" "(lambda (x, y): print(y))(1, 6)" "" "6\n6";
   t "compile_native_in_closure_more_args" "(lambda (x, y, z): print(z))(1, 1, 6)" "" "6\n6";
+  tcontains "print_stack" "printStack(1)" "" "Num args: 0\n1";
   t "compile_native_as_free" "let a = input in a()" "1" "1";
   t "compile_input" "let a = (lambda: input()) in a()" "5" "5";
-  tcontains "print_stack" "printStack(1)" "" "Num args: 0\n1";
-  terr "arg_count_native_low" "equal(1, 2, 3)" "" "";
-  terr "arg_count_native_high" "equal(1, 2, 3)" "" "";
   terr "arg_count_low" "(lambda (x): x)()" "" "arity mismatch in call";
   terr "arg_count_high" "(lambda: 1)(1)" "" "arity mismatch in call";
+  (* will be fixed with closures *)
+  terr "arg_count_native_low" "equal(1, 2, 3)" "" "";
+  terr "arg_count_native_high" "equal(1, 2, 3)" "" "";
+]
+
+let sequencing_tests = [
+  t "sequencing_1" "print(1); print(2)" "" "1\n2\n2";
+  t "sequencing_2" "let _ = print(1) in print(2)" "" "1\n2\n2"
 ]
 
 
 let suite =
   "suite">:::
   default_tests @
-  desugar_tests @
   free_vars_tests @
   wf_tests @
   compile_tests @
   call_type_tests @
-  tanf_tests @
   func_call_params_tests @
   let_rec_tests @
-  native_tests
+  native_tests @
+  desugar_tests @
+  tanf_tests @
+  sequencing_tests
 ;;
 
 

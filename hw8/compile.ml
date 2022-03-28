@@ -330,7 +330,7 @@ let anf (p : tag program) : unit aprogram =
       (CIf(cond_imm, helpA _then, helpA _else, ()), cond_setup)
     | ELet([], body, _) -> helpC body
     | ELet((BBlank _, exp, _)::rest, body, pos) ->
-      let (exp_ans, exp_setup) = helpC exp in
+      let (exp_ans, exp_setup) = helpI exp in
       let (body_ans, body_setup) = helpC (ELet(rest, body, pos)) in
       (* TODO: confirm this is OK.  *)
       (body_ans, exp_setup @ body_setup)
