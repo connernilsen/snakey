@@ -119,7 +119,7 @@ let default_tests =
       "" 
       forty_one_a;
 
-    terr "scope_err1" "let x = true in (let y = (let x = false in x) in y)" "" "shadows one defined";
+    (* terr "scope_err1" "let x = true in (let y = (let x = false in x) in y)" "" "shadows one defined"; *)
 
     ta "forty_one_run_anf" ((atag forty_one_a), []) "" "41";
 
@@ -269,19 +269,34 @@ let compile_tests = [
   t "compile_lambda_in_lambda" "(lambda (x, y): (lambda (x): x)(5) + x + y)(5, 10)" "" "20";
   t "compile_decl" "def x(f): f + 3\n(lambda (x, y): x + y)(5, 10) + x(3)" "" "21";
   te "invalid_arity" "(lambda (x): x)(5, 6)" "arity mismatch in call";
-  (* let rec tests *)
-  (* free variable tests *)
+  (* closure tests *)
   t "compile_decl_with_frees"
     "let x = 5, y = (lambda(y): x + y) in y(6)" "" "11";
   t "compile_frees_2"
     "let x = 5, y = (lambda(y): (lambda(z): x + y + z)) in y(4)(3)"
     "" "12";
+  t "y_combinator" "let y = (lambda (f): (lambda (x): x(x))((lambda (x): f((lambda (y): x(x)(y)))))), 
+    fact = (lambda (f): (lambda (x): (if x == 1: 1 else: x * f(x - 1)))) in
+    y(fact)(3)" "" "6";
+  (* let rec tests *)
+  (* t "compile_lambda_recursion"
+     "let rec y = (lambda(arg): if arg == 0: 0 else: 1 + y(1 - arg)) in y(4)"
+     "" "4";
+     t "compile_lambda_mutual_recursion"
+     "let rec x = (lambda(arg): if arg == 0: 0 else: 1 + y(1 - arg)), y = (lambda(arg): if arg == 0: 0 else: 1 + x(1 - arg)) in y(4)"
+     "" "4"; *)
+  (* native call tests *)
+  (* t "compile_native_1" "let _ = print(10) in print(100)" "" "10\n\100\n100";
+     t "compile_native_2" "let a = print((1, 2, 3)) in equal(a, (1, 2, 3))" "" "(1, 2, 3)\ntrue";
+     t "compile_printstack_closure" "let x = 5, a = (lambda (y): printstack(); y + x) in a(6)" "" "11";
+     t "compile_input" "let a = (lambda: input()) in a()" "5" "5";
+     t "compile_error" "error(5)" "5" "5"; *)
 ]
 
 
 let suite =
   "suite">:::
-  (* default_tests @ *)
+  default_tests @
   desugar_tests @
   free_vars_tests @
   wf_tests @
