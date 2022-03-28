@@ -230,6 +230,12 @@ let tanf_tests = [
   tanf_improved "tct_lambda_frees" 
     "let x = 5, y = (lambda(y): x + y) in y(6)"
     "(alet x_4 = 5 in (alet y_7 = (lam(y_12) (x_4 + y_12)) in (y_7(6))))";
+  tanf_improved "native_in_lambda" 
+    "(lambda (x): print(x))(5)"
+    "(alet lam_4 = (lam(x_7) print(x_7)) in (lam_4(5)))";
+  tanf_improved "call_in_lambda"
+    "let f = (lambda (x): x) in (lambda (y): f(y))(6)"
+    "(alet f_4 = (lam(x_7) x_7) in (alet lam_10 = (lam(y_14) (f_4(y_14))) in (lam_10(6))))";
   tanf_improved "tct_lambda_in_lambda"
     "(lambda (x, y): (lambda (x): x)(5) + x + y)(5, 10)"
     ("(alet lam_5 = (lam(x_15, y_16) (alet lam_10 = (lam(x_12) x_12) in " ^
@@ -303,6 +309,7 @@ let native_tests = [
   t "compile_native_2" "let a = print((1, 2, 3)) in equal(a, (1, 2, 3))" "" "(1, 2, 3)\ntrue";
   t "compile_native_in_closure_let" "let a = (lambda (y): print(y)) in a(6)" "" "6\n6";
   t "compile_native_in_closure" "(lambda (y): print(y))(6)" "" "6\n6";
+  t "compile_native_in_closure_temp" "let f = (lambda (x): x) in (lambda (y): f(y))(6)" "" "6";
   t "compile_native_in_closure_multiple_args" "(lambda (x, y): print(y))(1, 6)" "" "6\n6";
   t "compile_native_in_closure_more_args" "(lambda (x, y, z): print(z))(1, 1, 6)" "" "6\n6";
   t "compile_native_as_free" "let a = input in a()" "1" "1";
@@ -322,10 +329,10 @@ let suite =
   free_vars_tests @
   wf_tests @
   compile_tests @
-  call_type_tests @ 
+  call_type_tests @
   tanf_tests @
   func_call_params_tests @
-  (* let_rec_tests @ *)
+  let_rec_tests @
   native_tests
 ;;
 
