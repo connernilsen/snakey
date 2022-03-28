@@ -1125,7 +1125,7 @@ and compile_imm e env =
   | ImmBool(true, _) -> const_true
   | ImmBool(false, _) -> const_false
   | ImmId(x, _) -> (find env x)
-  | ImmNil(_) -> raise (NotYetImplemented "Finish this")
+  | ImmNil(_) -> nil
 
 let compile_error_handler ((err_name : string), (err_code : int64)) : instruction list =
   ILabel(err_name) :: setup_call_to_func 0 [Const(err_code); Reg(RAX)] (Label("error")) false
