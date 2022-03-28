@@ -327,3 +327,8 @@ let get_func_name (func : 'a expr) : string =
   match func with 
   | EId(name, _) -> name
   | _ -> ""
+(* Returns the function name or "" if the expr is not an ID *)
+let get_func_name_imm (func : 'a immexpr) : string = 
+  match func with 
+  | ImmId(name, _) -> name
+  | _ -> ""

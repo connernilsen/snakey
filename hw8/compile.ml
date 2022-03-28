@@ -180,11 +180,8 @@ let initial_fun_env : funenvt = [
   ("input", Native);
   ("equal", Native);
   ("print", Native);
+  ("printstack", Native);
 ];;
-let initial_fun_arity = [
-  0; 2; 1
-]
-
 let rename_and_tag (p : tag program) : tag program =
   let rec rename env p =
     match p with
@@ -546,24 +543,23 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
       let binds_env = (binds_to_env binds) in 
       find_dup_exns_by_env binds_env @ (wf_E body (binds_env @ env))
   and get_env (decls : sourcespan decl list) : sourcespan envt = 
-    let fun_env = (List.map (fun x -> 
-        begin 
-          match x with 
-          | DFun(name, args, _, ss) -> 
-            (name, ss)
-        end) decls)
-    and builtin_env = List.map (fun (name, _) -> (name, (create_ss "builtin" 0 0 0 0))) initial_fun_env in
-    fun_env @ builtin_env
+    (List.map (fun x -> 
+         begin 
+           match x with 
+           | DFun(name, args, _, ss) -> 
+             (name, ss)
+         end) decls)
+  and builtin_env : sourcespan envt = List.map (fun (name, _) -> (name, (create_ss "builtin" 0 0 0 0))) initial_fun_env
   and d_errors (decls : sourcespan decl list) (env: sourcespan envt): exn list = 
     (List.flatten (List.map (fun (decl) -> (wf_D decl env)) decls))
   in
   match p with
   | Program(decls, body, _) ->
-    let envs = List.map (fun decls -> (get_env decls)) decls in 
+    let envs = (List.map (fun decls -> (get_env decls)) decls) in 
     (* TODO: do we need this? we allow shadowing *)
     (* let dup_fun_errors = dup_d_errors decls in *)
     let d_errs = (List.flatten (List.map2 (fun (decls) (env) -> (d_errors decls env)) decls envs)) in
-    let e_errs = wf_E body (List.flatten envs) in 
+    let e_errs = wf_E body (List.flatten (builtin_env::envs)) in 
     begin
       match d_errs @ e_errs with 
       | [] -> Ok p
@@ -962,8 +958,8 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
           IMov(Reg(R10), bool_mask);
           IXor(Reg(RAX), Reg(R10));
         ]
-      | Print -> raise (InternalCompilerError "Print not implemented yet")
-      | PrintStack -> raise (InternalCompilerError "printstack Not implemented yet")
+      | Print -> (setup_call_to_func 1 [e_reg] (Label("print")) false)
+      | PrintStack -> (setup_call_to_func 1 [e_reg] (Label("printstack")) false)
     end
   | CPrim2(op, l, r, tag) ->
     let e1_reg = (compile_imm l env) in
@@ -1012,7 +1008,9 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
          ICmp(Reg(R11), Sized(QWORD_PTR, e2_reg)); IJne(Label(label_DESTRUCTURE_INVALID_LEN));
          IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
     end
-  (* | CApp(func, args, Native, _) -> (setup_call_to_func num_args (List.map (fun e -> compile_imm e env) args) "TODO") *)
+  | CApp(func, args, Native, _) -> 
+    let arg_regs = (List.map (fun (a) -> (compile_imm a env)) args) in 
+    (setup_call_to_func 1 arg_regs (Label(get_func_name_imm func)) false)
   | CApp(func, args, Snake, _) -> 
     (setup_call_to_func num_args (List.map (fun e -> compile_imm e env) args) (compile_imm func env) true)
   | CApp(func, args, _, _) -> (raise (NotYetImplemented "unknown function type"))

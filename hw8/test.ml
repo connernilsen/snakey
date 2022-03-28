@@ -285,12 +285,12 @@ let compile_tests = [
      t "compile_lambda_mutual_recursion"
      "let rec x = (lambda(arg): if arg == 0: 0 else: 1 + y(1 - arg)), y = (lambda(arg): if arg == 0: 0 else: 1 + x(1 - arg)) in y(4)"
      "" "4"; *)
+  (* t "compile_decl" "def a(x): x\n a(1)" "" "1"; *)
   (* native call tests *)
-  (* t "compile_native_1" "let _ = print(10) in print(100)" "" "10\n\100\n100";
-     t "compile_native_2" "let a = print((1, 2, 3)) in equal(a, (1, 2, 3))" "" "(1, 2, 3)\ntrue";
-     t "compile_printstack_closure" "let x = 5, a = (lambda (y): printstack(); y + x) in a(6)" "" "11";
-     t "compile_input" "let a = (lambda: input()) in a()" "5" "5";
-     t "compile_error" "error(5)" "5" "5"; *)
+  t "compile_native_1" "let _ = print(10) in print(100)" "" "10\n\100\n100";
+  t "compile_native_2" "let a = print((1, 2, 3)) in equal(a, (1, 2, 3))" "" "(1, 2, 3)\ntrue";
+  t "compile_printstack_closure" "let x = 5, a = (lambda (y): printstack(); y + x) in a(6)" "" "11";
+  t "compile_input" "let a = (lambda: input()) in a()" "5" "5";
 ]
 
 
