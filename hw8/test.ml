@@ -289,8 +289,10 @@ let compile_tests = [
   (* native call tests *)
   t "compile_native_1" "let _ = print(10) in print(100)" "" "10\n\100\n100";
   t "compile_native_2" "let a = print((1, 2, 3)) in equal(a, (1, 2, 3))" "" "(1, 2, 3)\ntrue";
-  t "compile_printstack_closure" "let x = 5, a = (lambda (y): printstack(); y + x) in a(6)" "" "11";
+  t "compile_native_in_closure" "let x = 5, a = (lambda (y): print(y)) in a(6)" "" "6\n6";
+  t "compile_native_as_free" "let a = input in a()" "1" "1";
   t "compile_input" "let a = (lambda: input()) in a()" "5" "5";
+  t "print_stack" "printStack((lambda (x): x + 5))" "" "some stuff then 11";
 ]
 
 

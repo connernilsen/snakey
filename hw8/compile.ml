@@ -98,6 +98,7 @@ let scratch_reg = R11
 let prelude = "section .text
 extern error
 extern print
+extern print_stack
 extern input
 extern equal
 global our_code_starts_here"
@@ -179,9 +180,8 @@ type funenvt = call_type envt;;
 let initial_fun_env : funenvt = [
   ("input", Native);
   ("equal", Native);
-  ("print", Native);
-  ("printstack", Native);
 ];;
+let initial_fun_env_env : arg envt = (List.map (fun (name, _) -> (name, Label(name))) initial_fun_env)
 let rename_and_tag (p : tag program) : tag program =
   let rec rename env p =
     match p with
@@ -959,7 +959,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
           IXor(Reg(RAX), Reg(R10));
         ]
       | Print -> (setup_call_to_func 1 [e_reg] (Label("print")) false)
-      | PrintStack -> (setup_call_to_func 1 [e_reg] (Label("printstack")) false)
+      | PrintStack -> (setup_call_to_func 1 [e_reg] (Label("print_stack")) false)
     end
   | CPrim2(op, l, r, tag) ->
     let e1_reg = (compile_imm l env) in
@@ -1151,7 +1151,7 @@ let rec compile_ocsh (body : tag aexpr) (env: arg envt) : instruction list =
 let compile_prog ((anfed : tag aprogram), (env: arg envt)) : string =
   match anfed with
   | AProgram(body, _) ->
-    let comp_body = compile_ocsh body env in 
+    let comp_body = compile_ocsh body (env @ initial_fun_env_env) in 
     let body_epilogue = (List.flatten (List.map compile_error_handler [
         (label_COMP_NOT_NUM, err_COMP_NOT_NUM);
         (label_ARITH_NOT_NUM, err_ARITH_NOT_NUM);
