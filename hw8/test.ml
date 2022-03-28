@@ -273,6 +273,7 @@ let compile_tests = [
   t "compile_lambda_1" "(lambda (x): x)(5)" "" "5";
   t "compile_lambda_1_in_let" "let a = (lambda (x): x) in a(5)" "" "5";
   t "compile_lambda_2" "(lambda (x, y): x + y)(5, 10)" "" "15";
+  t "compile_lambda_3" "(lambda (x, y): add1(x) + add1(y))(5, 10)" "" "17";
   t "compile_lambda_in_lambda" "(lambda (x, y): (lambda (x): x)(5) + x + y)(5, 10)" "" "20";
   t "compile_decl" "def x(f): f + 3\n(lambda (x, y): x + y)(5, 10) + x(3)" "" "21";
   te "invalid_arity" "(lambda (x): x)(5, 6)" "arity mismatch in call";
@@ -285,15 +286,19 @@ let compile_tests = [
   t "y_combinator" "let y = (lambda (f): (lambda (x): x(x))((lambda (x): f((lambda (y): x(x)(y)))))), 
     fact = (lambda (f): (lambda (x): (if x == 1: 1 else: x * f(x - 1)))) in
     y(fact)(3)" "" "6";
-  (* let rec tests *)
-  (* t "compile_lambda_recursion"
-     "let rec y = (lambda(arg): if arg == 0: 0 else: 1 + y(1 - arg)) in y(4)"
-     "" "4";
-     t "compile_lambda_mutual_recursion"
-     "let rec x = (lambda(arg): if arg == 0: 0 else: 1 + y(1 - arg)), y = (lambda(arg): if arg == 0: 0 else: 1 + x(1 - arg)) in y(4)"
-     "" "4"; *)
-  (* t "compile_decl" "def a(x): x\n a(1)" "" "1"; *)
-  (* native call tests *)
+]
+
+let let_rec_tests = [
+  t "compile_lambda_recursion"
+    "let rec y = (lambda(arg): if arg == 0: 0 else: 1 + y(1 - arg)) in y(4)"
+    "" "4";
+  t "compile_lambda_mutual_recursion"
+    "let rec x = (lambda(arg): if arg == 0: 0 else: 1 + y(1 - arg)), y = (lambda(arg): if arg == 0: 0 else: 1 + x(1 - arg)) in y(4)"
+    "" "4";
+  t "compile_decl" "def a(x): x\n a(1)" "" "1";
+]
+
+let native_tests = [
   t "compile_native_1" "let _ = print(10) in print(100)" "" "10\n\100\n100";
   t "compile_native_2" "let a = print((1, 2, 3)) in equal(a, (1, 2, 3))" "" "(1, 2, 3)\ntrue";
   t "compile_native_in_closure_let" "let a = (lambda (y): print(y)) in a(6)" "" "6\n6";
@@ -319,7 +324,9 @@ let suite =
   compile_tests @
   call_type_tests @ 
   tanf_tests @
-  func_call_params_tests
+  func_call_params_tests @
+  (* let_rec_tests @ *)
+  native_tests
 ;;
 
 
