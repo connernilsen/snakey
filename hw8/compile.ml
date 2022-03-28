@@ -959,7 +959,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
           IXor(Reg(RAX), Reg(R10));
         ]
       | Print -> (setup_call_to_func 1 [e_reg] (Label("print")) false)
-      | PrintStack -> (setup_call_to_func 1 [e_reg] (Label("print_stack")) false)
+      | PrintStack -> (setup_call_to_func 4 [e_reg; Reg(RSP); Reg(RBP); Const(Int64.of_int num_args)] (Label("print_stack")) false)
     end
   | CPrim2(op, l, r, tag) ->
     let e1_reg = (compile_imm l env) in
@@ -1010,7 +1010,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
     end
   | CApp(func, args, Native, _) -> 
     let arg_regs = (List.map (fun (a) -> (compile_imm a env)) args) in 
-    (setup_call_to_func 1 arg_regs (Label(get_func_name_imm func)) false)
+    (setup_call_to_func num_args arg_regs (Label(get_func_name_imm func)) false)
   | CApp(func, args, Snake, _) -> 
     (setup_call_to_func num_args (List.map (fun e -> compile_imm e env) args) (compile_imm func env) true)
   | CApp(func, args, _, _) -> (raise (NotYetImplemented "unknown function type"))

@@ -7,6 +7,7 @@ open Exprs
 open Phases
 open Errors
 open Libtest
+open ExtLib
 
 let check_name (name : string) : string =
   if String.contains name ' '
@@ -14,6 +15,11 @@ let check_name (name : string) : string =
   else name
 
 let t name program input expected = name>::test_run ~args:[] ~std_input:input program name expected;;
+let tcontains name program input expected = name>::test_run ~args:[] ~std_input:input program name expected ~cmp: (fun check result ->
+    match check, result with
+    | Ok(a), Ok(b) -> (String.exists b a)
+    | _ -> false
+  );;
 let ta name program input expected = name>::test_run_anf ~args:[] ~std_input:input program name expected;;
 let tgc name heap_size program input expected = name>::test_run ~args:[string_of_int heap_size] ~std_input:input program name expected;;
 let tvg name program input expected = name>::test_run_valgrind ~args:[] ~std_input:input program name expected;;
@@ -42,9 +48,8 @@ let tfvs name ignored program expected = name>::
                                             match anfed with
                                             | AProgram(body, _) ->
                                               let vars = free_vars body ignored in
-                                              let c = Stdlib.compare in
                                               let str_list_print strs = "[" ^ (ExtString.String.join ", " strs) ^ "]" in
-                                              assert_equal (List.sort c vars) (List.sort c expected) ~printer:str_list_print)
+                                              assert_equal (List.sort vars) (List.sort expected) ~printer:str_list_print)
 ;;
 
 let tdesugar (name : string) (program : string) (expected : string) = (check_name name)>:: fun _ ->
@@ -264,7 +269,9 @@ let func_call_params_tests = [
 let compile_tests = [
   t "compile_lambda_1_noapp" "(lambda (x): x)" "" "<function>";
   t "compile_lambda_2_noapp" "(lambda (x): (lambda (x): x))" "" "<function>";
+  t "compile_lambda_noarg" "(lambda: 1)()" "" "1";
   t "compile_lambda_1" "(lambda (x): x)(5)" "" "5";
+  t "compile_lambda_1_in_let" "let a = (lambda (x): x) in a(5)" "" "5";
   t "compile_lambda_2" "(lambda (x, y): x + y)(5, 10)" "" "15";
   t "compile_lambda_in_lambda" "(lambda (x, y): (lambda (x): x)(5) + x + y)(5, 10)" "" "20";
   t "compile_decl" "def x(f): f + 3\n(lambda (x, y): x + y)(5, 10) + x(3)" "" "21";
@@ -289,10 +296,17 @@ let compile_tests = [
   (* native call tests *)
   t "compile_native_1" "let _ = print(10) in print(100)" "" "10\n\100\n100";
   t "compile_native_2" "let a = print((1, 2, 3)) in equal(a, (1, 2, 3))" "" "(1, 2, 3)\ntrue";
-  t "compile_native_in_closure" "let x = 5, a = (lambda (y): print(y)) in a(6)" "" "6\n6";
+  t "compile_native_in_closure_let" "let a = (lambda (y): print(y)) in a(6)" "" "6\n6";
+  t "compile_native_in_closure" "(lambda (y): print(y))(6)" "" "6\n6";
+  t "compile_native_in_closure_multiple_args" "(lambda (x, y): print(y))(1, 6)" "" "6\n6";
+  t "compile_native_in_closure_more_args" "(lambda (x, y, z): print(z))(1, 1, 6)" "" "6\n6";
   t "compile_native_as_free" "let a = input in a()" "1" "1";
   t "compile_input" "let a = (lambda: input()) in a()" "5" "5";
-  t "print_stack" "printStack((lambda (x): x + 5))" "" "some stuff then 11";
+  tcontains "print_stack" "printStack(1)" "" "Num args: 0\n1";
+  terr "arg_count_native_low" "equal(1, 2, 3)" "" "";
+  terr "arg_count_native_high" "equal(1, 2, 3)" "" "";
+  terr "arg_count_low" "(lambda (x): x)()" "" "arity mismatch in call";
+  terr "arg_count_high" "(lambda: 1)(1)" "" "arity mismatch in call";
 ]
 
 
