@@ -566,7 +566,6 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
   match p with
   | Program(decls, body, _) ->
     let envs = (List.map (fun decls -> (get_env decls)) decls) in 
-    (* TODO: do we need this? we allow shadowing *)
     (* let dup_fun_errors = dup_d_errors decls in *)
     let d_errs, d_env = List.fold_left2 (fun (acc_errors, acc_env) decls env -> 
         ((d_errors decls (env @ acc_env)) @ acc_errors, env @ acc_env)) ([], builtin_env) decls envs in
