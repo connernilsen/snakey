@@ -1238,6 +1238,12 @@ let desugar (p : tag program) : unit program =
     | ENumber(n, _) -> ENumber(n, ())
     | EBool(b, _) -> EBool(b, ())
     | ENil(_) -> ENil(())
+    | EId("input", _) -> ELambda([], EApp(EId("input", ()), [], Snake, ()), ())
+    | EId("equal", tag) -> 
+      let arg1 = sprintf "eq_arg1_%d" tag in 
+      let arg2 = sprintf "eq_arg2_%d" tag in
+      ELambda([BName(arg1, false, ()); BName(arg2, false, ())], 
+              EApp(EId("equal", ()), [EId(arg1, ()); EId(arg2, ())], Snake, ()), ())
     | EId(id, _) -> EId(id, ())
     | EApp(f, args, ct, _) -> EApp(helpE f, List.map helpE args, ct, ())
     | ELambda(args, body, _) -> ELambda(List.map untagB args, helpE body, ())

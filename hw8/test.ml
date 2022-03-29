@@ -88,6 +88,8 @@ let desugar_tests = [
     "(lambda (x): x)"
     "\n(lam(x) x)";
   tdesugar "sequence" "print(5); print(5)" "\n(let _ = print(5) in print(5))";
+  tdesugar "desugar_native" "input()" "\n(?(lam() (*input()))())";
+  tdesugar "desugar_native_lambda" "let a = (lambda: input()) in a()" "\n(let a = (lam() (?(lam() (*input()))())) in (?a()))";
 ]
 
 let default_tests =
@@ -246,6 +248,7 @@ let tanf_tests = [
   tanf_improved "compile_native_in_closure_multiple_args_anf" 
     "(lambda (x, y): print(y))(1, 6)"
     "(alet lam_5 = (lam(x_8, y_9) print(y_9)) in (lam_5(1, 6)))";
+  tanf_improved "anf_input" "input()" "(alet lam_3 = (lam() (*input())) in (*lam_3()))";
 ]
 
 let func_call_params_tests = [
@@ -297,6 +300,7 @@ let compile_tests = [
   t "y_combinator" "let y = (lambda (f): (lambda (x): x(x))((lambda (x): f((lambda (y): x(x)(y)))))), 
     fact = (lambda (f): (lambda (x): (if x == 1: 1 else: x * f(x - 1)))) in
     y(fact)(3)" "" "6";
+  t "ocsh" "def our_code_starts_here(): 5\nour_code_starts_here()" "" "5";
 ]
 
 let let_rec_tests = [
@@ -320,12 +324,14 @@ let native_tests = [
   t "compile_native_in_closure_more_args" "(lambda (x, y, z): print(z))(1, 1, 6)" "" "6\n6";
   tcontains "print_stack" "printStack(1)" "" "Num args: 0\n1";
   t "compile_native_as_free" "let a = input in a()" "1" "1";
-  t "compile_input" "let a = (lambda: input()) in a()" "5" "5";
+  t "compile_input" "input()" "5" "5";
+  t "compile_input_in_lambda" "let a = (lambda: input()) in a()" "5" "5";
   terr "arg_count_low" "(lambda (x): x)()" "" "arity mismatch in call";
   terr "arg_count_high" "(lambda: 1)(1)" "" "arity mismatch in call";
   (* will be fixed with closures *)
   terr "arg_count_native_low" "equal(1, 2, 3)" "" "";
   terr "arg_count_native_high" "equal(1, 2, 3)" "" "";
+  terr "print_arity" "print(1, 2)" "" "";
 ]
 
 let sequencing_tests = [
