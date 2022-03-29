@@ -628,7 +628,7 @@ let free_vars (e: 'a aexpr) (args : string list) : string list =
 
 (** Gets an environment mapping id names to register names or stack offsets.
  * This makes it easy for callee functions to use args *)
-let get_func_call_params (params : string list) (snake_call : bool) (closure_args : string list) : arg envt =
+let get_func_call_params (params : string list) (closure_args : string list) : arg envt =
   let rec pair_stack (params : string list) (next_off : int) (direction : int) : arg envt =
     match params with 
     | [] -> []
@@ -652,7 +652,7 @@ let get_func_call_params (params : string list) (snake_call : bool) (closure_arg
           :: (pair_regs param_rest reg_rest)
       end
   in
-  (pair_regs params (List.tl first_six_args_registers)) @ (pair_stack closure_args 1 ~-1)
+  (pair_regs params first_six_args_registers) @ (pair_stack closure_args 1 ~-1)
 ;;
 
 (* ASSUMES that the program has been alpha-renamed and all names are unique *)
@@ -677,7 +677,7 @@ and get_cexpr_envt (expr : tag cexpr) (si : int) : arg envt =
     @ (get_aexpr_envt r si)
   | CLambda(_) | CPrim1(_) | CPrim2(_) | CApp(_) | CImmExpr(_) | CTuple(_) | CGetItem(_) | CSetItem(_) -> []
 and get_lambda_envt (binds : string list) (body : tag aexpr) frees : arg envt =
-  (get_func_call_params binds true frees) @ get_aexpr_envt body (1 + List.length frees) 
+  (get_func_call_params binds frees) @ get_aexpr_envt body (1 + List.length frees) 
 ;;
 
 (* Jumps to to_label if not a num *)
@@ -743,9 +743,13 @@ let generate_cmp_func
  * calling the given function, and cleaning up the stack after 
 *)
 let setup_call_to_func (num_regs_to_save : int) (args : arg list) (func : arg) (snake_call : bool) : (instruction list) =
+  let func_call_comment = ILineComment(
+      if snake_call
+      then sprintf "Setup snake call (%d args)" num_regs_to_save
+      else sprintf "Setup native call (%d args)" num_regs_to_save
+    ) in
   (* gets the num of args for the function and the possible snake func reference *)
-  let num_args = ((List.length args) - 6) + (if snake_call then 0 else 1) in
-  let updated_args = if snake_call then (Reg(RAX) :: args) else args in
+  let num_args = ((List.length args) - 6) in
   let call = if snake_call then (ICall(RegOffset(1 * word_size, RAX))) else (ICall(func)) in
   (* how many call args must go on the stack *)
   let stack_args = max num_args 0 in
@@ -823,6 +827,7 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (func : arg) (
     then 
       IMov(Reg(RAX), func) :: (tag_check func label_SHOULD_BE_FUN closure_tag_mask closure_tag)
       @ [
+        ILineComment("Check call type for lambda");
         (* remove tag *)
         ISub(Reg(RAX), Const(5L));
         (* check arity *)
@@ -830,17 +835,21 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (func : arg) (
         ICmp(Reg(R10), Const(Int64.of_int (List.length args)));
         IJne(Label(label_ARITY))
       ]
-    else [] 
+    else [ILineComment("Skip call type check for native func")] 
   in
+  func_call_comment
   (* push args passed into this function so they don't get overwritten *)
-  (backup_caller_saved_registers num_regs_to_save first_six_args_registers)
+  :: (backup_caller_saved_registers num_regs_to_save first_six_args_registers)
   (* align the stack if necessary *)
-  @ (if should_stack_align then [IPush(Const(0L))] else [])
+  @ (if should_stack_align 
+     then [IInstrComment(IPush(Const(0L)), "Stack align")] 
+     else [ILineComment("No stack align")])
   @ check_call_type
+  @ [ILineComment("Setup args")]
   (* put the args for the next function in registers/on the stack *)
-  @ (setup_args updated_args first_six_args_registers) 
+  @ (setup_args args first_six_args_registers) 
   (* call *)
-  @ [call]
+  @ [IInstrComment(call, "Do call"); ILineComment("Cleanup stack and restore caller saved registers")]
   (* pop off values added to the stack up to pushed register values *)
   @ (if Int64.equal cleanup_stack 0L then [] else [IAdd(Reg(RSP), Const(cleanup_stack))])
   (* restore register values for the rest of this function to use *)
@@ -857,15 +866,12 @@ let rec compile_fun (fun_name : string) args frees body env : instruction list =
     IPush(Reg(RBP));
     IMov(Reg(RBP), Reg(RSP));
     (* TODO: change to maybe when implementing tail recursion *)
-    (* add closure to stack *)
-    ILineComment("Move closure to r11");
-    IMov(Reg(R11), Reg(List.hd first_six_args_registers));
   ]
-  @ (List.mapi (fun (i: int) (f: string) -> IPush(Sized(QWORD_PTR, RegOffset((i + 3) * word_size, R11)))) frees)
+  @ (List.mapi (fun (i: int) (f: string) -> IPush(Sized(QWORD_PTR, RegOffset((i + 3) * word_size, RAX)))) frees)
   @ [
     ISub(Reg(RSP), Const(Int64.of_int (stack_alloc_space * word_size)));
   ] 
-  @ (compile_aexpr body env (1 + (List.length args)) false) @ [
+  @ (compile_aexpr body env (List.length args) false) @ [
     IMov(Reg(RSP), Reg(RBP));
     IPop(Reg(RBP));
     IRet;
@@ -958,8 +964,8 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
           IMov(Reg(R10), bool_mask);
           IXor(Reg(RAX), Reg(R10));
         ]
-      | Print -> (setup_call_to_func 1 [e_reg] (Label("print")) false)
-      | PrintStack -> (setup_call_to_func 4 [e_reg; Reg(RSP); Reg(RBP); Const(Int64.of_int num_args)] (Label("print_stack")) false)
+      | Print -> (setup_call_to_func num_args [e_reg] (Label("print")) false)
+      | PrintStack -> (setup_call_to_func num_args [e_reg; Reg(RSP); Reg(RBP); Const(Int64.of_int num_args)] (Label("print_stack")) false)
     end
   | CPrim2(op, l, r, tag) ->
     let e1_reg = (compile_imm l env) in
@@ -1096,14 +1102,17 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
     let name = sprintf "fun_%d" tag in
     let frees = free_vars body args in
     let newenv = (get_lambda_envt args body frees) @ env in
-    compile_fun name args frees body newenv
+    ILineComment(sprintf "Compile lambda (%d args)" (List.length args))
+    :: compile_fun name args frees body newenv
     @ [
+      ILineComment("Setup lambda");
       (* store arity in first slot as a machine number since it's never accessed in our language *)
       IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (List.length args)));
       (* store the function address in the second slot TODO: is name good?*)
       IMov(Sized(QWORD_PTR, RegOffset(word_size, heap_reg)), Label(name));
       (* store the # of free variables in the 3rd slot as a machine # since it's never accessed in our language *)
       IMov(Sized(QWORD_PTR, RegOffset(word_size * 2, heap_reg)), Const(Int64.of_int (List.length frees)));
+      ILineComment("Move free vars into lambda");
     ]
     (* store free variables at [3:] *)
     @ List.flatten (List.mapi (fun idx (id: string) -> 
@@ -1112,12 +1121,15 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
           IMov(Sized(QWORD_PTR, RegOffset((idx + 3) * word_size, heap_reg)), Reg(R11));
         ]) frees)
     @ [
+      ILineComment("Save lambda");
       (* Move result to result place *)
       IMov(Reg(RAX), Reg(heap_reg));
       IAdd(Reg(RAX), Const(closure_tag));
+      ILineComment("Tag lambda");
       (* mov heap_reg to new aligned heap_reg *)
       IAdd(Reg(heap_reg), Const(Int64.of_int (16 * ((List.length frees) + 3) + 1)));
       IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
+      ILineComment("Lambda done");
     ]
 and compile_imm e env =
   match e with

@@ -243,34 +243,37 @@ let tanf_tests = [
      "(alet app_8 = (lam_10(5)) in (alet binop_7 = (app_8 + x_15) in " ^
      "(binop_7 + y_16))))) in (lam_5(5, 10)))");
   tanf_improved "sequence" "print(1); print(2)" "(alet unary_5 = print(1) in print(2))";
+  tanf_improved "compile_native_in_closure_multiple_args_anf" 
+    "(lambda (x, y): print(y))(1, 6)"
+    "(alet lam_5 = (lam(x_8, y_9) print(y_9)) in (lam_5(1, 6)))";
 ]
 
 let func_call_params_tests = [
   "get_func_call_params_no_closure_args">::(fun _ -> 
       assert_equal [
-        ("1", Reg(RSI));
-        ("2", Reg(RDX));
-        ("3", Reg(RCX));
-        ("4", Reg(R8));
-        ("5", Reg(R9));
-        ("6", RegOffset(16, RBP));
-        ("7", RegOffset(24, RBP));
+        ("1", Reg(RDI));
+        ("2", Reg(RSI));
+        ("3", Reg(RDX));
+        ("4", Reg(RCX));
+        ("5", Reg(R8));
+        ("6", Reg(R9));
+        ("7", RegOffset(16, RBP));
       ] (get_func_call_params 
-           ["1"; "2"; "3"; "4"; "5"; "6"; "7"] true [])
+           ["1"; "2"; "3"; "4"; "5"; "6"; "7"] [])
         ~printer:arg_envt_printer);
   "get_func_call_params_closure_args">::(fun _ -> 
       assert_equal [
-        ("1", Reg(RSI));
-        ("2", Reg(RDX));
-        ("3", Reg(RCX));
-        ("4", Reg(R8));
-        ("5", Reg(R9));
-        ("6", RegOffset(16, RBP));
-        ("7", RegOffset(24, RBP));
+        ("1", Reg(RDI));
+        ("2", Reg(RSI));
+        ("3", Reg(RDX));
+        ("4", Reg(RCX));
+        ("5", Reg(R8));
+        ("6", Reg(R9));
+        ("7", RegOffset(16, RBP));
         ("8", RegOffset(~-8, RBP));
         ("9", RegOffset(~-16, RBP));
       ] (get_func_call_params 
-           ["1"; "2"; "3"; "4"; "5"; "6"; "7"] true ["8"; "9"])
+           ["1"; "2"; "3"; "4"; "5"; "6"; "7"] ["8"; "9"])
         ~printer:arg_envt_printer);
 ]
 
@@ -310,6 +313,7 @@ let native_tests = [
   t "compile_native_1" "let _ = print(10) in print(100)" "" "10\n100\n100";
   t "compile_native_2" "let a = print((1, 2, 3)) in equal(a, (1, 2, 3))" "" "(1, 2, 3)\ntrue";
   t "compile_native_in_closure_let" "let a = (lambda (y): print(y)) in a(6)" "" "6\n6";
+  t "compile_native_in_closure_noarg" "(lambda: print(6))()" "" "6\n6";
   t "compile_native_in_closure" "(lambda (y): print(y))(6)" "" "6\n6";
   t "compile_native_in_closure_temp" "let f = (lambda (x): x) in (lambda (y): f(y))(6)" "" "6";
   t "compile_native_in_closure_multiple_args" "(lambda (x, y): print(y))(1, 6)" "" "6\n6";

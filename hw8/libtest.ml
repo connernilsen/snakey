@@ -729,10 +729,10 @@ test(1, 2)"
     true || run(6)"
       "true";
     "get_func_call_params_1">::(fun _ -> 
-        assert_equal [] (get_func_call_params [] false []) 
+        assert_equal [] (get_func_call_params [] []) 
           ~printer:arg_envt_printer);
     "get_func_call_params_2">::(fun _ -> 
-        assert_equal [("first", Reg(RDI))] (get_func_call_params ["first"] false [])
+        assert_equal [("first", Reg(RDI))] (get_func_call_params ["first"] [])
           ~printer:arg_envt_printer);
     "get_func_call_params_3">::(fun _ -> 
         assert_equal [
@@ -743,7 +743,7 @@ test(1, 2)"
           ("5", Reg(R8));
           ("6", Reg(R9));
         ] (get_func_call_params 
-             ["1"; "2"; "3"; "4"; "5"; "6"] false [])
+             ["1"; "2"; "3"; "4"; "5"; "6"] [])
           ~printer:arg_envt_printer);
     "get_func_call_params_4">::(fun _ -> 
         assert_equal [
@@ -755,7 +755,7 @@ test(1, 2)"
           ("6", Reg(R9));
           ("7", RegOffset(16, RBP));
         ] (get_func_call_params 
-             ["1"; "2"; "3"; "4"; "5"; "6"; "7"] false [])
+             ["1"; "2"; "3"; "4"; "5"; "6"; "7"] [])
           ~printer:arg_envt_printer);
     "get_func_call_params_5">::(fun _ -> 
         assert_equal [
@@ -769,7 +769,7 @@ test(1, 2)"
           ("8", RegOffset(24, RBP));
           ("9", RegOffset(32, RBP));
         ] (get_func_call_params 
-             ["1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9"] false [])
+             ["1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9"] [])
           ~printer:arg_envt_printer);
     "setup_call_to_func_save_regs_one_1">::(fun _ ->
         assert_equal [
