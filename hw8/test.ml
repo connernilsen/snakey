@@ -72,15 +72,15 @@ let anf1 = (anf     (tag (parse_string "test" test_prog)))
 
 
 let desugar_tests = [
-  tdesugar "desugar_decl_one" "def f(x): x\nf(1)" "\n(let-rec f = (lam(x) x) in (?f(1)))";
-  tdesugar "desugar_decl_two" "def f(x): x\ndef g(y, z, e): z + g\nf(1)" "\n(let-rec f = (lam(x) x) in (let-rec g = (lam(y, z, e) (z + g)) in (?f(1))))";
-  tdesugar "desugar_decl_and" "def f(x): x and def g(y, z, e): z + g\nf(1)" "\n(let-rec f = (lam(x) x), g = (lam(y, z, e) (z + g)) in (?f(1)))";
+  tdesugar "desugar_decl_one" "def f(x): x\nf(1)" "\n(let-rec f = (lam(x) x) in (f(1)))";
+  tdesugar "desugar_decl_two" "def f(x): x\ndef g(y, z, e): z + g\nf(1)" "\n(let-rec f = (lam(x) x) in (let-rec g = (lam(y, z, e) (z + g)) in (f(1))))";
+  tdesugar "desugar_decl_and" "def f(x): x and def g(y, z, e): z + g\nf(1)" "\n(let-rec f = (lam(x) x), g = (lam(y, z, e) (z + g)) in (f(1)))";
   tdesugar "desugar_decl_with_destructure"
     "def f((a, b), c): ((a, b), c)\nf((1, 2), 3)"
-    "\n(let-rec f = (lam(fun_arg#3, c) (let bind_temp3 = (fun_arg#3 check_size 2), a = bind_temp3[0], b = bind_temp3[1] in ((a, b), c))) in (?f((1, 2), 3)))";
+    "\n(let-rec f = (lam(fun_arg#3, c) (let bind_temp3 = (fun_arg#3 check_size 2), a = bind_temp3[0], b = bind_temp3[1] in ((a, b), c))) in (f((1, 2), 3)))";
   tdesugar "desugar_decl_with_destructure_and_blank"
     "def f((a, _), c): ((a,), c)\nf((1, 2), 3)"
-    "\n(let-rec f = (lam(fun_arg#3, c) (let bind_temp3 = (fun_arg#3 check_size 2), a = bind_temp3[0], _ = bind_temp3[1] in ((a,), c))) in (?f((1, 2), 3)))";
+    "\n(let-rec f = (lam(fun_arg#3, c) (let bind_temp3 = (fun_arg#3 check_size 2), a = bind_temp3[0], _ = bind_temp3[1] in ((a,), c))) in (f((1, 2), 3)))";
   tdesugar "desugar_letrec"
     "let rec x = 5 in x"
     "\n(let-rec x = 5 in x)";
@@ -89,7 +89,7 @@ let desugar_tests = [
     "\n(lam(x) x)";
   tdesugar "sequence" "print(5); print(5)" "\n(let _ = print(5) in print(5))";
   tdesugar "desugar_native" "input()" "\n((lam() (*input()))())";
-  tdesugar "desugar_native_lambda" "let a = (lambda: input()) in a()" "\n(let a = (lam() ((lam() (*input()))())) in (?a()))";
+  tdesugar "desugar_native_lambda" "let a = (lambda: input()) in a()" "\n(let a = (lam() ((lam() (*input()))())) in (a()))";
 ]
 
 let default_tests =
