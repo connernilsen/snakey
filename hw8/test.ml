@@ -54,6 +54,8 @@ let tfvs name ignored program expected = name>::
 
 let tdesugar (name : string) (program : string) (expected : string) = (check_name name)>:: fun _ ->
     assert_equal (expected ^ "\n") (string_of_program (desugar (tag (parse_string name program)))) ~printer:(fun s->s);;
+let tgetaenv (name : string) (expr : 'a aexpr) (expected : string) = (check_name name)>:: fun _ ->
+    assert_equal expected (string_of_envt (get_aexpr_envt expr 0)) ~printer:(fun s->s);;
 
 let tct (name : string) (program : string) (expected : string) = (check_name name)>:: fun _ ->
     assert_equal (expected ^ "\n") (string_of_program (rename_and_tag (tag (parse_string name program)))) ~printer:(fun s->s);;
@@ -76,19 +78,19 @@ def generate_helper(n):
   if n == 0: nil
   else:
     link(n, generate_helper(n - 1))
-def reverse(l):
-  if l == nil: nil
-  else:
-    append(reverse(l[1]), link(l[0], nil))
 def append(l, l2):
   if l == nil: l2
   else:
     link(l[0], append(l[1], l2))
+def reverse(l):
+  if l == nil: nil
+  else:
+    append(reverse(l[1]), link(l[0], nil))
 def generate(n):
   reverse(generate_helper(n))
 def map(f, l):
   if l == nil: l
-  else: link(f(l[0], map(f, l[1])))"
+  else: link(f(l[0]), map(f, l[1]))"
 
 let desugar_tests = [
   tdesugar "desugar_decl_one" "def f(x): x\nf(1)" "\n(let-rec f = (lam(x) x) in (f(1)))";
@@ -452,7 +454,7 @@ The identifier a, used at <def_no_shadow, 4:2-4:3>, is not in scope";
   t "map"
     (list_library ^ "let mylist = map((lambda(x): x + 1), generate(4)) in mylist")
     ""
-    "(2, 3, 4, 5)";
+    "(2, (3, (4, (5, nil))))";
 ]
 
 let let_rec_tests = [
@@ -494,20 +496,26 @@ let sequencing_tests = [
   t "sequencing_2" "let _ = print(1) in print(2)" "" "1\n2\n2"
 ]
 
+let get_envt_tests = [
+  tgetaenv "env_letrec" (ALetRec([("something"), CImmExpr(ImmNum(5L, 0))], ACExpr(CImmExpr(ImmNum(5L, 0))), 0)) " something";
+  tgetaenv "env_letrec_2" (ALetRec([("something"), CLambda(["arg1";"arg2"], ACExpr(CImmExpr(ImmNum(5L, 0))), 0)], ACExpr(CImmExpr(ImmNum(5L, 0))), 0)) " something"
+]
+
 
 let suite =
   "suite">:::
-  (* default_tests @
-     free_vars_tests @
-     wf_tests @ *)
+  default_tests @
+  free_vars_tests @
+  wf_tests @
   compile_tests @
-  (* call_type_tests @
-     func_call_params_tests @
-     let_rec_tests @
-     native_tests @
-     desugar_tests @
-     tanf_tests @ *)
-  sequencing_tests
+  call_type_tests @
+  func_call_params_tests @
+  let_rec_tests @
+  native_tests @
+  desugar_tests @
+  tanf_tests @
+  sequencing_tests @
+  get_envt_tests
 ;;
 
 
