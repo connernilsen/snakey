@@ -232,7 +232,7 @@ void error(uint64_t code, SNAKEVAL val) {
     fprintf(stderr, "unable to destructure tuple with incorrect length "); printHelp(stderr, val);
     break;
   case ERR_OVERFLOW:
-    fprintf(stderr, "Integer overflow, got "); printHelp(stderr, val);
+    fprintf(stderr, "overflow occurred for arithmetic operation, got "); printHelp(stderr, val);
     break;
   case ERR_GET_NOT_TUPLE:
     fprintf(stderr, "tuple access expected tuple, got "); printHelp(stderr, val);

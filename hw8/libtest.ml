@@ -117,21 +117,21 @@ let old_tests =
     t "or3" "true || true" "true";
     t "andSS" "false && 1" "false";
     t "orSS" "true || 1" "true";
-    te "andE1" "1 && true" "Error 3: expected a boolean, got num(1)";
-    te "andE2" "true && 1" "Error 3: expected a boolean, got num(1)";
-    te "orE1" "1 || true" "Error 3: expected a boolean, got num(1)";
-    te "orE2" "false || 1" "Error 3: expected a boolean, got num(1)";
+    te "andE1" "1 && true" "Error 3: expected a boolean, got 1";
+    te "andE2" "true && 1" "Error 3: expected a boolean, got 1";
+    te "orE1" "1 || true" "Error 3: expected a boolean, got 1";
+    te "orE2" "false || 1" "Error 3: expected a boolean, got 1";
     t "notIsbool" "!(isbool(40))" "true";
     t "notIsboolT" "!(isbool(true))" "false";
     t "notIsnumT" "!(isnum(40))" "false";
     t "notIsnum" "!(isnum(false))" "true";
-    te "bool_instead_of_num" "add1(true)" "Error 2: arithmetic expected a number, got bool(true)";
-    te "bool_instead_of_num_in_if" "add1(if true: false else: 5)" "Error 2: arithmetic expected a number, got bool(false)";
-    te "bool_instead_of_num2" "sub1(false)" "Error 2: arithmetic expected a number, got bool(false)";
-    te "num_instead_of_bool" "!(1)" "Error 3: expected a boolean, got num(1)";
-    te "num_instead_of_bool_in_if" "!(if false: false else: 5)" "Error 3: expected a boolean, got num(5)";
-    te "bool_instead_of_num3" "1 < true" "Error 1: comparison expected a number, got bool(true)";
-    te "num_instead_of_bool2" "if (1): 1 else: 0" "Error 3: expected a boolean, got num(1)";
+    te "bool_instead_of_num" "add1(true)" "Error 2: arithmetic expected a number, got true";
+    te "bool_instead_of_num_in_if" "add1(if true: false else: 5)" "Error 2: arithmetic expected a number, got false";
+    te "bool_instead_of_num2" "sub1(false)" "Error 2: arithmetic expected a number, got false";
+    te "num_instead_of_bool" "!(1)" "Error 3: expected a boolean, got 1";
+    te "num_instead_of_bool_in_if" "!(if false: false else: 5)" "Error 3: expected a boolean, got 5";
+    te "bool_instead_of_num3" "1 < true" "Error 1: comparison expected a number, got true";
+    te "num_instead_of_bool2" "if (1): 1 else: 0" "Error 3: expected a boolean, got 1";
     t "if_short_circuits1" "add1(if true: 1 else: add1(false))" "2";
     t "if_short_circuits2" "add1(if false: add1(false) else: 1)" "2";
     t "greater1" "1 > 1" "false";
@@ -156,16 +156,16 @@ let old_tests =
     t "equal8" "8 == true" "false";
     t "equal9" "false == 100" "false";
     t "conditional_in_let" "let x = 1 == 1 in x == true" "true";
-    te "greaterE1" "1 > true" "Error 1: comparison expected a number, got bool(true)";
-    te "greaterE2" "false > 1" "Error 1: comparison expected a number, got bool(false)";
-    te "greaterEqE1" "1 >= false" "Error 1: comparison expected a number, got bool(false)";
-    te "greaterEqE2" "true >= 1" "Error 1: comparison expected a number, got bool(true)";
-    te "lessE1" "1 < true" "Error 1: comparison expected a number, got bool(true)";
-    te "lessE2" "false < 1" "Error 1: comparison expected a number, got bool(false)";
-    te "lessEqE1" "1 <= false" "Error 1: comparison expected a number, got bool(false)";
-    te "lessEqE2" "true <= 1" "Error 1: comparison expected a number, got bool(true)";
-    te "lessEqE2_in_if" "1 <= (if true: false else: 5)" "Error 1: comparison expected a number, got bool(false)";
-    te "lessEqE2_in_if_in_let" "let x = 1 <= (if true: false else: 5) in x" "Error 1: comparison expected a number, got bool(false)";
+    te "greaterE1" "1 > true" "Error 1: comparison expected a number, got true";
+    te "greaterE2" "false > 1" "Error 1: comparison expected a number, got false";
+    te "greaterEqE1" "1 >= false" "Error 1: comparison expected a number, got false";
+    te "greaterEqE2" "true >= 1" "Error 1: comparison expected a number, got true";
+    te "lessE1" "1 < true" "Error 1: comparison expected a number, got true";
+    te "lessE2" "false < 1" "Error 1: comparison expected a number, got false";
+    te "lessEqE1" "1 <= false" "Error 1: comparison expected a number, got false";
+    te "lessEqE2" "true <= 1" "Error 1: comparison expected a number, got true";
+    te "lessEqE2_in_if" "1 <= (if true: false else: 5)" "Error 1: comparison expected a number, got false";
+    te "lessEqE2_in_if_in_let" "let x = 1 <= (if true: false else: 5) in x" "Error 1: comparison expected a number, got false";
 
     t "let_typing"
       "let x = isnum(5 * add1(7)), y = (if x: isnum(x) else: 10) in if (x && y): 27 else: !(x && y)" 
@@ -184,25 +184,25 @@ let old_tests =
       "-4611686018427387905" 
       "The number literal -4611686018427387905, used at <overflow_-2^62_base, 1:0-1:20>, is not supported in this language";
     te "overflow_2^62_plus_positive"
-      "4611686018427387903 + 1" "Error 4: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
+      "4611686018427387903 + 1" "Error 5: overflow occurred for arithmetic operation, got -4611686018427387904";
     te "overflow_2^62_plus_negative"
-      "-4611686018427387904 + -1" "Error 4: overflow occurred for arithmetic operation, got num(4611686018427387903)";
+      "-4611686018427387904 + -1" "Error 5: overflow occurred for arithmetic operation, got 4611686018427387903";
     te "overflow_2^62_add1"
-      "add1(4611686018427387903)" "Error 4: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
+      "add1(4611686018427387903)" "Error 5: overflow occurred for arithmetic operation, got -4611686018427387904";
     te "overflow_-2^62_minus_positive"
-      "4611686018427387903 - -1" "Error 4: overflow occurred for arithmetic operation, got num(-4611686018427387904)";
+      "4611686018427387903 - -1" "Error 5: overflow occurred for arithmetic operation, got -4611686018427387904";
     te "overflow_-2^62_minus_negative"
-      "-4611686018427387904 - 1" "Error 4: overflow occurred for arithmetic operation, got num(4611686018427387903)";
+      "-4611686018427387904 - 1" "Error 5: overflow occurred for arithmetic operation, got 4611686018427387903";
     te "overflow_-2^62_sub1"
-      "sub1(-4611686018427387904)" "Error 4: overflow occurred for arithmetic operation, got num(4611686018427387903)";
+      "sub1(-4611686018427387904)" "Error 5: overflow occurred for arithmetic operation, got 4611686018427387903";
     te "overflow_2^61_times_positive_1"
-      "4611686018427387903 * 4" "Error 4: overflow occurred for arithmetic operation, got num(-4)";
+      "4611686018427387903 * 4" "Error 5: overflow occurred for arithmetic operation, got -4";
     te "overflow_2^61_times_positive_2"
-      "-4611686018427387903 * -4" "Error 4: overflow occurred for arithmetic operation, got num(-4)";
+      "-4611686018427387903 * -4" "Error 5: overflow occurred for arithmetic operation, got -4";
     te "overflow_2^61_times_negative_1"
-      "4611686018427387903 * -4" "Error 4: overflow occurred for arithmetic operation, got num(4)";
+      "4611686018427387903 * -4" "Error 5: overflow occurred for arithmetic operation, got 4";
     te "overflow_2^61_times_negative_2"
-      "-4611686018427387903 * 4" "Error 4: overflow occurred for arithmetic operation, got num(4)";
+      "-4611686018427387903 * 4" "Error 5: overflow occurred for arithmetic operation, got 4";
 
     t "add_large_numbers_1"
       "4611686018427387903 + -4511686018427387903" "100000000000000000";
@@ -333,10 +333,13 @@ let old_tests =
        "(if (let abcd = true in abcd): 11 else: -11))") "-23";
 
     "setup_call_to_func_1">::(fun _ -> 
-        assert_equal [ICall(Label("label"))] (setup_call_to_func 0 [] (Label("label")) false) ~printer:to_asm);
+        assert_equal [ICall(Label("label"))] 
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 0 [] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_2">::(fun _ ->
         assert_equal [IMov(Reg(RDI), Const(1L)); ICall(Label("label"))]
-          (setup_call_to_func 0 [Const(1L)] (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 0 [Const(1L)] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_3">::(fun _ -> 
         assert_equal [
           IMov(Reg(RDI), Const(1L));
@@ -346,9 +349,10 @@ let old_tests =
           IMov(Reg(R8), Const(5L));
           IMov(Reg(R9), Const(6L));
           ICall(Label("label"))]
-          (setup_call_to_func 0
-             [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L)] 
-             (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 0
+                  [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L)] 
+                  (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_4">::(fun _ -> 
         assert_equal [
           IPush(Const(0L));
@@ -361,9 +365,10 @@ let old_tests =
           IPush(Const(7L));
           ICall(Label("label"));
           IAdd(Reg(RSP), Const(16L))]
-          (setup_call_to_func 0
-             [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
-             (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 0
+                  [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
+                  (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_5">::(fun _ -> 
         assert_equal [
           IMov(Reg(RDI), Const(1L));
@@ -376,9 +381,10 @@ let old_tests =
           IPush(Const(7L));
           ICall(Label("label"));
           IAdd(Reg(RSP), Const(16L))]
-          (setup_call_to_func 0
-             [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L)] 
-             (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 0
+                  [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L)] 
+                  (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_6">::(fun _ -> 
         assert_equal [
           IPush(Const(0L));
@@ -393,91 +399,71 @@ let old_tests =
           IPush(Const(7L));
           ICall(Label("label"));
           IAdd(Reg(RSP), Const(32L))]
-          (setup_call_to_func 0
-             [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L); Const(9L)] 
-             (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 0
+                  [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L); Const(9L)] 
+                  (Label("label")) false)) ~printer:to_asm);
     tanf_improved "let_in_prim"
       "add1(let x = 5 in x)"
-      "\n(alet x#5 = 5 in add1(x#5))";
+      "(alet x_5 = 5 in add1(x_5))";
     tanf_improved "let_in_prim_with_eval"
       "add1(let x = 5 in add1(x))"
-      "\n(alet x#5 = 5 in (alet unary_7 = add1(x#5) in add1(unary_7)))";
+      "(alet x_5 = 5 in (alet unary_7 = add1(x_5) in add1(unary_7)))";
     tanf_improved "let_in_prim2_with_eval"
       "add1(let x = 5 in (x + (let x = 2 in x)))"
-      "\n(alet x#5 = 5 in (alet x#11 = 2 in (alet binop_7 = (x#5 + x#11) in add1(binop_7))))";
+      "(alet x_5 = 5 in (alet x_11 = 2 in (alet binop_7 = (x_5 + x_11) in add1(binop_7))))";
     tanf_improved "let_in_let_in_if" 
       ("if (let x = 5, y = (let x = sub1(x), y = (add1(x) - 10) in y) in (y + x)): " ^
        "(let abcd = 10 in add1(abcd)) " ^
        "else: (let x = 0, y = sub1(if x: x else: 1) in y)")
-      ("\n(alet x#5 = 5 in " ^
-       "(alet x#11 = sub1(x#5) in " ^
-       "(alet unary_17 = add1(x#11) in " ^
-       "(alet y#15 = (unary_17 - 10) in " ^
-       "(alet y#8 = y#15 in " ^
-       "(alet binop_21 = (y#8 + x#5) in " ^
-       "(if binop_21: (alet abcd#26 = 10 in " ^
-       "add1(abcd#26)) " ^ 
-       "else: (alet x#32 = 0 in " ^
-       "(alet if_37 = (if x#32: x#32 else: 1) in " ^
-       "(alet y#35 = sub1(if_37) in " ^
-       "y#35))))))))))");
+      ("(alet x_5 = 5 in (alet x_11 = sub1(x_5) in (alet unary_17 = add1(x_11) in " ^
+       "(alet y_15 = (unary_17 - 10) in (alet y_8 = y_15 in (alet binop_21 = (y_8 + x_5) in " ^
+       "(if binop_21: (alet abcd_26 = 10 in add1(abcd_26)) else: (alet x_32 = 0 in " ^
+       "(alet if_37 = (if x_32: x_32 else: 1) in (alet y_35 = sub1(if_37) in y_35))))))))))");
     tanf_improved "lets_in_prim"
       "(let x = 1 in x) + (let x = 2 in x)"
-      "\n(alet x#5 = 1 in (alet x#10 = 2 in (x#5 + x#10)))";
+      "(alet x_5 = 1 in (alet x_10 = 2 in (x_5 + x_10)))";
     tanf_improved "if_in_if_in_let_in_add1"
       "add1(let x = (if (if 0: 0 else: 1): 2 else: 3) in (if x: 4 else: 5))"
-      "\n(alet if_7 = (if 0: 0 else: 1) in (alet x#5 = (if if_7: 2 else: 3) in (alet if_13 = (if x#5: 4 else: 5) in add1(if_13))))";
+      "(alet if_7 = (if 0: 0 else: 1) in (alet x_5 = (if if_7: 2 else: 3) in (alet if_13 = (if x_5: 4 else: 5) in add1(if_13))))";
     tanf_improved "simple_conditional"
       "(let x = (if 1: 5 + 5 else: 6 * 2) in (let y = (if 0: x * 3 else: x + 5) in x + y))"
-      ("\n(alet x#4 = (if 1: (5 + 5) else: (6 * 2)) in (alet y#15 = (if 0: (x#4 * 3) else: (x#4 + 5)) in (x#4 + y#15)))");
+      ("(alet x_4 = (if 1: (5 + 5) else: (6 * 2)) in (alet y_15 = (if 0: (x_4 * 3) else: (x_4 + 5)) in (x_4 + y_15)))");
     tanf_improved "complex_conditional"
       ("(let x = (if (5 - 10): add1(5 + 5) else: sub1(6 * 2)) in " ^
        "(let y = sub1(if (x * 0): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))"
       )
-      ("\n(alet binop_6 = (5 - 10) in " ^
-       "(alet x#4 = (if binop_6: " ^
-       "(alet binop_10 = (5 + 5) in " ^ 
-       "add1(binop_10)) " ^
-       "else: " ^ 
-       "(alet binop_14 = (6 * 2) in " ^ 
-       "sub1(binop_14))) in " ^ 
-       "(alet binop_22 = (x#4 * 0) in " ^ 
-       "(alet if_21 = (if binop_22: " ^ 
-       "(alet unary_27 = sub1(3) in (x#4 * unary_27)) " ^
-       "else: " ^ 
-       "(alet unary_30 = add1(x#4) in (unary_30 + 5))) in " ^ 
-       "(alet y#19 = sub1(if_21) in " ^ 
-       "(alet binop_34 = (x#4 + y#19) in sub1(binop_34)))))))");
+      ("(alet binop_6 = (5 - 10) in " ^
+       "(alet x_4 = (if binop_6: (alet binop_10 = (5 + 5) in " ^
+       "add1(binop_10)) else: (alet binop_14 = (6 * 2) in sub1(binop_14))) in " ^
+       "(alet binop_22 = (x_4 * 0) in " ^
+       "(alet if_21 = (if binop_22: (alet unary_27 = sub1(3) in (x_4 * unary_27)) else: (alet unary_30 = add1(x_4) in (unary_30 + 5))) in " ^
+       "(alet y_19 = sub1(if_21) in (alet binop_34 = (x_4 + y_19) in sub1(binop_34)))))))");
     tanf_improved "expr_basic"
       ("def f() : 1\n1")
-      ("(fun f$2(): 1)\n1");
+      ("(aletrec f = (lam() 1) in 1)");
     tanf_improved "expr_call"
       ("def f() : 1\nf()")
-      ("(fun f$2(): 1)\n(f$2())");
+      ("(aletrec f = (lam() 1) in (f()))");
     tanf_improved "expr_call_w_imm_args"
       ("def f(a, b) : 1\n(f(1, 2))")
-      ("(fun f$2(a#3, b#4): 1)\n(f$2(1, 2))");
-    tanf_improved "expr_call_w_compound_args"
-      ("def f(a, b) : 1\nf(add1(1), 2)")
-      ("(fun f$2(a#3, b#4): 1)\n(alet unary_7 = add1(1) in (f$2(unary_7, 2)))");
-    tanf_improved "expr_call_w_multiple_compound_args"
-      ("def f(a, b) : 1\nf(add1(1), add1(1))")
-      ("(fun f$2(a#3, b#4): 1)\n(alet unary_7 = add1(1) in (alet unary_9 = add1(1) in (f$2(unary_7, unary_9))))");
+      ("(aletrec f = (lam(a_3, b_4) 1) in (f(1, 2)))");
     tanf_improved "multiple_expr_call_w_multiple_compound_args"
       ("def f(a, b) : 1\ndef g(a, b, c) : a == b\nlet c = f(add1(1), add1(1)), d = g(add1(2), add1(3), 4 + 3) in d")
-      ("(fun f$2(a#3, b#4): 1)\n" ^
-       "(fun g$6(a#7, b#8, c#9): (a#7 == b#8))\n" ^
-       "(alet unary_17 = add1(1) in (alet unary_19 = add1(1) in (alet c#15 = (f$2(unary_17, unary_19)) in (alet unary_24 = add1(2) in (alet unary_26 = add1(3) in (alet binop_28 = (4 + 3) in (alet d#22 = (g$6(unary_24, unary_26, binop_28)) in d#22)))))))");
+      ("(aletrec f = (lam(a_3, b_4) 1) in (aletrec g = (lam(a_7, b_8, c_9) (a_7 == b_8)) in " ^
+       "(alet unary_23 = add1(1) in (alet unary_25 = add1(1) in (alet c_15 = (f(unary_23, unary_25)) in " ^
+       "(alet unary_31 = add1(2) in (alet unary_33 = add1(3) in (alet binop_35 = (4 + 3) in " ^
+       "(alet d_23 = (g(unary_31, unary_33, binop_35)) in d_23)))))))))");
     tanf_improved "expr_within_expr"
       ("def f(a) : a\ndef g(b) : add1(b)\nf(g(1))")
-      ("(fun f$2(a#3): a#3)\n(fun g$5(b#6): add1(b#6))\n(alet app_10 = (g$5(1)) in (f$2(app_10)))");
+      ("(aletrec f = (lam(a_3) a_3) in (aletrec g = (lam(b_6) add1(b_6)) in (alet app_16 = (g(1)) in (f(app_16)))))");
     tanf_improved "expr_within_expr_within_expr"
       ("def f(a) : a\ndef g(b) : add1(b)\ndef h(b) : b\nh(f(g(1)))")
-      ("(fun f$2(a#3): a#3)\n(fun g$5(b#6): add1(b#6))\n(fun h$9(b#10): b#10)\n(alet app_14 = (g$5(1)) in (alet app_13 = (f$2(app_14)) in (h$9(app_13))))");
+      ("(aletrec f = (lam(a_3) a_3) in (aletrec g = (lam(b_6) add1(b_6)) in (aletrec h = (lam(b_10) b_10) in (alet app_23 = (g(1)) in (alet app_22 = (f(app_23)) in (h(app_22)))))))");
     tanf_improved "infinite_loop_anf"
       ("def f(a) : g(a)\ndef g(a) : f(a)\ng(1)")
-      ("(fun f$2(a#3): (g$6(a#3)))\n(fun g$6(a#7): (f$2(a#7)))\n(g$6(1))");
-    te "basic" "f()" "The function name f, used at <basic, 1:0-1:3>, is not in scope";
+      ("(aletrec f = (lam(a_3) (g(a_3))) in (aletrec g = (lam(a_8) (f(a_8))) in (g(1))))");
+    te "basic" "f()" "The identifier f, used at <basic, 1:0-1:1>, is not in scope";
     te "dup_fun" 
       "def test(): 1
 def test(): 2
@@ -504,31 +490,23 @@ test(1, 2)"
                       (create_ss "dup_binds_let" 1 4 1 5))]);
     te "unbound_fun"
       "test()"
-      (print_te 
-         [UnboundFun("test",
-                     (create_ss "unbound_fun" 1 0 1 6))]);
-    te "function_as_arg"
+      "The identifier test, used at <unbound_fun, 1:0-1:4>, is not in scope";
+    t "function_as_arg"
       "def a(b):
       b
      def b(a):
       a
     b(a)"
-      (print_te [
-          UnboundId("a", create_ss "function_as_arg" 5 6 5 7);
-        ]);
+      "<function>";
     te "let_call"
       "let a = 1 in a(1)"
-      (print_te [
-          UnboundFun("a", create_ss "let_call" 1 13 1 17);
-        ]);
+      "Error 16: tried to call a non-function value: 1";
     te "arity_less"
       "def test(x): x test()"
-      (print_te 
-         [Arity(1, 0, (create_ss "arity_less" 1 15 1 21))]);
+      "Error 17: arity mismatch in call";
     te "arity_more"
       "def test(x, y): x + y test(1)"
-      (print_te 
-         [Arity(2, 1, (create_ss "arity_more" 1 22 1 29))]);
+      "Error 17: arity mismatch in call";
     te "arity_and_dup_correct"
       "def test(x): x def test(x, y): x + y test(1)"
       (print_te 
@@ -572,9 +550,8 @@ test(1, 2)"
           UnboundId("b", create_ss "nested_errors" 2 18 2 19);
           UnboundId("a", create_ss "nested_errors" 3 8 3 9);
           UnboundId("b", create_ss "nested_errors" 5 8 5 9);
-          Arity(1, 2, create_ss "nested_errors" 6 12 6 22);
           UnboundId("a", create_ss "nested_errors" 6 20 6 21);
-          UnboundFun("hello", create_ss "nested_errors" 6 26 6 34);
+          UnboundId("hello", create_ss "nested_errors" 6 26 6 31);
           UnboundId("b", create_ss "nested_errors" 6 32 6 33);
         ]);
     t "call_func"
@@ -607,7 +584,7 @@ test(1, 2)"
         t2(print(num * -1))
       else:
         t2(print(num))
-    def t2(val):
+    and def t2(val):
       let dec_num = abs_dec(val) in
       if dec_num == 0:
         val > 0 
@@ -631,7 +608,7 @@ test(1, 2)"
         t2(print(num * -1))
       else:
         t2(print(num))
-    def t2(val):
+    and def t2(val):
       let dec_num = abs_dec(val) in
       if dec_num == 0:
         0 
@@ -647,7 +624,7 @@ test(1, 2)"
           y = print(n) in 
         isnum(n) && isbool(b) 
         && isnum(y) && isbool(x)
-    def f2(n, b):
+    and def f2(n, b):
       let x = print(f1(b, n)),
           y = print(n),
           z = print(b) in 
@@ -662,7 +639,7 @@ test(1, 2)"
       else:
         let a = print(i) in 
           f2(n, b, i + 1)
-    def f2(n, b, i):
+    and def f2(n, b, i):
         f1(b, n, i)
     f2(5, false, 0)"
       "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\ntrue";
@@ -673,7 +650,7 @@ test(1, 2)"
       else:
         let a = print(i) in 
           f2(n, b, i + 1)
-    def f2(n, b, i):
+    and def f2(n, b, i):
         f1(b, n, i)
     f2(5, false, 0)"
       "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\ntrue";
@@ -691,15 +668,11 @@ test(1, 2)"
           f1(b, c, a + 1, i + 1)
     f1(0, 0, 0, 0)"
       "30";
-    t "function_def_in_let"
+    te "function_def_in_let"
       "def run(val):
       let run = val in print(run)
     let run = 5 in run(run)"
-      "5\n5";
-    t "function_def_in_let_2"
-      "def run(run): print(run)
-    let run = 5 in run(run)"
-      "5\n5";
+      "Error 16: tried to call a non-function value: 5";
     t "short_circuit_def_1"
       "def run(run): print(run)
     false && run(6)"
@@ -1109,10 +1082,10 @@ test(1, 2)"
     terr "wf_tuple_set" "(a, 1, 2, 3)[0] := 0" "" "The identifier a, used at <wf_tuple_set, 1:1-1:2>, is not in scope";
     terr "wf_tuple_set_arg" "(1, 2, 3)[a] := 0" "" "The identifier a, used at <wf_tuple_set_arg, 1:10-1:11>, is not in scope";
     terr "wf_tuple_set_set" "(1, 2, 3)[0] := a" "" "The identifier a, used at <wf_tuple_set_set, 1:16-1:17>, is not in scope";
-    te "wf_rebind_fun" "def a(): true\ndef a(): true\n1" (print_te 
-                                                            [DuplicateFun("a",
-                                                                          (create_ss "wf_rebind_fun" 2 0 2 13),
-                                                                          (create_ss "wf_rebind_fun" 1 0 1 13))]);
+    te "wf_rebind_fun" "def a(): true\nand def a(): true\n1" (print_te 
+                                                                [DuplicateFun("a",
+                                                                              (create_ss "wf_rebind_fun" 2 0 2 13),
+                                                                              (create_ss "wf_rebind_fun" 1 0 1 13))]);
     terr "wf_sequence_1" "a; a" "" "The identifier a, used at <wf_sequence_1, 1:0-1:1>, is not in scope\nThe identifier a, used at <wf_sequence_1, 1:3-1:4>, is not in scope";
     te "wf_let_tuple_repeats" "let (a, a) = (1, 2) in true"
       (print_te 
