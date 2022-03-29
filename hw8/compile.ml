@@ -1092,10 +1092,11 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
        ISub(Reg(RAX), Const(tuple_tag));
        IMov(Reg(RAX), RegOffset(0, RAX));
        ICmp(Reg(R11), Reg(RAX));
-       IMov(Reg(RAX), tuple);
+       IMov(Reg(RAX), idx);
        IJge(Label(label_GET_HIGH_INDEX));
        ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
        IJl(Label(label_GET_LOW_INDEX));
+       IMov(Reg(RAX), tuple);
        ISub(Reg(RAX), Const(tuple_tag));
        (* get value *)
        IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, word_size))])
@@ -1122,10 +1123,11 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
        ISub(Reg(RAX), Const(tuple_tag));
        IMov(Reg(RAX), RegOffset(0, RAX));
        ICmp(Reg(R11), Reg(RAX));
-       IMov(Reg(RAX), tuple);
+       IMov(Reg(RAX), idx);
        IJge(Label(label_GET_HIGH_INDEX));
        ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
        IJl(Label(label_GET_LOW_INDEX));
+       IMov(Reg(RAX), tuple);
        ISub(Reg(RAX), Const(tuple_tag));
        ILineComment("get and set value");
        IMov(Reg(R12), set);
