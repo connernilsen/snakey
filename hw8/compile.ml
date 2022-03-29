@@ -571,9 +571,10 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
     (* let dup_fun_errors = dup_d_errors decls in *)
     let d_errs, d_env = List.fold_left2 (fun (acc_errors, acc_env) decls env -> 
         ((d_errors decls (env @ acc_env)) @ acc_errors, env @ acc_env)) ([], builtin_env) decls envs in
+    let dup_exns = find_dup_exns_by_env d_env in
     let e_errs = wf_E body d_env in 
     begin
-      match d_errs @ e_errs with 
+      match dup_exns @ d_errs @ e_errs with 
       | [] -> Ok p
       | e -> Error e
     end

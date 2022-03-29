@@ -469,9 +469,9 @@ let old_tests =
 def test(): 2
 test()"
       (print_te 
-         [DuplicateFun("test", 
-                       (create_ss "dup_fun" 2 0 2 13), 
-                       (create_ss "dup_fun" 1 0 1 13))]);
+         [DuplicateId("test", 
+                      (create_ss "dup_fun" 2 0 2 13), 
+                      (create_ss "dup_fun" 1 0 1 13))]);
     te "dup_binds_fun"
       "def test(x, x): x
 test(1, 2)"
@@ -510,16 +510,15 @@ test(1, 2)"
     te "arity_and_dup_correct"
       "def test(x): x def test(x, y): x + y test(1)"
       (print_te 
-         [DuplicateFun("test", 
-                       (create_ss "arity_and_dup_correct" 1 15 1 36), 
-                       (create_ss "arity_and_dup_correct" 1 0 1 14))]);
+         [DuplicateId("test", 
+                      (create_ss "arity_and_dup_correct" 1 15 1 36), 
+                      (create_ss "arity_and_dup_correct" 1 0 1 14))]);
     te "arity_and_dup_incorrect"
       "def test(x, y): x + y def test(x): x test(1)"
       (print_te 
-         [DuplicateFun("test", 
-                       (create_ss "arity_and_dup_incorrect" 1 22 1 36), 
-                       (create_ss "arity_and_dup_incorrect" 1 0 1 21));
-          Arity(2, 1, (create_ss "arity_and_dup_incorrect" 1 37 1 44))]);
+         [DuplicateId("test", 
+                      (create_ss "arity_and_dup_incorrect" 1 22 1 36), 
+                      (create_ss "arity_and_dup_incorrect" 1 0 1 21))]);
     te "overflow"
       "4611686018427387904" 
       (print_te [Overflow(4611686018427387904L,
@@ -1083,9 +1082,9 @@ test(1, 2)"
     terr "wf_tuple_set_arg" "(1, 2, 3)[a] := 0" "" "The identifier a, used at <wf_tuple_set_arg, 1:10-1:11>, is not in scope";
     terr "wf_tuple_set_set" "(1, 2, 3)[0] := a" "" "The identifier a, used at <wf_tuple_set_set, 1:16-1:17>, is not in scope";
     te "wf_rebind_fun" "def a(): true\nand def a(): true\n1" (print_te 
-                                                                [DuplicateFun("a",
-                                                                              (create_ss "wf_rebind_fun" 2 0 2 13),
-                                                                              (create_ss "wf_rebind_fun" 1 0 1 13))]);
+                                                                [DuplicateId("a",
+                                                                             (create_ss "wf_rebind_fun" 1 0 1 13),
+                                                                             (create_ss "wf_rebind_fun" 2 4 2 17))]);
     terr "wf_sequence_1" "a; a" "" "The identifier a, used at <wf_sequence_1, 1:0-1:1>, is not in scope\nThe identifier a, used at <wf_sequence_1, 1:3-1:4>, is not in scope";
     te "wf_let_tuple_repeats" "let (a, a) = (1, 2) in true"
       (print_te 

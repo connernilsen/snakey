@@ -343,6 +343,35 @@ let compile_tests = [
    let f = (lambda: a + e) in # only two stack slots should be allocated in f's body
    f()"
     "" "6";
+  te "let_rec_shadow_error"
+    "let rec a = (lambda(x): x), a = (lambda(y): y - 1) in a(1)"
+    "The identifier a, redefined at <let_rec_shadow_error, 1:8-1:26>, duplicates one at <let_rec_shadow_error, 1:28-1:50>";
+  te "let_shadow_error"
+    "let a = 5, a = (lambda(x): x) in a(a)"
+    "The identifier a, redefined at <let_shadow_error, 1:11-1:12>, duplicates one at <let_shadow_error, 1:4-1:5>";
+  t "let_letrec_nested_shadow"
+    "def a(x): x
+    let rec a = (lambda(x): x + 1) in
+      let a = 5 in a"
+    "" "5";
+  te "def_no_shadow"
+    "def x(y): y
+  def x(y, z): y + z
+  and def x(a, b, c): a + b + c
+  a(1)"
+    "The identifier x, redefined at <def_no_shadow, 2:2-2:20>, duplicates one at <def_no_shadow, 3:6-3:31>
+The identifier x, redefined at <def_no_shadow, 2:2-2:20>, duplicates one at <def_no_shadow, 1:0-1:11>
+The identifier a, used at <def_no_shadow, 4:2-4:3>, is not in scope";
+  t "def_with_same_var"
+    "def x(x): x
+  x(1)"
+    ""
+    "1";
+  t "let_rec_same_var"
+    "let x = (lambda(x): x) in
+  x(1)"
+    ""
+    "1";
 ]
 
 let let_rec_tests = [
