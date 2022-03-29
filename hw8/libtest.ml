@@ -1239,12 +1239,9 @@ test(1, 2)"
     ti "input_print_int" "print(input())" "5" "5\n5";
     ti "input_print_bool" "print(input())" "true" "true\ntrue";
     ti "input_print_bool_false" "print(input())" "false" "false\nfalse";
-    ti "wf_input" "input()" "" "0";
     ti "tup1" "let t = (4, (5, 6)) in
-            begin
               t[0] := 7;
-              t
-            end" "" "(7, (5, 6))";
+              t" "" "(7, (5, 6))";
     ti "tup2" "let t = (4, (5, nil)) in
             begin
               t[1] := nil;
@@ -1398,7 +1395,7 @@ test(1, 2)"
     ti "let_with_print"
       "let x = print(1) in isnum(x)"
       ""
-      "";
+      "1\ntrue";
     ti "print_add" "print(5 * 5) ; 5 - 2" "" "25\n3";
     ti "add_twice" "5 * 5 ; 5 - 2" "" "3";
     ti "sequencing" "print(5 * 5); print(3)" "" "25\n3\n3";

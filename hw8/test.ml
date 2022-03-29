@@ -268,6 +268,11 @@ let tanf_tests = [
   tanf_improved "anf_input" "input()" "(alet lam_3 = (lam() (*input())) in (lam_3()))";
   tanf_improved "anf_lambda" "let lam = (lambda: 1) in lam()" "(alet lam_4 = (lam() 1) in (lam_4()))";
   tanf_improved "anf_native" "let a = (lambda: input()) in a()" "(alet a_4 = (lam() (alet lam_7 = (lam() (*input())) in (lam_7()))) in (a_4()))";
+  tanf_improved "anf_set_tuple"
+    "let t = (4, (5, 6)) in
+              t[0] := 7;
+              t"
+    "(alet tuple_7 = (5, 6) in (alet t_4 = (4, tuple_7) in (alet get_13 = t_4[0] := 7  in t_4)))";
 ]
 
 let func_call_params_tests = [
@@ -321,6 +326,23 @@ let compile_tests = [
     fact = (lambda (f): (lambda (x): (if x == 1: 1 else: x * f(x - 1)))) in
     y(fact)(3)" "" "6";
   t "ocsh" "def our_code_starts_here(): 5\nour_code_starts_here()" "" "5";
+  t "given_1" 
+    "let x = 5 in
+     let y = 6 in
+     let z = y in
+     let f = (lambda: x + z) in
+     let h = (lambda: z + y) in
+     f() # this should return 11, and no function should need more than 2 stack slots"
+    "" "11";
+  t "given_2"
+    "let a = 1,
+       b = 2,
+       c = 3,
+       d = 4,
+       e = 5 in
+   let f = (lambda: a + e) in # only two stack slots should be allocated in f's body
+   f()"
+    "" "6";
 ]
 
 let let_rec_tests = [
@@ -380,5 +402,5 @@ let suite =
 
 
 let () =
-  run_test_tt_main ("all_tests">:::[suite; (* old_tests; *) input_file_test_suite ()])
+  run_test_tt_main ("all_tests">:::[suite; (*old_tests;*) input_file_test_suite ()])
 ;;

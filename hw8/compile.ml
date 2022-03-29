@@ -278,7 +278,7 @@ let rec deepest_stack e env =
     | CTuple(vals, _) -> List.fold_left max 0 (List.map helpI vals)
     | CGetItem(t, _, _) -> helpI t
     | CSetItem(t, _, v, _) -> max (helpI t) (helpI v)
-    | CLambda(args, body, _) -> 0
+    | CLambda(args, body, _) -> 1
     | CImmExpr i -> helpI i
   and helpI i =
     match i with
@@ -407,12 +407,14 @@ let anf (p : tag program) : unit aprogram =
                        @ index_setup 
                        @ [BLet(tmp, CGetItem(tuple_id, index_id, ()))])
     | ESetItem(tuple, index, newval, tag) ->
-      let tmp = sprintf "get_%d" tag 
-      and (tuple_id, tuple_setup) = helpI tuple 
-      and (index_id, index_setup) = helpI index in 
+      let tmp = sprintf "get_%d" tag in
+      let (tuple_id, tuple_setup) = helpI tuple in
+      let (index_id, index_setup) = helpI index in 
+      let (newval_id, newval_setup) = helpI newval in
       (ImmId(tmp, ()), tuple_setup 
                        @ index_setup 
-                       @ [BLet(tmp, CGetItem(tuple_id, index_id, ()))])
+                       @ newval_setup
+                       @ [BLet(tmp, CSetItem(tuple_id, index_id, newval_id, ()))])
     | EPrim1(op, arg, tag) ->
       let tmp = sprintf "unary_%d" tag in
       let (arg_imm, arg_setup) = helpI arg in
@@ -898,7 +900,7 @@ and compile_aexpr (e : tag aexpr) (env : arg envt) (num_args : int) (is_tail : b
     let prelude = compile_cexpr bind env num_args is_tail in
     let body = compile_aexpr body env num_args is_tail in
     prelude
-    @ [ IMov(find env id, Reg(RAX)) ]
+    @ [ IInstrComment(IMov(find env id, Reg(RAX)), sprintf "save %s" id) ]
     @ body
   | ACExpr(body) -> 
     (compile_cexpr body env num_args is_tail)
@@ -909,7 +911,7 @@ and compile_aexpr (e : tag aexpr) (env : arg envt) (num_args : int) (is_tail : b
           let newname = sprintf "fun_%d" tag in
           let frees = free_vars body args in
           (setup_lambda newname args frees)
-          @ [IMov(find env name, Reg(RAX))]
+          @ [IInstrComment(IMov(find env name, Reg(RAX)), sprintf "save (rec) %s" name)]
         | _ -> raise (InternalCompilerError "Tried to compile non lambda in let rec")) binds)
     in 
     let lambda_comps = List.flatten (List.map (fun (name, bind) ->
@@ -1105,17 +1107,19 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
     (* Check tuple is tuple *)
     (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
      (* Check index is num *)
-     @ [ (* ensure tuple isn't nil *)
+     @ [ 
+       ILineComment("ensure tuple isn't nil");
        IMov(Reg(R11), nil);
        ICmp(Reg(RAX), Reg(R11));
        IJe(Label(label_NIL_DEREF));
        IMov(Reg(RAX), idx) 
      ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM)
-     @ [ (* convert to machine num *)
+     @ [ 
+       ILineComment("convert to machine num");
        IMov(Reg(RAX), tuple);
        IMov(Reg(R11), idx);
        ISar(Reg(R11), Const(1L));
-       (* check bounds *)
+       ILineComment("check bounds");
        ISub(Reg(RAX), Const(tuple_tag));
        IMov(Reg(RAX), RegOffset(0, RAX));
        ICmp(Reg(R11), Reg(RAX));
@@ -1124,7 +1128,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
        ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
        IJl(Label(label_GET_LOW_INDEX));
        ISub(Reg(RAX), Const(tuple_tag));
-       (* get value *)
+       ILineComment("get and set value");
        IMov(Reg(R12), set);
        IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, R11, word_size, word_size)), Reg(R12));
        IMov(Reg(RAX), set)])
