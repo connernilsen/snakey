@@ -40,36 +40,35 @@ let const_nil        = HexConst(tuple_tag)
 
 
 (* error codes *)
-let err_COMP_NOT_NUM        = 1L
-let err_ARITH_NOT_NUM       = 2L
-let err_NOT_BOOL            = 3L
-let err_OVERFLOW            = 4L
-let err_GET_NOT_TUPLE       = 5L
-let err_GET_LOW_INDEX       = 6L
-let err_GET_HIGH_INDEX      = 7L
-let err_NIL_DEREF           = 8L
-let err_GET_NOT_NUM         = 9L
-let err_DESTRUCTURE_INVALID_LEN         = 10L
-let err_SHOULD_BE_FUN         = 16L
-let err_ARITY         = 17L
+(* let err_COMP_NOT_NUM        = 1L
+   let err_ARITH_NOT_NUM       = 2L
+   let err_NOT_BOOL            = 3L
+   let err_OVERFLOW            = 4L
+   let err_GET_NOT_TUPLE       = 5L
+   let err_GET_LOW_INDEX       = 6L
+   let err_GET_HIGH_INDEX      = 7L
+   let err_NIL_DEREF           = 8L
+   let err_GET_NOT_NUM         = 9L
+   let err_SHOULD_BE_FUN         = 16L
+   let err_ARITY         = 17L *)
 
-(* let err_COMP_NOT_NUM     = 1L
-   let err_ARITH_NOT_NUM    = 2L
-   let err_LOGIC_NOT_BOOL   = 3L
-   let err_IF_NOT_BOOL      = 4L
-   let err_OVERFLOW         = 5L
-   let err_GET_NOT_TUPLE    = 6L
-   let err_GET_LOW_INDEX    = 7L
-   let err_GET_HIGH_INDEX   = 8L
-   let err_GET_NOT_NUM      = 9L
-   let err_NIL_DEREF        = 10L
-   let err_OUT_OF_MEMORY    = 11L
-   let err_SET_NOT_TUPLE    = 12L
-   let err_SET_LOW_INDEX    = 13L
-   let err_SET_NOT_NUM      = 14L
-   let err_SET_HIGH_INDEX   = 15L
-   let err_CALL_NOT_CLOSURE = 16L
-   let err_CALL_ARITY_ERR   = 17L *)
+let err_COMP_NOT_NUM     = 1L
+let err_ARITH_NOT_NUM    = 2L
+let err_NOT_BOOL         = 3L
+let err_DESTRUCTURE_INVALID_LEN = 4L
+let err_OVERFLOW         = 5L
+let err_GET_NOT_TUPLE    = 6L
+let err_GET_LOW_INDEX    = 7L
+let err_GET_HIGH_INDEX   = 8L
+let err_GET_NOT_NUM      = 9L
+let err_NIL_DEREF        = 10L
+let err_OUT_OF_MEMORY    = 11L
+let err_SET_NOT_TUPLE    = 12L
+let err_SET_LOW_INDEX    = 13L
+let err_SET_NOT_NUM      = 14L
+let err_SET_HIGH_INDEX   = 15L
+let err_CALL_NOT_CLOSURE = 16L
+let err_CALL_ARITY_ERR   = 17L
 
 (* label names for errors *)
 let label_COMP_NOT_NUM         = "error_comp_not_num"
@@ -859,14 +858,14 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (func : arg) (
   :: (backup_caller_saved_registers num_regs_to_save first_six_args_registers)
   (* align the stack if necessary *)
   @ (if should_stack_align 
-     then [IInstrComment(IPush(Const(0L)), "Stack align")] 
+     then [ILineComment("Stack align"); IPush(Const(0L))] 
      else [ILineComment("No stack align")])
   @ check_call_type
   @ [ILineComment("Setup args")]
   (* put the args for the next function in registers/on the stack *)
   @ (setup_args args first_six_args_registers) 
   (* call *)
-  @ [IInstrComment(call, "Do call"); ILineComment("Cleanup stack and restore caller saved registers")]
+  @ [call; ILineComment("Cleanup stack and restore caller saved registers")]
   (* pop off values added to the stack up to pushed register values *)
   @ (if Int64.equal cleanup_stack 0L then [] else [IAdd(Reg(RSP), Const(cleanup_stack))])
   (* restore register values for the rest of this function to use *)
@@ -1223,8 +1222,8 @@ let compile_prog ((anfed : tag aprogram), (env: arg envt)) : string =
         (label_OVERFLOW, err_OVERFLOW);
         (label_NIL_DEREF, err_NIL_DEREF);
         (label_DESTRUCTURE_INVALID_LEN, err_DESTRUCTURE_INVALID_LEN);
-        (label_SHOULD_BE_FUN, err_SHOULD_BE_FUN);
-        (label_ARITY, err_ARITY);
+        (label_SHOULD_BE_FUN, err_CALL_NOT_CLOSURE);
+        (label_ARITY, err_CALL_ARITY_ERR);
       ])) in
 
     let main = to_asm (comp_body @ body_epilogue) in

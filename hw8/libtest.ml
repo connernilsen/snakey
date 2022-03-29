@@ -474,7 +474,7 @@ let old_tests =
     tanf_improved "expr_within_expr_within_expr"
       ("def f(a) : a\ndef g(b) : add1(b)\ndef h(b) : b\nh(f(g(1)))")
       ("(fun f$2(a#3): a#3)\n(fun g$5(b#6): add1(b#6))\n(fun h$9(b#10): b#10)\n(alet app_14 = (g$5(1)) in (alet app_13 = (f$2(app_14)) in (h$9(app_13))))");
-    tanf_improved "infinite_loop"
+    tanf_improved "infinite_loop_anf"
       ("def f(a) : g(a)\ndef g(a) : f(a)\ng(1)")
       ("(fun f$2(a#3): (g$6(a#3)))\n(fun g$6(a#7): (f$2(a#7)))\n(g$6(1))");
     te "basic" "f()" "The function name f, used at <basic, 1:0-1:3>, is not in scope";
@@ -768,7 +768,8 @@ test(1, 2)"
           ("7", RegOffset(16, RBP));
           ("8", RegOffset(24, RBP));
           ("9", RegOffset(32, RBP));
-        ] (get_func_call_params 
+        ] 
+          (get_func_call_params 
              ["1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9"] [])
           ~printer:arg_envt_printer);
     "setup_call_to_func_save_regs_one_1">::(fun _ ->
@@ -780,7 +781,8 @@ test(1, 2)"
           IAdd(Reg(RSP), Const(Int64.of_int word_size));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 1 [Const(1L)] (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 1 [Const(1L)] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_one_2">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -790,7 +792,8 @@ test(1, 2)"
           IAdd(Reg(RSP), Const(Int64.of_int word_size));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 1 [Reg(RDI)] (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 1 [Reg(RDI)] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_one_3">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -801,7 +804,8 @@ test(1, 2)"
           IAdd(Reg(RSP), Const(Int64.of_int word_size));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 1 [Const(0L); Const(1L)] (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 1 [Const(0L); Const(1L)] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_one_4">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -812,7 +816,8 @@ test(1, 2)"
           IAdd(Reg(RSP), Const(Int64.of_int word_size));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 1 [Const(0L); Reg(RDI)] (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 1 [Const(0L); Reg(RDI)] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_two_1">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -822,7 +827,8 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 2 [Const(1L)] (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 2 [Const(1L)] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_two_2">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -832,7 +838,8 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 2 [Reg(RDI)] (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 2 [Reg(RDI)] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_two_3">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -843,7 +850,8 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 2 [Const(0L); Const(1L)] (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 2 [Const(0L); Const(1L)] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_two_4">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -854,7 +862,8 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 2 [Reg(RSI); Reg(RDI)] (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 2 [Reg(RSI); Reg(RDI)] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_three_1">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -868,7 +877,8 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 3 [Const(1L)] (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 3 [Const(1L)] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_three_2">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -882,7 +892,8 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 3 [Reg(RDI)] (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 3 [Reg(RDI)] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_three_3">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -897,7 +908,8 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 3 [Const(0L); Const(1L)] (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 3 [Const(0L); Const(1L)] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_three_4">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
@@ -912,7 +924,8 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 3 [Reg(RSI); Reg(RDI)] (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 3 [Reg(RSI); Reg(RDI)] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_five_equal">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
@@ -934,9 +947,10 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 5
-             [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L)] 
-             (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 5
+                  [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L)] 
+                  (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_five_odd">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
@@ -959,9 +973,10 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 5
-             [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
-             (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 5
+                  [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
+                  (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_six_equal">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
@@ -984,9 +999,10 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 6
-             [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L)] 
-             (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 6
+                  [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L)] 
+                  (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_six_odd">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
@@ -1012,9 +1028,10 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 6
-             [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
-             (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 6
+                  [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
+                  (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_six_even">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
@@ -1040,9 +1057,10 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 6
-             [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L)] 
-             (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 6
+                  [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L)] 
+                  (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_save_regs_six_even">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
@@ -1065,9 +1083,10 @@ test(1, 2)"
           IPop(Reg(RSI));
           IPop(Reg(RDI));
         ]
-          (setup_call_to_func 6
-             [Reg(RSI); Reg(RDX); Reg(RCX); Reg(R8); Reg(R9); Reg(RDI)]
-             (Label("label")) false) ~printer:to_asm);
+          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
+               (setup_call_to_func 6
+                  [Reg(RSI); Reg(RDX); Reg(RCX); Reg(R8); Reg(R9); Reg(RDI)]
+                  (Label("label")) false)) ~printer:to_asm);
     tdesugar "desugar_and"
       "true && false"
       "\n(if true: (if false: true else: false) else: false)";
@@ -1082,24 +1101,7 @@ test(1, 2)"
       "\n(if (if true: (if true: true else: false) else: false): (if false: true else: false) else: false)";
     tdesugar "desugar_print"
       "true || print(1)"
-      "\n(if true: true else: (if (?print(1)): true else: false))";
-    tdesugar "desugar_complex"
-      "def f1(b, n):
-      let x = print(b),
-          y = print(n) in 
-        isnum(n) && isbool(b) 
-  def f2(n, b):
-    let x = print(f1(b, n)),
-        y = print(n),
-        z = print(b) in 
-      x && isnum(y) && isbool(z)
-  f2(5, false)"
-      "(def f1(b, n):
-  (let x = (?print(b)), y = (?print(n)) in (if isnum(n): (if isbool(b): true else: false) else: false)))
-
-(def f2(n, b):
-  (let x = (?print((?f1(b, n)))), y = (?print(n)), z = (?print(b)) in (if (if x: (if isnum(y): true else: false) else: false): (if isbool(z): true else: false) else: false)))
-(?f2(5, false))";
+      "\n(if true: true else: (if print(1): true else: false))";
     terr "wf_tuple" "(a, 1, 2, 3)" "" "The identifier a, used at <wf_tuple, 1:1-1:2>, is not in scope";
     terr "wf_tuple_in_tuple" "((a,), 1, 2, 3)" "" "The identifier a, used at <wf_tuple_in_tuple, 1:2-1:3>, is not in scope";
     terr "wf_tuple_get" "(a, 1, 2, 3)[0]" "" "The identifier a, used at <wf_tuple_get, 1:1-1:2>, is not in scope";
@@ -1143,33 +1145,33 @@ test(1, 2)"
       "\n(let _ = true in (let _ = (if true: (if true: true else: false) else: false) in true))";
     tdesugar "desugar_destructure_basic"
       "let (a, b, c) = (1, 2, 3) in (a, b, c)"
-      "\n(let bind_temp4 = ((1, 2, 3) should be len 3), a = bind_temp4[0], b = bind_temp4[1], c = bind_temp4[2] in (a, b, c))";
+      "\n(let bind_temp4 = ((1, 2, 3) check_size 3), a = bind_temp4[0], b = bind_temp4[1], c = bind_temp4[2] in (a, b, c))";
     tdesugar "desugar_destructure_nested"
       "let (a, (b, c), d) = (1, (2, 3), 4) in (a, (b, c), d)"
-      "\n(let bind_temp4 = ((1, (2, 3), 4) should be len 3), a = bind_temp4[0], bind_temp6 = (bind_temp4[1] should be len 2), b = bind_temp6[0], c = bind_temp6[1], d = bind_temp4[2] in (a, (b, c), d))";
+      "\n(let bind_temp4 = ((1, (2, 3), 4) check_size 3), a = bind_temp4[0], bind_temp6 = (bind_temp4[1] check_size 2), b = bind_temp6[0], c = bind_temp6[1], d = bind_temp4[2] in (a, (b, c), d))";
     tdesugar "desugar_destructure_nested_w_blanks"
       "let (a, (b, _), _) = (1, (2, 3), 4) in (a, (b, c), d)"
-      "\n(let bind_temp4 = ((1, (2, 3), 4) should be len 3), a = bind_temp4[0], bind_temp6 = (bind_temp4[1] should be len 2), b = bind_temp6[0], _ = bind_temp6[1], _ = bind_temp4[2] in (a, (b, c), d))";
+      "\n(let bind_temp4 = ((1, (2, 3), 4) check_size 3), a = bind_temp4[0], bind_temp6 = (bind_temp4[1] check_size 2), b = bind_temp6[0], _ = bind_temp6[1], _ = bind_temp4[2] in (a, (b, c), d))";
     tdesugar "desugar_decl_with_destructure"
       "def f((a, b), c): ((a, b), c)\nf((1, 2), 3)"
-      "(def f(fun_arg#3, c):\n  (let bind_temp3 = (fun_arg#3 should be len 2), a = bind_temp3[0], b = bind_temp3[1] in ((a, b), c)))\n(?f((1, 2), 3))";
+      "\n(let-rec f = (lam(fun_arg#3, c) (let bind_temp3 = (fun_arg#3 check_size 2), a = bind_temp3[0], b = bind_temp3[1] in ((a, b), c))) in (f((1, 2), 3)))";
     tdesugar "desugar_decl_with_destructure_and_blank"
       "def f((a, _), c): ((a,), c)\nf((1, 2), 3)"
-      "(def f(fun_arg#3, c):\n  (let bind_temp3 = (fun_arg#3 should be len 2), a = bind_temp3[0], _ = bind_temp3[1] in ((a,), c)))\n(?f((1, 2), 3))";
+      "\n(let-rec f = (lam(fun_arg#3, c) (let bind_temp3 = (fun_arg#3 check_size 2), a = bind_temp3[0], _ = bind_temp3[1] in ((a,), c))) in (f((1, 2), 3)))";
     tdesugar "desugar_destructure_not_nested"
       "let (a, b, c) = (1, (2, 3), ()) in (a, b, c)"
-      "\n(let bind_temp4 = ((1, (2, 3), ()) should be len 3), a = bind_temp4[0], b = bind_temp4[1], c = bind_temp4[2] in (a, b, c))";
+      "\n(let bind_temp4 = ((1, (2, 3), ()) check_size 3), a = bind_temp4[0], b = bind_temp4[1], c = bind_temp4[2] in (a, b, c))";
     tanf_improved "tuple"
       ("(1, 2, 3)")
-      ("\n(1, 2, 3)");
+      ("(1, 2, 3)");
     tanf_improved "get_tuple"
       ("(1, 2, 3)[0]")
-      ("\n(alet tuple_4 = (1, 2, 3) in tuple_4[0])");
+      ("(alet tuple_4 = (1, 2, 3) in tuple_4[0])");
     tanf_improved "set_tuple"
       ("(1, 2, 3)[0] := 2")
-      ("\n(alet tuple_5 = (1, 2, 3) in (tuple_5[0]:= 2))");
+      ("(alet tuple_5 = (1, 2, 3) in tuple_5[0] := 2 )");
     ti "empty_pair" "()" "" "()";
-    ti "single_pair" "(5,)" "" "(5,)";
+    ti "single_pair" "(5,)" "" "(5, )";
     ti "double_pair" "(5, 6)" "" "(5, 6)";
     ti "long_pair" "(5, 6, 7, 8, 9, 10, 100)" "" "(5, 6, 7, 8, 9, 10, 100)";
     ti "tuple_within_tuple" "((5, 6), (7, 8))" "" "((5, 6), (7, 8))";
@@ -1197,12 +1199,12 @@ test(1, 2)"
     terr "get_value_from_tuple_low_idx_expr" "(1, 2, 3, 4, 5)[sub1(0)]" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too small";
     terr "get_value_from_tuple_high_idx" "(1, 2, 3, 4, 5)[5]" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too large";
     terr "get_value_from_tuple_high_idx_expr" "(1, 2, 3, 4, 5)[add1(4)]" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too large";
-    terr "tuple_access_wrong_type" "1[5]" "" "tuple access expected tuple num(1)";
-    terr "tuple_access_idx_wrong_type" "(1, 2)[true]" "" "unable to access tuple position bool(true)";
+    terr "tuple_access_wrong_type" "1[5]" "" "Error 6: tuple access expected tuple, got 1";
+    terr "tuple_access_idx_wrong_type" "(1, 2)[true]" "" "Error 9: get expected numeric index, got true";
     ti "nil_list_1" "(1, nil)" "" "(1, nil)";
     ti "nil_list_2" "(1, (2, nil))" "" "(1, (2, nil))";
-    terr "tuple_access_idx_wrong_type_nil_access" "nil[true]" "" "access component of nil, got nil";
-    terr "tuple_access_idx_wrong_type_nil_idx" "(1, 2)[nil]" "" "unable to access tuple position nil";
+    terr "tuple_access_idx_wrong_type_nil_access" "nil[true]" "" "tried to access component of nil";
+    terr "tuple_access_idx_wrong_type_nil_idx" "(1, 2)[nil]" "" "Error 9: get expected numeric index, got nil";
     ti "get_value_from_tuple_0_set" "(1, 2, 3, 4, 5)[0] := 3" "" "3";
     ti "get_value_from_tuple_4_set" "(1, 2, 3, 4, 5)[4] := 3" "" "3";
     ti "get_value_from_tuple_expr_set" "(1, 2, 3, 4, 5)[add1(3)] := 3" "" "3";
@@ -1213,11 +1215,11 @@ test(1, 2)"
     terr "get_value_from_tuple_low_idx_expr_set" "(1, 2, 3, 4, 5)[sub1(0)] := 3" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too small";
     terr "get_value_from_tuple_high_idx_set" "(1, 2, 3, 4, 5)[5] := 3" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too large";
     terr "get_value_from_tuple_high_idx_expr_set" "(1, 2, 3, 4, 5)[add1(4)] := 3" "" "unable to access index of tuple tuple((num(1), num(2), num(3), num(4), num(5))), length 5. index too large";
-    terr "tuple_access_wrong_type_set" "1[5] := 3" "" "tuple access expected tuple num(1)";
-    terr "tuple_access_idx_wrong_type_set" "(1, 2)[true] := 3" "" "unable to access tuple position bool(true)";
-    terr "tuple_unary_type" "add1((1, 2))" "" "arithmetic expected a number, got tuple((num(1), num(2)))";
-    terr "tuple_binary_type_l" "(1, 2) + 1" "" "arithmetic expected a number, got tuple((num(1), num(2)))";
-    terr "tuple_binary_type_r" "1 + (1, 2)" "" "arithmetic expected a number, got tuple((num(1), num(2)))";
+    terr "tuple_access_wrong_type_set" "1[5] := 3" "" "tuple access expected tuple, got 1";
+    terr "tuple_access_idx_wrong_type_set" "(1, 2)[true] := 3" "" "Error 9: get expected numeric index, got true";
+    terr "tuple_unary_type" "add1((1, 2))" "" "Error 2: arithmetic expected a number, got (1, 2)";
+    terr "tuple_binary_type_l" "(1, 2) + 1" "" "Error 2: arithmetic expected a number, got (1, 2)";
+    terr "tuple_binary_type_r" "1 + (1, 2)" "" "Error 2: arithmetic expected a number, got (1, 2)";
     ti "equality_ref" "(1, 2, 3) == (1, 2, 3)" "" "false";
     ti "equality_ref_true" "let x = (1, 2, 3) in x == x" "" "true";
     ti "equality_equal_ref" "let x = (1, 2, 3) in equal(x, x)" "" "true";
@@ -1237,8 +1239,6 @@ test(1, 2)"
     ti "isnum_nil" "isnum(())" "" "false";
     ti "input1" "let x = input() in x + 2" "123" "125";
     ti "input_print_int" "print(input())" "5" "5\n5";
-    ti "input_print_bool" "print(input())" "true" "true\ntrue";
-    ti "input_print_bool_false" "print(input())" "false" "false\nfalse";
     ti "tup1" "let t = (4, (5, 6)) in
               t[0] := 7;
               t" "" "(7, (5, 6))";
@@ -1257,12 +1257,12 @@ test(1, 2)"
               t[1] := k;
               (t, g, h, k)
             end" ""
-      "((4, (10, ((<cyclic tuple 2>, 5), 6))), ((4, (10, (<cyclic tuple 2>, 6))), 5), (((4, (10, <cyclic tuple 2>)), 5), 6), (10, (((4, <cyclic tuple 2>), 5), 6)))";
+      "((4, (10, ((<cyclic tuple 2>, 5), 6))), ((4, (10, (<cyclic tuple 6>, 6))), 5), (((4, (10, <cyclic tuple 10>)), 5), 6), (10, (((4, <cyclic tuple 14>), 5), 6)))";
     ti "infinite_loop" "let t = (1,), g = (t,) in
             begin
               t[0] := g;
               (t, g)
-            end" "" "(((<cyclic tuple 2>,),), ((<cyclic tuple 2>,),))";
+            end" "" "(((<cyclic tuple 2>, ), ), ((<cyclic tuple 4>, ), ))";
     ti "infinite_loop_is_tuple" "let t = (1,), g = (t,) in
             begin
               t[0] := g;
@@ -1274,19 +1274,20 @@ test(1, 2)"
       ""
       "((4, 6), (4, 6))";
     ti "tuple_empty_access" "((),)[0]" "" "()";
-    terr "tuple_destructure_invalid" "let temp = (1, 2), (a, b, c) = temp in true" "" "unable to destructure tuple with incorrect length tuple((num(1), num(2)))";
+    terr "tuple_destructure_invalid" "let temp = (1, 2), (a, b, c) = temp in true" 
+      "" "unable to destructure tuple with incorrect length (1, 2)";
     terr "tuple_destructure_invalid_2" "let (a, b) = (1, 2, 3) in (a, b)" "" "";
     terr "tuple_destructure_invalid_3" "let temp = (1, 2, 3), (a, b) = temp in (a, b)" "" "";
     ti "let_blank" "let _ = print(5 * 5) in print(3)" "" "25\n3\n3";
     ti "tuple_modification"
-      "let ti = (1, 2, 3, 4),
+      "let t = (1, 2, 3, 4),
          a = t[1],
          b = t[1] := t[a],
          _ = t[0] := a in
          print(t); print(a); print(b)" ""
       "(2, 3, 3, 4)\n2\n3\n3";
     ti "tuple_double_modify"
-      "let ti = (1, 2, 3, 4) in
+      "let t = (1, 2, 3, 4) in
          t[0] := t[1];
          t[1] := t[0]; 
          t" ""
@@ -1334,7 +1335,7 @@ test(1, 2)"
          b = (a, 2, 3) in
       a[1] := b; print(b); a"
       ""
-      "((1, <cyclic tuple 1>, 3), 2, 3)\n(1, (<cyclic tuple 1>, 2, 3), 3)";
+      "((1, <cyclic tuple 1>, 3), 2, 3)\n(1, (<cyclic tuple 3>, 2, 3), 3)";
     ti "print_cyclic_tuple_3"
       "let a = (nil, nil, nil),
          b = (nil, nil, a),
@@ -1344,7 +1345,7 @@ test(1, 2)"
         c[0] := c;
         a"
       ""
-      "(<cyclic tuple 1>, (<cyclic tuple 2>, (<cyclic tuple 3>, <cyclic tuple 1>, <cyclic tuple 2>), <cyclic tuple 1>), (<cyclic tuple 2>, <cyclic tuple 1>, (<cyclic tuple 3>, <cyclic tuple 2>, <cyclic tuple 1>)))";
+      "(<cyclic tuple 1>, (<cyclic tuple 2>, (<cyclic tuple 3>, <cyclic tuple 1>, <cyclic tuple 2>), <cyclic tuple 1>), (<cyclic tuple 4>, <cyclic tuple 1>, (<cyclic tuple 5>, <cyclic tuple 4>, <cyclic tuple 1>)))";
     ti "deep_equal"
       "let a = (nil, nil, 1),
          b = (a, nil, 1) in
