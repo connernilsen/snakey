@@ -620,7 +620,9 @@ let free_vars (e: 'a aexpr) (args : string list) : string list =
     | ALet(name, bind, body, _) -> 
       let newenv = StringSet.add name env in 
       StringSet.union (help_cexpr bind newenv) (help_aexpr body newenv)
-    | ALetRec(name_binds, body, _) -> 
+    | ALetRec(name_binds, body, _) ->
+      (* Add all the binds *)
+      let env = List.fold_right (fun (bind, _) acc -> StringSet.add bind acc) name_binds env in
       let newenv, bind_frees =
         List.fold_left
           (fun (newenv, frees) (name, bind) ->
@@ -685,13 +687,8 @@ and get_aexpr_envt (expr : tag aexpr) (si : int) : arg envt =
     (get_cexpr_envt body si)
   | ALetRec(binds, body, _) -> 
     let num_binds = List.length binds in
-    (* raise (InternalCompilerError (string_of_envt (List.mapi (fun i (name, bind) -> (name, RegOffset(~-(si + i) * word_size, RBP))) binds
-                                                  @ List.flatten (List.map (fun (_, bind) -> get_cexpr_envt bind (si + 1 + num_binds)) binds)
-                                                  (* (List.flatten (List.mapi (fun i (name, bind) -> (name, RegOffset(~-(si + i) * word_size, RBP))::(get_cexpr_envt bind (si + i + 1))) binds)) *)
-                                                  @ (get_aexpr_envt body (si + num_binds + 1))))); *)
     List.mapi (fun i (name, bind) -> (name, RegOffset(~-(si + i) * word_size, RBP))) binds
     @ List.flatten (List.map (fun (_, bind) -> get_cexpr_envt bind (si + 1 + num_binds)) binds)
-    (* (List.flatten (List.mapi (fun i (name, bind) -> (name, RegOffset(~-(si + i) * word_size, RBP))::(get_cexpr_envt bind (si + i + 1))) binds)) *)
     @ (get_aexpr_envt body (si + num_binds + 1))
 and get_cexpr_envt (expr : tag cexpr) (si : int) : arg envt =
   match expr with 

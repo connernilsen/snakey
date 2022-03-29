@@ -219,6 +219,12 @@ let free_vars_tests = [
   tfvs "compile_lambda_recursion_tfvs" ["arg"]
     "if arg == 0: 0 else: 1 + y(1 - arg)"
     ["y"];
+  tfvs "free_let_rec" []
+    "let rec x = (lambda: y()), y = (lambda: 6) in x()"
+    [];
+  tfvs "free_let_rec_in_lambda" []
+    "(lambda(f): let rec x = (lambda: y()), y = (lambda: 6) in x())"
+    [];
 ];;
 
 let wf_tests = [
