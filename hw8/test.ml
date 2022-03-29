@@ -193,6 +193,9 @@ let free_vars_tests = [
   tfvs "lambda_body_with_frees_2" ["x"; "y"]
     "(lambda (x): x)(5) + x + y"
     [];
+  tfvs "compile_lambda_recursion_tfvs" ["arg"]
+    "if arg == 0: 0 else: 1 + y(1 - arg)"
+    ["y"];
 ];;
 
 let wf_tests = [

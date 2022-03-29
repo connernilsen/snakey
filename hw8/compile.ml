@@ -675,7 +675,12 @@ and get_aexpr_envt (expr : tag aexpr) (si : int) : arg envt =
     @ (get_aexpr_envt body (si + 1))
   | ACExpr(body) ->
     (get_cexpr_envt body si)
-  | ALetRec(binds, body, _) -> raise (NotYetImplemented "letrec stack allocation")
+  | ALetRec(binds, body, _) -> 
+    let num_binds = List.length binds in
+    List.mapi (fun i (name, bind) -> (name, RegOffset(~-(si + i) * word_size, RBP))) binds
+    @ List.flatten (List.map (fun (_, bind) -> get_cexpr_envt bind (si + 1 + num_binds)) binds)
+    (* (List.flatten (List.mapi (fun i (name, bind) -> (name, RegOffset(~-(si + i) * word_size, RBP))::(get_cexpr_envt bind (si + i + 1))) binds)) *)
+    @ (get_aexpr_envt body (si + num_binds + 1))
 and get_cexpr_envt (expr : tag cexpr) (si : int) : arg envt =
   match expr with 
   | CIf(_, l, r, _) -> 
@@ -893,257 +898,270 @@ and compile_aexpr (e : tag aexpr) (env : arg envt) (num_args : int) (is_tail : b
     @ body
   | ACExpr(body) -> 
     (compile_cexpr body env num_args is_tail)
-  | ALetRec(_, _, _) -> raise (NotYetImplemented "implement compile letrec")
-and compile_cexpr (e : tag cexpr) env num_args is_tail =
-  match e with 
-  | CIf(cond, thn, els, tag) ->
-    let if_t = (sprintf "if_true_%n" tag) and
-    if_f = (sprintf "if_false_%n" tag) and
-    done_txt = (sprintf "done_%n" tag) and
-    thn = compile_aexpr thn env num_args is_tail and
-    els = compile_aexpr els env num_args is_tail and
-    cond_value = compile_imm cond env in
-    IMov(Reg(RAX), cond_value) ::
-    (tag_check cond_value label_NOT_BOOL bool_tag_mask bool_tag)
-    @ [
-      IMov(Reg(R10), bool_mask); ITest(Reg(RAX), Reg(R10));
-      IJz(Label(if_f));
-      ILabel(if_t);
-    ] @ thn @ [
-      IJmp(Label(done_txt));
-      ILabel(if_f); 
-    ] @ els @ [
-      ILabel(done_txt);
-    ]
-  | CPrim1(op, body, tag) ->
-    let e_reg = compile_imm body env in
-    begin match op with
-      | Add1 -> 
-        IMov(Reg(RAX), e_reg) ::
-        (num_tag_check label_ARITH_NOT_NUM)
-        @ [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(2L))); IJo(Label(label_OVERFLOW))]
-      | Sub1 -> 
-        IMov(Reg(RAX), e_reg) ::
-        (num_tag_check label_ARITH_NOT_NUM)
-        @ [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(Int64.neg 2L))); IJo(Label(label_OVERFLOW))]
-      | IsBool -> 
-        let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
-        let label_done = (sprintf "%s%n_bool" label_DONE tag) in
-        IMov(Reg(RAX), e_reg) ::
-        (* check if value is a bool, and if not, then jump to label_not_bool *)
-        (tag_check const_true label_not_bool bool_tag_mask bool_tag)
+  | ALetRec(binds, body, _) -> 
+    let lambda_setups = List.map (fun lambda -> 
+        (match lambda with 
+         | CLambda(name, args, body) -> setup_lambda n))
+        (List.flatten 
+           (List.map (fun (name, bind) -> (compile_cexpr bind env num_args is_tail) @ [IMov(find env name, Reg(RAX))]) binds))
+                        @ compile_aexpr body env num_args is_tail
+    and compile_cexpr (e : tag cexpr) env num_args is_tail =
+      match e with 
+      | CIf(cond, thn, els, tag) ->
+        let if_t = (sprintf "if_true_%n" tag) and
+        if_f = (sprintf "if_false_%n" tag) and
+        done_txt = (sprintf "done_%n" tag) and
+        thn = compile_aexpr thn env num_args is_tail and
+        els = compile_aexpr els env num_args is_tail and
+        cond_value = compile_imm cond env in
+        IMov(Reg(RAX), cond_value) ::
+        (tag_check cond_value label_NOT_BOOL bool_tag_mask bool_tag)
         @ [
-          IJmp(Label(label_done));
-          ILabel(label_not_bool);
-          IMov(Reg(RAX), const_false);
-          ILabel(label_done);
+          IMov(Reg(R10), bool_mask); ITest(Reg(RAX), Reg(R10));
+          IJz(Label(if_f));
+          ILabel(if_t);
+        ] @ thn @ [
+          IJmp(Label(done_txt));
+          ILabel(if_f); 
+        ] @ els @ [
+          ILabel(done_txt);
         ]
-      | IsNum ->
-        let label_not_num = (sprintf "%s%n" label_IS_NOT_NUM tag) in 
-        let label_done = (sprintf "%s%n_num" label_DONE tag) in
-        IMov(Reg(RAX), e_reg) :: 
-        (* check if value is a num, and if not, then jump to label_not_num *)
-        (num_tag_check label_not_num)
+      | CPrim1(op, body, tag) ->
+        let e_reg = compile_imm body env in
+        begin match op with
+          | Add1 -> 
+            IMov(Reg(RAX), e_reg) ::
+            (num_tag_check label_ARITH_NOT_NUM)
+            @ [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(2L))); IJo(Label(label_OVERFLOW))]
+          | Sub1 -> 
+            IMov(Reg(RAX), e_reg) ::
+            (num_tag_check label_ARITH_NOT_NUM)
+            @ [IAdd(Reg(RAX), Sized(QWORD_PTR, Const(Int64.neg 2L))); IJo(Label(label_OVERFLOW))]
+          | IsBool -> 
+            let label_not_bool = (sprintf "%s%n" label_IS_NOT_BOOL tag) in 
+            let label_done = (sprintf "%s%n_bool" label_DONE tag) in
+            IMov(Reg(RAX), e_reg) ::
+            (* check if value is a bool, and if not, then jump to label_not_bool *)
+            (tag_check const_true label_not_bool bool_tag_mask bool_tag)
+            @ [
+              IJmp(Label(label_done));
+              ILabel(label_not_bool);
+              IMov(Reg(RAX), const_false);
+              ILabel(label_done);
+            ]
+          | IsNum ->
+            let label_not_num = (sprintf "%s%n" label_IS_NOT_NUM tag) in 
+            let label_done = (sprintf "%s%n_num" label_DONE tag) in
+            IMov(Reg(RAX), e_reg) :: 
+            (* check if value is a num, and if not, then jump to label_not_num *)
+            (num_tag_check label_not_num)
+            @ [
+              IMov(Reg(RAX), const_true);
+              IJmp(Label(label_done));
+              ILabel(label_not_num);
+              IMov(Reg(RAX), const_false);
+              ILabel(label_done);
+            ]
+          | IsTuple ->
+            let label_not_tuple = (sprintf "%s%n" label_IS_NOT_TUPLE tag) in 
+            let label_done = (sprintf "%s%n_tuple" label_DONE tag) in
+            IMov(Reg(RAX), e_reg) :: 
+            (* check if value is a tuple, and if not, then jump to label_not_tuple *)
+            (tag_check const_true label_not_tuple tuple_tag_mask tuple_tag)
+            @ [
+              IJmp(Label(label_done));
+              ILabel(label_not_tuple);
+              IMov(Reg(RAX), const_false);
+              ILabel(label_done);
+            ]
+          | Not -> 
+            IMov(Reg(RAX), e_reg) ::
+            (tag_check e_reg label_NOT_BOOL bool_tag_mask bool_tag)
+            @ [ 
+              IMov(Reg(R10), bool_mask);
+              IXor(Reg(RAX), Reg(R10));
+            ]
+          | Print -> (setup_call_to_func num_args [e_reg] (Label("print")) false)
+          | PrintStack -> (setup_call_to_func num_args [e_reg; Reg(RSP); Reg(RBP); Const(Int64.of_int num_args)] (Label("print_stack")) false)
+        end
+      | CPrim2(op, l, r, tag) ->
+        let e1_reg = (compile_imm l env) in
+        let e2_reg = (compile_imm r env) in
+        (* generates the instructions for performing a Prim2 arith operation on args e1_reg and e2_reg.
+         * the body should perform operations using RAX and R10, where e1_reg and e2_reg 
+         * will be moved to respectively.
+         * after the arith operation completes, the result is checked for overflow.
+        *)
+        let generate_arith_func 
+            (e1_reg : arg) 
+            (e2_reg : arg) 
+            (body : instruction list) : instruction list =
+          IMov(Reg(RAX), e2_reg) :: 
+          (num_tag_check label_ARITH_NOT_NUM) @ [IMov(Reg(RAX), e1_reg)]
+          @ (num_tag_check label_ARITH_NOT_NUM) @ [IMov(Reg(R10), e2_reg)]
+          @ body
+          @ [IJo(Label(label_OVERFLOW))]
+        in
+        begin match op with
+          | SPlus -> 
+            (generate_arith_func e1_reg e2_reg [IAdd(Reg(RAX), Reg(R10))])
+          | SMinus -> 
+            (generate_arith_func e1_reg e2_reg [ISub(Reg(RAX), Reg(R10))])
+          | STimes -> 
+            (generate_arith_func e1_reg e2_reg 
+               [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), Reg(R10))])
+          | SGreater -> 
+            (generate_cmp_func e1_reg e2_reg (fun l -> IJg(Label(l))) tag)
+          | SGreaterEq -> 
+            (generate_cmp_func e1_reg e2_reg (fun l -> IJge(Label(l))) tag)
+          | SLess -> 
+            (generate_cmp_func e1_reg e2_reg (fun l -> IJl(Label(l))) tag)
+          | SLessEq ->
+            (generate_cmp_func e1_reg e2_reg (fun l -> IJle(Label(l))) tag)
+          | SEq ->
+            let label_done = (sprintf "%s%n_eq" label_DONE tag) in
+            [IMov(Reg(RAX), e1_reg); IMov(Reg(R10), e2_reg); 
+             ICmp(Reg(RAX), Reg(R10)); IMov(Reg(RAX), const_true);
+             IJe(Label(label_done)); IMov(Reg(RAX), const_false);
+             ILabel(label_done)]
+          | SCheckSize ->
+            (* convert to snake val then compare *)
+            (* Then move to RAX *)
+            [IMov(Reg(R11), Sized(QWORD_PTR, e1_reg)); ISub(Reg(R11), Const(1L)); IMov(Reg(R11), RegOffset(0, R11)); IShl(Reg(R11), Const(1L));
+             ICmp(Reg(R11), Sized(QWORD_PTR, e2_reg)); IJne(Label(label_DESTRUCTURE_INVALID_LEN));
+             IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
+        end
+      | CApp(func, args, Native, _) -> 
+        let arg_regs = (List.map (fun (a) -> (compile_imm a env)) args) in 
+        (setup_call_to_func num_args arg_regs (Label(get_func_name_imm func)) false)
+      | CApp(func, args, Snake, _) -> 
+        (setup_call_to_func num_args (List.map (fun e -> compile_imm e env) args) (compile_imm func env) true)
+      | CApp(func, args, _, _) -> (raise (InternalCompilerError "unknown function type"))
+      | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env)]
+      | CTuple(vals, _) ->
+        let length = List.length vals in
+        (* length at [0] *)
+        IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int length)) :: 
+        (* items at [1:length + 1] *)
+        List.flatten (List.mapi (fun idx v -> 
+            [
+              IMov(Reg(R11), compile_imm v env);
+              IMov(Sized(QWORD_PTR, RegOffset((idx + 1) * word_size, heap_reg)), Reg(R11));
+            ]) vals)
+        (* filler at [length + 1:16 byte alignment]?*)
         @ [
-          IMov(Reg(RAX), const_true);
-          IJmp(Label(label_done));
-          ILabel(label_not_num);
-          IMov(Reg(RAX), const_false);
-          ILabel(label_done);
+          (* Move result to result place *)
+          IMov(Reg(RAX), Reg(heap_reg));
+          IAdd(Reg(RAX), Const(tuple_tag));
+          (* mov heap_reg to new aligned heap_reg 1 space later *)
+          IAdd(Reg(heap_reg), Const(Int64.of_int (16 * (Int.max length 1) + 1)));
+          IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
         ]
-      | IsTuple ->
-        let label_not_tuple = (sprintf "%s%n" label_IS_NOT_TUPLE tag) in 
-        let label_done = (sprintf "%s%n_tuple" label_DONE tag) in
-        IMov(Reg(RAX), e_reg) :: 
-        (* check if value is a tuple, and if not, then jump to label_not_tuple *)
-        (tag_check const_true label_not_tuple tuple_tag_mask tuple_tag)
+      | CGetItem(tuple, idx, tag) -> 
+        let tuple = compile_imm tuple env in
+        let idx = compile_imm idx env in
+        (* Check tuple is tuple *)
+        (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
+         (* Check index is num *)
+         @ [ (* ensure tuple isn't nil *)
+           IMov(Reg(R11), nil);
+           ICmp(Reg(RAX), Reg(R11));
+           IJe(Label(label_NIL_DEREF));
+           IMov(Reg(RAX), idx) 
+         ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM)
+         @ [ (* convert to machine num *)
+           IMov(Reg(RAX), tuple);
+           IMov(Reg(R11), idx);
+           ISar(Reg(R11), Const(1L));
+           (* check bounds *)
+           ISub(Reg(RAX), Const(tuple_tag));
+           IMov(Reg(RAX), RegOffset(0, RAX));
+           ICmp(Reg(R11), Reg(RAX));
+           IMov(Reg(RAX), tuple);
+           IJge(Label(label_GET_HIGH_INDEX));
+           ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
+           IJl(Label(label_GET_LOW_INDEX));
+           ISub(Reg(RAX), Const(tuple_tag));
+           (* get value *)
+           IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, word_size))])
+      | CSetItem(tuple, idx, set, _) -> 
+        let tuple = compile_imm tuple env in
+        let idx = compile_imm idx env in
+        let set = compile_imm set env in
+        (* Check tuple is tuple *)
+        (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
+         (* Check index is num *)
+         @ [ (* ensure tuple isn't nil *)
+           IMov(Reg(R11), nil);
+           ICmp(Reg(RAX), Reg(R11));
+           IJe(Label(label_NIL_DEREF));
+           IMov(Reg(RAX), idx) 
+         ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM)
+         @ [ (* convert to machine num *)
+           IMov(Reg(RAX), tuple);
+           IMov(Reg(R11), idx);
+           ISar(Reg(R11), Const(1L));
+           (* check bounds *)
+           ISub(Reg(RAX), Const(tuple_tag));
+           IMov(Reg(RAX), RegOffset(0, RAX));
+           ICmp(Reg(R11), Reg(RAX));
+           IMov(Reg(RAX), tuple);
+           IJge(Label(label_GET_HIGH_INDEX));
+           ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
+           IJl(Label(label_GET_LOW_INDEX));
+           ISub(Reg(RAX), Const(tuple_tag));
+           (* get value *)
+           IMov(Reg(R12), set);
+           IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, R11, word_size, word_size)), Reg(R12));
+           IMov(Reg(RAX), set)])
+      | CLambda(_) -> compile_lambda e env false
+    and compile_imm e env =
+      match e with
+      | ImmNum(n, _) -> Const(Int64.shift_left n 1)
+      | ImmBool(true, _) -> const_true
+      | ImmBool(false, _) -> const_false
+      | ImmId(x, _) -> (find env x)
+      | ImmNil(_) -> nil
+    and setup_lambda name args frees =
+      [
+        ILineComment("Setup lambda");
+        (* store arity in first slot as a machine number since it's never accessed in our language *)
+        IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (List.length args)));
+        (* store the function address in the second slot TODO: is name good?*)
+        IMov(Sized(QWORD_PTR, RegOffset(word_size, heap_reg)), Label(name));
+        (* store the # of free variables in the 3rd slot as a machine # since it's never accessed in our language *)
+        IMov(Sized(QWORD_PTR, RegOffset(word_size * 2, heap_reg)), Const(Int64.of_int (List.length frees)));
+        ILineComment("Save lambda");
+        (* Move result to result place *)
+        IMov(Reg(RAX), Reg(heap_reg));
+      ]
+    and compile_lambda lam env do_setup =
+      match lam with
+      | CLambda(args, body, tag) -> 
+        let name = sprintf "fun_%d" tag in
+        let frees = free_vars body args in
+        let newenv = (get_lambda_envt args body frees) @ env in
+        ILineComment(sprintf "Compile lambda (%d args)" (List.length args))
+        :: compile_fun name args frees body newenv
+        @ (if do_setup 
+           then setup_lambda name args frees
+           else [])
+        @ [ILineComment("Move free vars into lambda")]
+        (* store free variables at [3:] *)
+        @ List.flatten (List.mapi (fun idx (id: string) -> 
+            [
+              IMov(Reg(R11), (find env id));
+              IMov(Sized(QWORD_PTR, RegOffset((idx + 3) * word_size, heap_reg)), Reg(R11));
+            ]) frees)
         @ [
-          IJmp(Label(label_done));
-          ILabel(label_not_tuple);
-          IMov(Reg(RAX), const_false);
-          ILabel(label_done);
+          ILineComment("Tag lambda");
+          IAdd(Reg(RAX), Const(closure_tag));
+          (* mov heap_reg to new aligned heap_reg *)
+          IAdd(Reg(heap_reg), Const(Int64.of_int (16 * ((List.length frees) + 3) + 1)));
+          IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
+          ILineComment("Lambda done");
         ]
-      | Not -> 
-        IMov(Reg(RAX), e_reg) ::
-        (tag_check e_reg label_NOT_BOOL bool_tag_mask bool_tag)
-        @ [ 
-          IMov(Reg(R10), bool_mask);
-          IXor(Reg(RAX), Reg(R10));
-        ]
-      | Print -> (setup_call_to_func num_args [e_reg] (Label("print")) false)
-      | PrintStack -> (setup_call_to_func num_args [e_reg; Reg(RSP); Reg(RBP); Const(Int64.of_int num_args)] (Label("print_stack")) false)
-    end
-  | CPrim2(op, l, r, tag) ->
-    let e1_reg = (compile_imm l env) in
-    let e2_reg = (compile_imm r env) in
-    (* generates the instructions for performing a Prim2 arith operation on args e1_reg and e2_reg.
-     * the body should perform operations using RAX and R10, where e1_reg and e2_reg 
-     * will be moved to respectively.
-     * after the arith operation completes, the result is checked for overflow.
-    *)
-    let generate_arith_func 
-        (e1_reg : arg) 
-        (e2_reg : arg) 
-        (body : instruction list) : instruction list =
-      IMov(Reg(RAX), e2_reg) :: 
-      (num_tag_check label_ARITH_NOT_NUM) @ [IMov(Reg(RAX), e1_reg)]
-      @ (num_tag_check label_ARITH_NOT_NUM) @ [IMov(Reg(R10), e2_reg)]
-      @ body
-      @ [IJo(Label(label_OVERFLOW))]
-    in
-    begin match op with
-      | SPlus -> 
-        (generate_arith_func e1_reg e2_reg [IAdd(Reg(RAX), Reg(R10))])
-      | SMinus -> 
-        (generate_arith_func e1_reg e2_reg [ISub(Reg(RAX), Reg(R10))])
-      | STimes -> 
-        (generate_arith_func e1_reg e2_reg 
-           [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), Reg(R10))])
-      | SGreater -> 
-        (generate_cmp_func e1_reg e2_reg (fun l -> IJg(Label(l))) tag)
-      | SGreaterEq -> 
-        (generate_cmp_func e1_reg e2_reg (fun l -> IJge(Label(l))) tag)
-      | SLess -> 
-        (generate_cmp_func e1_reg e2_reg (fun l -> IJl(Label(l))) tag)
-      | SLessEq ->
-        (generate_cmp_func e1_reg e2_reg (fun l -> IJle(Label(l))) tag)
-      | SEq ->
-        let label_done = (sprintf "%s%n_eq" label_DONE tag) in
-        [IMov(Reg(RAX), e1_reg); IMov(Reg(R10), e2_reg); 
-         ICmp(Reg(RAX), Reg(R10)); IMov(Reg(RAX), const_true);
-         IJe(Label(label_done)); IMov(Reg(RAX), const_false);
-         ILabel(label_done)]
-      | SCheckSize ->
-        (* convert to snake val then compare *)
-        (* Then move to RAX *)
-        [IMov(Reg(R11), Sized(QWORD_PTR, e1_reg)); ISub(Reg(R11), Const(1L)); IMov(Reg(R11), RegOffset(0, R11)); IShl(Reg(R11), Const(1L));
-         ICmp(Reg(R11), Sized(QWORD_PTR, e2_reg)); IJne(Label(label_DESTRUCTURE_INVALID_LEN));
-         IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
-    end
-  | CApp(func, args, Native, _) -> 
-    let arg_regs = (List.map (fun (a) -> (compile_imm a env)) args) in 
-    (setup_call_to_func num_args arg_regs (Label(get_func_name_imm func)) false)
-  | CApp(func, args, Snake, _) -> 
-    (setup_call_to_func num_args (List.map (fun e -> compile_imm e env) args) (compile_imm func env) true)
-  | CApp(func, args, _, _) -> (raise (NotYetImplemented "unknown function type"))
-  | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env)]
-  | CTuple(vals, _) ->
-    let length = List.length vals 
-    in let size_bytes = (length + 1) * word_size in 
-    (* length at [0] *)
-    IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int length)) :: 
-    (* items at [1:length + 1] *)
-    List.flatten (List.mapi (fun idx v -> 
-        [
-          IMov(Reg(R11), compile_imm v env);
-          IMov(Sized(QWORD_PTR, RegOffset((idx + 1) * word_size, heap_reg)), Reg(R11));
-        ]) vals)
-    (* filler at [length + 1:16 byte alignment]?*)
-    @ [
-      (* Move result to result place *)
-      IMov(Reg(RAX), Reg(heap_reg));
-      IAdd(Reg(RAX), Const(tuple_tag));
-      (* mov heap_reg to new aligned heap_reg 1 space later *)
-      IAdd(Reg(heap_reg), Const(Int64.of_int (16 * (Int.max length 1) + 1)));
-      IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
-    ]
-  | CGetItem(tuple, idx, tag) -> 
-    let tuple = compile_imm tuple env in
-    let idx = compile_imm idx env in
-    (* Check tuple is tuple *)
-    (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
-     (* Check index is num *)
-     @ [ (* ensure tuple isn't nil *)
-       IMov(Reg(R11), nil);
-       ICmp(Reg(RAX), Reg(R11));
-       IJe(Label(label_NIL_DEREF));
-       IMov(Reg(RAX), idx) 
-     ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM)
-     @ [ (* convert to machine num *)
-       IMov(Reg(RAX), tuple);
-       IMov(Reg(R11), idx);
-       ISar(Reg(R11), Const(1L));
-       (* check bounds *)
-       ISub(Reg(RAX), Const(tuple_tag));
-       IMov(Reg(RAX), RegOffset(0, RAX));
-       ICmp(Reg(R11), Reg(RAX));
-       IMov(Reg(RAX), tuple);
-       IJge(Label(label_GET_HIGH_INDEX));
-       ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
-       IJl(Label(label_GET_LOW_INDEX));
-       ISub(Reg(RAX), Const(tuple_tag));
-       (* get value *)
-       IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, word_size))])
-  | CSetItem(tuple, idx, set, _) -> 
-    let tuple = compile_imm tuple env in
-    let idx = compile_imm idx env in
-    let set = compile_imm set env in
-    (* Check tuple is tuple *)
-    (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
-     (* Check index is num *)
-     @ [ (* ensure tuple isn't nil *)
-       IMov(Reg(R11), nil);
-       ICmp(Reg(RAX), Reg(R11));
-       IJe(Label(label_NIL_DEREF));
-       IMov(Reg(RAX), idx) 
-     ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM)
-     @ [ (* convert to machine num *)
-       IMov(Reg(RAX), tuple);
-       IMov(Reg(R11), idx);
-       ISar(Reg(R11), Const(1L));
-       (* check bounds *)
-       ISub(Reg(RAX), Const(tuple_tag));
-       IMov(Reg(RAX), RegOffset(0, RAX));
-       ICmp(Reg(R11), Reg(RAX));
-       IMov(Reg(RAX), tuple);
-       IJge(Label(label_GET_HIGH_INDEX));
-       ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
-       IJl(Label(label_GET_LOW_INDEX));
-       ISub(Reg(RAX), Const(tuple_tag));
-       (* get value *)
-       IMov(Reg(R12), set);
-       IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, R11, word_size, word_size)), Reg(R12));
-       IMov(Reg(RAX), set)])
-  | CLambda(args, body, tag) -> 
-    let name = sprintf "fun_%d" tag in
-    let frees = free_vars body args in
-    let newenv = (get_lambda_envt args body frees) @ env in
-    ILineComment(sprintf "Compile lambda (%d args)" (List.length args))
-    :: compile_fun name args frees body newenv
-    @ [
-      ILineComment("Setup lambda");
-      (* store arity in first slot as a machine number since it's never accessed in our language *)
-      IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (List.length args)));
-      (* store the function address in the second slot TODO: is name good?*)
-      IMov(Sized(QWORD_PTR, RegOffset(word_size, heap_reg)), Label(name));
-      (* store the # of free variables in the 3rd slot as a machine # since it's never accessed in our language *)
-      IMov(Sized(QWORD_PTR, RegOffset(word_size * 2, heap_reg)), Const(Int64.of_int (List.length frees)));
-      ILineComment("Move free vars into lambda");
-    ]
-    (* store free variables at [3:] *)
-    @ List.flatten (List.mapi (fun idx (id: string) -> 
-        [
-          IMov(Reg(R11), (find env id));
-          IMov(Sized(QWORD_PTR, RegOffset((idx + 3) * word_size, heap_reg)), Reg(R11));
-        ]) frees)
-    @ [
-      ILineComment("Save lambda");
-      (* Move result to result place *)
-      IMov(Reg(RAX), Reg(heap_reg));
-      IAdd(Reg(RAX), Const(closure_tag));
-      ILineComment("Tag lambda");
-      (* mov heap_reg to new aligned heap_reg *)
-      IAdd(Reg(heap_reg), Const(Int64.of_int (16 * ((List.length frees) + 3) + 1)));
-      IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
-      ILineComment("Lambda done");
-    ]
-and compile_imm e env =
-  match e with
-  | ImmNum(n, _) -> Const(Int64.shift_left n 1)
-  | ImmBool(true, _) -> const_true
-  | ImmBool(false, _) -> const_false
-  | ImmId(x, _) -> (find env x)
-  | ImmNil(_) -> nil
+      | _ -> raise (InternalCompilerError "Compile lambda called with non-lambda")
 
 let compile_error_handler ((err_name : string), (err_code : int64)) : instruction list =
   ILabel(err_name) :: setup_call_to_func 0 [Const(err_code); Reg(RAX)] (Label("error")) false
