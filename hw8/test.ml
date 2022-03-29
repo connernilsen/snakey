@@ -70,6 +70,25 @@ let forty_one_a = (AProgram(ACExpr(CImmExpr(ImmNum(41L, ()))), ()))
 let test_prog = "let x = if sub1(55) < 54: (if 1 > 0: add1(2) else: add1(3)) else: (if 0 == 0: sub1(4) else: sub1(5)) in x"
 let anf1 = (anf     (tag (parse_string "test" test_prog)))
 
+let list_library = "def link(first, rest):
+  (first, rest)
+def generate_helper(n):
+  if n == 0: nil
+  else:
+    link(n, generate_helper(n - 1))
+def reverse(l):
+  if l == nil: nil
+  else:
+    append(reverse(l[1]), link(l[0], nil))
+def append(l, l2):
+  if l == nil: l2
+  else:
+    link(l[0], append(l[1], l2))
+def generate(n):
+  reverse(generate_helper(n))
+def map(f, l):
+  if l == nil: l
+  else: link(f(l[0], map(f, l[1])))"
 
 let desugar_tests = [
   tdesugar "desugar_decl_one" "def f(x): x\nf(1)" "\n(let-rec f = (lam(x) x) in (f(1)))";
@@ -430,6 +449,10 @@ The identifier a, used at <def_no_shadow, 4:2-4:3>, is not in scope";
       in b)"
     ""
     "<function>";
+  t "map"
+    (list_library ^ "let mylist = map((lambda(x): x + 1), generate(4)) in mylist")
+    ""
+    "(2, 3, 4, 5)";
 ]
 
 let let_rec_tests = [

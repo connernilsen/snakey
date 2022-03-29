@@ -29,8 +29,8 @@ def generate_helper(n):
 def generate(n):
   reverse(generate_helper(n))
 
-let mylist = generate(10) in
-  print(length(mylist));
-  print(sum(mylist));
-  print(append(mylist, mylist));
-  reverse(mylist)
+def map(f, l):
+  if l == nil: l
+  else: link(f(l[0], map(f, l[1])))
+
+let mylist = map((lambda(x): x + 1), generate(10)) in mylist
