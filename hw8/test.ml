@@ -372,6 +372,19 @@ The identifier a, used at <def_no_shadow, 4:2-4:3>, is not in scope";
   x(1)"
     ""
     "1";
+  t "let_rec_nested_shadow"
+    "let rec x = (lambda(x): x) in
+    let rec x = (lambda(x, y): x + y) in
+    x(1, 2)"
+    "" "3";
+  t "let_rec_in_let"
+    "let a = (lambda(x): 
+    let rec isdone = (lambda(y): if y == x: 0 else: b(y - 1)),
+      b = (lambda(y): print(y); isdone(y))
+      in b) in
+    a(1)(4)"
+    ""
+    "4\n3\n2\n1\n0";
 ]
 
 let let_rec_tests = [
