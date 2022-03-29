@@ -919,9 +919,6 @@ and compile_aexpr (e : tag aexpr) (env : arg envt) (num_args : int) (is_tail : b
     lambda_setups 
     @ lambda_comps
     @ (compile_aexpr body env num_args is_tail)
-(* (List.flatten 
-   (List.map (fun (name, bind) -> (compile_cexpr bind env num_args is_tail) @ [IMov(find env name, Reg(RAX))]) binds))
-   @ compile_aexpr body env num_args is_tail *)
 and compile_cexpr (e : tag cexpr) env num_args is_tail =
   match e with 
   | CIf(cond, thn, els, tag) ->

@@ -327,6 +327,9 @@ let let_rec_tests = [
   t "compile_lambda_recursion"
     "let rec y = (lambda(arg): if arg == 0: 0 else: 1 + y(arg - 1)) in y(4)"
     "" "4";
+  terr "compile_lambda_infinite_loop"
+    "let rec y = (lambda(arg): y(arg - 1)) in y(4)"
+    "" "Signalled with -10";
   t "compile_lambda_mutual_recursion"
     "let rec x = (lambda(arg): if arg == 0: 0 else: 1 + y(arg - 1)), y = (lambda(arg): if arg == 0: 0 else: 1 + x(arg - 1)) in y(4)"
     "" "4";
