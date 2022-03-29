@@ -533,7 +533,13 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
       let bind_errors = 
         List.concat 
           (List.map
-             (fun (_, body, _) -> (wf_E body (env @ bind_env)))
+             (fun (bind, body, ss) -> 
+                begin
+                  match body with 
+                  | ELambda(_) -> []
+                  |_ -> [(LetRecNonFunction(bind, ss))]
+                end
+                @ (wf_E body (env @ bind_env)))
              binds)
       in
       find_dup_exns_by_env bind_env @ bind_errors @ (wf_E body bind_env)

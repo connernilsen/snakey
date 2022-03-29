@@ -206,10 +206,19 @@ let wf_tests = [
                                                                                 (create_ss "wf_lambda_app_dup_args" 1 9 1 10))]);
   te "wf_letrec_dup" "let rec x = 5, x = 6 in x" (print_te [DuplicateId("x", (create_ss "wf_letrec_dup" 1 8 1 13),
                                                                         (create_ss "wf_letrec_dup" 1 15 1 20))]);
-  te "wf_letrec_unbound_id" "let rec x = 5 in y" (print_te [UnboundId("y", (create_ss "wf_letrec_unbound_id" 1 17 1 18))]);
-  t "wf_letrec" "let rec x = y, y = x in 6" "" "6";
+  te "wf_letrec_not_lambda" "let rec x = 5 in y" (print_te [LetRecNonFunction(BName("x", false, (create_ss "wf_letrec_not_lambda" 1 8 1 13)),
+                                                                              (create_ss "wf_letrec_not_lambda" 1 8 1 13)); 
+                                                            UnboundId("y", (create_ss "wf_letrec_not_lambda" 1 17 1 18))]);
+  t "wf_letrec" "let rec x = (lambda: y()), y = (lambda: x()) in 6" "" "6";
   te "wf_unrelated_in_lambda_in_lambda" "(lambda (x): (lambda (y): (let z = 5, z = 6 in z)))(5, 5)" (print_te [DuplicateId("z", (create_ss "wf_unrelated_in_lambda_in_lambda" 1 38 1 39),
                                                                                                                            (create_ss "wf_unrelated_in_lambda_in_lambda" 1 31 1 32))]);
+  te "wf_letrec_lambda_with_nonlambda" "let rec a = (lambda(x): x), b = 5 in b" 
+    "Binding error at wf_letrec_lambda_with_nonlambda, 1:28-1:33: Let-rec expected a name binding to a lambda; got b";
+  te "wf_letrec_lambda_error" "let rec a = (lambda(x, x): x) in a(5)" 
+    "The identifier x, redefined at <wf_letrec_lambda_error, 1:23-1:24>, duplicates one at <wf_letrec_lambda_error, 1:20-1:21>";
+  te "wf_letrec_body_error" "let rec a = (lambda(x, x): x) in b(5)" 
+    "The identifier x, redefined at <wf_letrec_body_error, 1:23-1:24>, duplicates one at <wf_letrec_body_error, 1:20-1:21>
+The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
 ]
 
 let call_type_tests = [
