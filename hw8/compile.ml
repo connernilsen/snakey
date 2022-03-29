@@ -181,6 +181,10 @@ let initial_fun_env : funenvt = [
   ("input", Native);
   ("equal", Native);
 ];;
+let initial_fun_arity = [
+  ("input", 0);
+  ("equal", 2);
+]
 let initial_fun_env_env : arg envt = (List.map (fun (name, _) -> (name, Label(name))) initial_fun_env)
 let rename_and_tag (p : tag program) : tag program =
   let rec rename env p =
@@ -1238,14 +1242,16 @@ let desugar (p : tag program) : unit program =
     | ENumber(n, _) -> ENumber(n, ())
     | EBool(b, _) -> EBool(b, ())
     | ENil(_) -> ENil(())
-    | EId("input", _) -> ELambda([], EApp(EId("input", ()), [], Snake, ()), ())
-    | EId("equal", tag) -> 
-      let arg1 = sprintf "eq_arg1_%d" tag in 
-      let arg2 = sprintf "eq_arg2_%d" tag in
-      ELambda([BName(arg1, false, ()); BName(arg2, false, ())], 
-              EApp(EId("equal", ()), [EId(arg1, ()); EId(arg2, ())], Snake, ()), ())
     | EId(id, _) -> EId(id, ())
-    | EApp(f, args, ct, _) -> EApp(helpE f, List.map helpE args, ct, ())
+    | EApp(f, args, ct, _) -> 
+      let func_name = (get_func_name f) in
+      begin match List.assoc_opt func_name initial_fun_arity with 
+        | None -> EApp(helpE f, List.map helpE args, ct, ())
+        | Some(arity) -> 
+          let lambda_args = List.init arity (fun a -> BName(sprintf "arg_%d" a, false, ())) in
+          let lambda_args_calls = List.init arity (fun a -> EId(sprintf "arg_%d" a, ())) in
+          EApp(ELambda(lambda_args, EApp(helpE f, lambda_args_calls, Native, ()), ()), List.map helpE args, Snake, ())
+      end
     | ELambda(args, body, _) -> ELambda(List.map untagB args, helpE body, ())
     | ELetRec(bindings, body, _) -> ELetRec(List.map helpLetRecBinding bindings, helpE body, ())
   and helpD (d : tag decl) : unit decl =

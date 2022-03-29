@@ -88,8 +88,8 @@ let desugar_tests = [
     "(lambda (x): x)"
     "\n(lam(x) x)";
   tdesugar "sequence" "print(5); print(5)" "\n(let _ = print(5) in print(5))";
-  tdesugar "desugar_native" "input()" "\n(?(lam() (*input()))())";
-  tdesugar "desugar_native_lambda" "let a = (lambda: input()) in a()" "\n(let a = (lam() (?(lam() (*input()))())) in (?a()))";
+  tdesugar "desugar_native" "input()" "\n((lam() (*input()))())";
+  tdesugar "desugar_native_lambda" "let a = (lambda: input()) in a()" "\n(let a = (lam() ((lam() (*input()))())) in (?a()))";
 ]
 
 let default_tests =
@@ -248,7 +248,9 @@ let tanf_tests = [
   tanf_improved "compile_native_in_closure_multiple_args_anf" 
     "(lambda (x, y): print(y))(1, 6)"
     "(alet lam_5 = (lam(x_8, y_9) print(y_9)) in (lam_5(1, 6)))";
-  tanf_improved "anf_input" "input()" "(alet lam_3 = (lam() (*input())) in (*lam_3()))";
+  tanf_improved "anf_input" "input()" "(alet lam_3 = (lam() (*input())) in (lam_3()))";
+  tanf_improved "anf_lambda" "let lam = (lambda: 1) in lam()" "(alet lam_4 = (lam() 1) in (lam_4()))";
+  tanf_improved "anf_native" "let a = (lambda: input()) in a()" "(alet a_4 = (lam() (alet lam_7 = (lam() (*input())) in (lam_7()))) in (a_4()))";
 ]
 
 let func_call_params_tests = [
@@ -284,6 +286,7 @@ let compile_tests = [
   t "compile_lambda_1_noapp" "(lambda (x): x)" "" "<function>";
   t "compile_lambda_2_noapp" "(lambda (x): (lambda (x): x))" "" "<function>";
   t "compile_lambda_noarg" "(lambda: 1)()" "" "1";
+  t "compile_lambda_0_in_let" "let a = (lambda: 6) in a()" "" "6";
   t "compile_lambda_1" "(lambda (x): x)(5)" "" "5";
   t "compile_lambda_1_in_let" "let a = (lambda (x): x) in a(5)" "" "5";
   t "compile_lambda_2" "(lambda (x, y): x + y)(5, 10)" "" "15";
@@ -329,9 +332,9 @@ let native_tests = [
   terr "arg_count_low" "(lambda (x): x)()" "" "arity mismatch in call";
   terr "arg_count_high" "(lambda: 1)(1)" "" "arity mismatch in call";
   (* will be fixed with closures *)
-  terr "arg_count_native_low" "equal(1, 2, 3)" "" "";
-  terr "arg_count_native_high" "equal(1, 2, 3)" "" "";
-  terr "print_arity" "print(1, 2)" "" "";
+  terr "arg_count_native_low" "equal(1, 2, 3)" "" "arity mismatch in call";
+  terr "arg_count_native_high" "equal(1, 2, 3)" "" "arity mismatch in call";
+  terr "print_arity" "print(1, 2)" "" "Parse error at line 1, col 8: token `,`";
 ]
 
 let sequencing_tests = [
