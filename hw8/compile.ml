@@ -335,7 +335,6 @@ let anf (p : tag program) : unit aprogram =
     | ELet((BBlank _, exp, _)::rest, body, pos) ->
       let (exp_ans, exp_setup) = helpI exp in
       let (body_ans, body_setup) = helpC (ELet(rest, body, pos)) in
-      (* TODO: confirm this is OK.  *)
       (body_ans, exp_setup @ body_setup)
     | ELet((BName(bind, _, _), exp, _)::rest, body, pos) ->
       let (exp_ans, exp_setup) = helpC exp in
@@ -1148,7 +1147,7 @@ and setup_lambda name args frees =
     ILineComment("Setup lambda");
     (* store arity in first slot as a machine number since it's never accessed in our language *)
     IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (List.length args)));
-    (* store the function address in the second slot TODO: is name good?*)
+    (* store the function address in the second slot *)
     IMov(Sized(QWORD_PTR, RegOffset(word_size, heap_reg)), Label(name));
     (* store the # of free variables in the 3rd slot as a machine # since it's never accessed in our language *)
     IMov(Sized(QWORD_PTR, RegOffset(word_size * 2, heap_reg)), Const(Int64.of_int (List.length frees)));
