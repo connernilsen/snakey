@@ -181,6 +181,10 @@ let initial_fun_env : funenvt = [
   ("input", Native);
   ("equal", Native);
 ];;
+let initial_fun_arity = [
+  ("input", 0);
+  ("equal", 2);
+]
 let initial_fun_env_env : arg envt = (List.map (fun (name, _) -> (name, Label(name))) initial_fun_env)
 let rename_and_tag (p : tag program) : tag program =
   let rec rename env p =
@@ -1281,8 +1285,14 @@ let desugar (p : tag program) : unit program =
     | ENumber(n, _) -> ENumber(n, ())
     | EBool(b, _) -> EBool(b, ())
     | ENil(_) -> ENil(())
+    | EId("input", _) -> ELambda([], EApp(EId("input", ()), [], Native, ()), ())
+    | EId("equal", tag) -> 
+      let arg1 = sprintf "eq_arg1_%d" tag in 
+      let arg2 = sprintf "eq_arg2_%d" tag in
+      ELambda([BName(arg1, false, ()); BName(arg2, false, ())], 
+              EApp(EId("equal", ()), [EId(arg1, ()); EId(arg2, ())], Native, ()), ())
     | EId(id, _) -> EId(id, ())
-    | EApp(f, args, ct, _) -> EApp(helpE f, List.map helpE args, ct, ())
+    | EApp(f, args, ct, _) -> EApp(helpE f, List.map helpE args, Snake, ())
     | ELambda(args, body, _) -> ELambda(List.map untagB args, helpE body, ())
     | ELetRec(bindings, body, _) -> ELetRec(List.map helpLetRecBinding bindings, helpE body, ())
   and helpD (d : tag decl) : unit decl =
