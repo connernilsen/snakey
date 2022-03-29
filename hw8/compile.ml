@@ -666,6 +666,9 @@ let get_func_call_params (params : string list) (closure_args : string list) : a
   (pair_regs params first_six_args_registers) @ (pair_stack closure_args 1 ~-1)
 ;;
 
+let string_of_envt (e: arg envt) = 
+  List.fold_right (fun (name, arg) acc -> acc ^ " " ^ name) e  ""
+
 (* ASSUMES that the program has been alpha-renamed and all names are unique *)
 let rec naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg envt =
   match prog with 
@@ -682,6 +685,10 @@ and get_aexpr_envt (expr : tag aexpr) (si : int) : arg envt =
     (get_cexpr_envt body si)
   | ALetRec(binds, body, _) -> 
     let num_binds = List.length binds in
+    (* raise (InternalCompilerError (string_of_envt (List.mapi (fun i (name, bind) -> (name, RegOffset(~-(si + i) * word_size, RBP))) binds
+                                                  @ List.flatten (List.map (fun (_, bind) -> get_cexpr_envt bind (si + 1 + num_binds)) binds)
+                                                  (* (List.flatten (List.mapi (fun i (name, bind) -> (name, RegOffset(~-(si + i) * word_size, RBP))::(get_cexpr_envt bind (si + i + 1))) binds)) *)
+                                                  @ (get_aexpr_envt body (si + num_binds + 1))))); *)
     List.mapi (fun i (name, bind) -> (name, RegOffset(~-(si + i) * word_size, RBP))) binds
     @ List.flatten (List.map (fun (_, bind) -> get_cexpr_envt bind (si + 1 + num_binds)) binds)
     (* (List.flatten (List.mapi (fun i (name, bind) -> (name, RegOffset(~-(si + i) * word_size, RBP))::(get_cexpr_envt bind (si + i + 1))) binds)) *)
