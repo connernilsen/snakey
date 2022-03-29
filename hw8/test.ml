@@ -258,6 +258,11 @@ let tanf_tests = [
   tanf_improved "compile_native_in_closure_multiple_args_anf" 
     "(lambda (x, y): print(y))(1, 6)"
     "(alet lam_5 = (lam(x_8, y_9) print(y_9)) in (lam_5(1, 6)))";
+  tanf_improved "lambda_recursion_let_anf"
+    "let rec y = (lambda(arg): if arg == 0: 0 else: 1 + y(1 - arg)) in y(4)"
+    ("(aletrec y_4 = (lam(arg_18) (alet binop_7 = (arg_18 == 0) in " ^
+     "(if binop_7: 0 else: (alet binop_14 = (1 - arg_18) in " ^
+     "(alet app_13 = (y_4(binop_14)) in (1 + app_13)))))) in (y_4(4)))");
 ]
 
 let func_call_params_tests = [
@@ -313,10 +318,10 @@ let compile_tests = [
 
 let let_rec_tests = [
   t "compile_lambda_recursion"
-    "let rec y = (lambda(arg): if arg == 0: 0 else: 1 + y(1 - arg)) in y(4)"
+    "let rec y = (lambda(arg): if arg == 0: 0 else: 1 + y(arg - 1)) in y(4)"
     "" "4";
   t "compile_lambda_mutual_recursion"
-    "let rec x = (lambda(arg): if arg == 0: 0 else: 1 + y(1 - arg)), y = (lambda(arg): if arg == 0: 0 else: 1 + x(1 - arg)) in y(4)"
+    "let rec x = (lambda(arg): if arg == 0: 0 else: 1 + y(arg - 1)), y = (lambda(arg): if arg == 0: 0 else: 1 + x(arg - 1)) in y(4)"
     "" "4";
   t "compile_decl" "def a(x): x\n a(1)" "" "1";
 ]
