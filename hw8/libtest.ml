@@ -617,7 +617,7 @@ test(1, 2)"
             pos = t1(false, dec_num)
           in neg && pos
       t1(false, 4)"
-      "expected a boolean, got num(0)";
+      "expected a boolean, got 0";
     t "reuse_reg_args_not_tail_recursive"
       "def f1(b, n):
       let x = print(b),

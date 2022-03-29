@@ -544,10 +544,10 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
                   | ELambda(_) -> []
                   |_ -> [(LetRecNonFunction(bind, ss))]
                 end
-                @ (wf_E body (env @ bind_env)))
+                @ (wf_E body (bind_env @ env)))
              binds)
       in
-      find_dup_exns_by_env bind_env @ bind_errors @ (wf_E body bind_env)
+      find_dup_exns_by_env bind_env @ bind_errors @ (wf_E body (bind_env @ env))
   and wf_D (d : sourcespan decl) (env : (string * sourcespan) list): exn list =
     match d with 
     | DFun(_, binds, body, _) ->
@@ -569,8 +569,9 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
     let envs = (List.map (fun decls -> (get_env decls)) decls) in 
     (* TODO: do we need this? we allow shadowing *)
     (* let dup_fun_errors = dup_d_errors decls in *)
-    let d_errs = (List.flatten (List.map2 (fun (decls) (env) -> (d_errors decls env)) decls envs)) in
-    let e_errs = wf_E body (List.flatten (builtin_env::envs)) in 
+    let d_errs, d_env = List.fold_left2 (fun (acc_errors, acc_env) decls env -> 
+        ((d_errors decls (env @ acc_env)) @ acc_errors, env @ acc_env)) ([], builtin_env) decls envs in
+    let e_errs = wf_E body d_env in 
     begin
       match d_errs @ e_errs with 
       | [] -> Ok p
