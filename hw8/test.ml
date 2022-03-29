@@ -378,6 +378,21 @@ The identifier a, used at <def_no_shadow, 4:2-4:3>, is not in scope";
     x(1, 2)"
     "" "3";
   t "let_rec_in_let"
+    "let a = 
+    (let rec isdone = (lambda(y): if y == 1: 0 else: b(y - 1)),
+      b = (lambda(y): isdone(y)) in b) in
+    a(4)"
+    ""
+    "0";
+  t "let_rec_in_let_lambda"
+    "let a = (lambda(x): 
+    let rec isdone = (lambda(y): if y == x: 0 else: b(y - 1)),
+      b = (lambda(y): isdone(y))
+      in b) in
+    a(1)(4)"
+    ""
+    "0";
+  t "let_rec_in_let_sequence"
     "let a = (lambda(x): 
     let rec isdone = (lambda(y): if y == x: 0 else: b(y - 1)),
       b = (lambda(y): print(y); isdone(y))
@@ -385,6 +400,36 @@ The identifier a, used at <def_no_shadow, 4:2-4:3>, is not in scope";
     a(1)(4)"
     ""
     "4\n3\n2\n1\n0";
+  t "let_in_lambda"
+    "(lambda: let a = 5 in a)()"
+    ""
+    "5";
+  t "let_rec_in_lambda_simple"
+    "(lambda(x): 
+    let rec b = (lambda(y): 5)
+      in b)"
+    ""
+    "<function>";
+  t "let_rec_in_lambda_self"
+    "(lambda(x): 
+    let rec b = (lambda(y): if y == 0: 0 else: 1 + b(1 - y))
+      in 5)"
+    ""
+    "<function>";
+  t "let_rec_in_lambda_mutual"
+    "(lambda(x): 
+    let rec isdone = (lambda(y): if y == x: 0 else: b(y - 1)),
+      b = (lambda(y): isdone(y))
+      in b)"
+    ""
+    "<function>";
+  t "let_rec_in_lambda_native"
+    "(lambda(x): 
+    let rec isdone = (lambda(y): if y == x: 0 else: b(y - 1)),
+      b = (lambda(y): print(y); isdone(y))
+      in b)"
+    ""
+    "<function>";
 ]
 
 let let_rec_tests = [
@@ -429,20 +474,20 @@ let sequencing_tests = [
 
 let suite =
   "suite">:::
-  default_tests @
-  free_vars_tests @
-  wf_tests @
+  (* default_tests @
+     free_vars_tests @
+     wf_tests @ *)
   compile_tests @
-  call_type_tests @
-  func_call_params_tests @
-  let_rec_tests @
-  native_tests @
-  desugar_tests @
-  tanf_tests @
+  (* call_type_tests @
+     func_call_params_tests @
+     let_rec_tests @
+     native_tests @
+     desugar_tests @
+     tanf_tests @ *)
   sequencing_tests
 ;;
 
 
 let () =
-  run_test_tt_main ("all_tests">:::[suite; old_tests; input_file_test_suite ()])
+  run_test_tt_main ("all_tests">:::[suite; (* old_tests; *) input_file_test_suite ()])
 ;;
