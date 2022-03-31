@@ -1,0 +1,5 @@
+let a = (lambda(x): 
+    let rec isdone = (lambda(y): if y == x: 0 else: b(y - 1)),
+      b = (lambda(y): isdone(y))
+      in b) in
+    a(1)(4)

@@ -10,11 +10,12 @@
 (executable
   (name main)
   (modules main)
-  (libraries unix str fdl_impl))
+  (libraries unix str fdl_impl)
+  (modes byte exe))
 
 (test
   (name test)
-  (modules test)
+  (modules test libtest)
   (libraries unix str fdl_impl))
 
 (env (dev (flags (:standard -warn-error -A))))
