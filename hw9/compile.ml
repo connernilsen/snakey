@@ -32,19 +32,21 @@ let const_nil        = HexConst(tuple_tag)
 
 let err_COMP_NOT_NUM     = 1L
 let err_ARITH_NOT_NUM    = 2L
-let err_LOGIC_NOT_BOOL   = 3L
-let err_IF_NOT_BOOL      = 4L
+let err_NOT_BOOL         = 3L
+let err_DESTRUCTURE_INVALID_LEN = 4L
 let err_OVERFLOW         = 5L
 let err_GET_NOT_TUPLE    = 6L
 let err_GET_LOW_INDEX    = 7L
 let err_GET_HIGH_INDEX   = 8L
-let err_NIL_DEREF        = 9L
-let err_OUT_OF_MEMORY    = 10L
-let err_SET_NOT_TUPLE    = 11L
-let err_SET_LOW_INDEX    = 12L
-let err_SET_HIGH_INDEX   = 13L
-let err_CALL_NOT_CLOSURE = 14L
-let err_CALL_ARITY_ERR   = 15L
+let err_GET_NOT_NUM      = 9L
+let err_NIL_DEREF        = 10L
+let err_OUT_OF_MEMORY    = 11L
+let err_SET_NOT_TUPLE    = 12L
+let err_SET_LOW_INDEX    = 13L
+let err_SET_NOT_NUM      = 14L
+let err_SET_HIGH_INDEX   = 15L
+let err_CALL_NOT_CLOSURE = 16L
+let err_CALL_ARITY_ERR   = 17L
 
 (* label names for errors *)
 let label_COMP_NOT_NUM         = "error_comp_not_num"
@@ -91,11 +93,14 @@ let stringset_of_list : (string list -> StringSet.t) =
     StringSet.empty
 ;;
 
-let rec find ls x =
+let rec find_helper orig_ls ls x =
   match ls with
-  | [] -> raise (InternalCompilerError (sprintf "Name %s not found" x))
+  | [] -> raise (InternalCompilerError (sprintf "Name %s not found in %s" x (List.fold_right (fun (s, _) acc -> acc ^ " " ^ s) orig_ls "")))
   | (y,v)::rest ->
-    if y = x then v else find rest x
+    if y = x then v else find_helper orig_ls rest x
+
+let rec find ls x =
+  find_helper ls ls x
 
 let count_vars e =
   let rec helpA e =
@@ -161,7 +166,7 @@ let env_keys e = List.map fst e;;
 
 (* Returns the stack-index (in words) of the deepest stack index used for any 
    of the variables in this expression *)
-let rec deepest_stack e env =
+let rec deepest_stack e (env: arg name_envt name_envt) current_env =
   let rec helpA e =
     match e with
     | ALet(name, bind, body, _) -> List.fold_left max 0 [name_to_offset name; helpC bind; helpA body]
@@ -186,7 +191,7 @@ let rec deepest_stack e env =
     | ImmBool _ -> 0
     | ImmId(name, _) -> name_to_offset name
   and name_to_offset name =
-    match (find env name) with
+    match find (find env current_env) name with
     | RegOffset(bytes, RBP) -> bytes / (-1 * word_size) (* negative because stack direction *)
     | _ -> 0
   in max (helpA e) 0 (* if only parameters are used, helpA might return a negative value *)
@@ -855,11 +860,11 @@ let get_func_call_params (params : string list) (closure_args : string list) : a
 
 (* TODO: change to arg name_envt name_envt *)
 (* ASSUMES that the program has been alpha-renamed and all names are unique *)
-let rec naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg name_envt =
+let rec naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg name_envt name_envt =
   match prog with 
-  | AProgram(expr, _) ->
+  | AProgram(expr, tag) ->
     (prog, 
-     (get_aexpr_envt expr 1))
+     [(sprintf "fun_%d" tag, (get_aexpr_envt expr 1))])
 and get_aexpr_envt (expr : tag aexpr) (si : int) : arg name_envt =
   match expr with 
   (* TODO: confirm this is correct *)
@@ -1088,12 +1093,12 @@ and reserve size tag =
     ICmp(Reg(RAX), Reg(heap_reg));
     IJge(Label ok);
   ]
-  @ (native_call (Label "?try_gc") [
+  @ (setup_call_to_func 4 [
       (Sized(QWORD_PTR, Reg(heap_reg))); (* alloc_ptr in C *)
       (Sized(QWORD_PTR, Const(Int64.of_int size))); (* bytes_needed in C *)
       (Sized(QWORD_PTR, Reg(RBP))); (* first_frame in C *)
       (Sized(QWORD_PTR, Reg(RSP))); (* stack_top in C *)
-    ])
+    ] (Label "?try_gc") false)
   @ [
     IInstrComment(IMov(Reg(heap_reg), Reg(RAX)), "assume gc success if returning here, so RAX holds the new heap_reg value");
     ILabel(ok);
@@ -1104,39 +1109,40 @@ and reserve size tag =
    assume should take up the first few stack slots.  See the compiliation of Programs
    below for one way to use this ability... *)
 
-and compile_fun (fun_name : string) args body env : instruction list =
+and compile_fun (fun_name : string) args body (env: arg name_envt name_envt) current_env : (instruction list * instruction list * instruction list) =
   (* get max allocation needed as an even value, possibly rounded up *)
   let frees = free_vars body args in 
   let parity_offset = (List.length frees) mod 2 in
-  let stack_alloc_space = (((deepest_stack body env) + 1 + parity_offset) / 2 ) * 2 in
-  [
+  let stack_alloc_space = (((deepest_stack body env current_env) + 1 + parity_offset) / 2 ) * 2 in
+  let fun_prologue = [
     IJmp(Label(sprintf "%s_end" fun_name));
     ILabel(fun_name);
     IPush(Reg(RBP));
     IMov(Reg(RBP), Reg(RSP));
     (* TODO: change to maybe when implementing tail recursion *)
   ]
-  @ (List.mapi (fun (i: int) (f: string) -> IPush(Sized(QWORD_PTR, RegOffset((i + 3) * word_size, RAX)))) frees)
-  @ [
-    ISub(Reg(RSP), Const(Int64.of_int (stack_alloc_space * word_size)));
-  ] 
-  @ (compile_aexpr body env (List.length args) false) @ [
+    @ (List.mapi (fun (i: int) (f: string) -> IPush(Sized(QWORD_PTR, RegOffset((i + 3) * word_size, RAX)))) frees)
+    @ [
+      ISub(Reg(RSP), Const(Int64.of_int (stack_alloc_space * word_size)));
+    ] in 
+  let fun_body = (compile_aexpr body env (List.length args) false current_env) in 
+  let fun_epilogue = [
     IMov(Reg(RSP), Reg(RBP));
     IPop(Reg(RBP));
     IRet;
     ILabel(sprintf "%s_end" fun_name);
-  ]
-and compile_aexpr (e : tag aexpr) (env : arg name_envt) (num_args : int) (is_tail : bool) : instruction list =
+  ] in (fun_prologue, fun_body, fun_epilogue)
+and compile_aexpr (e : tag aexpr) (env : arg name_envt name_envt) (num_args : int) (is_tail : bool) current_env : instruction list =
   match e with
   | ALet(id, bind, body, _) ->
-    let prelude = compile_cexpr bind env num_args is_tail in
-    let body = compile_aexpr body env num_args is_tail in
+    let prelude = compile_cexpr bind env num_args is_tail current_env in
+    let body = compile_aexpr body env num_args is_tail current_env in
     prelude
-    @ [ IInstrComment(IMov(find env id, Reg(RAX)), sprintf "save %s" id) ]
+    @ [ IInstrComment(IMov(find (find env current_env) id, Reg(RAX)), sprintf "save %s" id) ]
     @ body
-  | ASeq(expr1, expr2, _) -> compile_cexpr expr1 env num_args is_tail  @ compile_aexpr expr2 env num_args is_tail
+  | ASeq(expr1, expr2, _) -> compile_cexpr expr1 env num_args is_tail current_env  @ compile_aexpr expr2 env num_args is_tail current_env
   | ACExpr(body) -> 
-    (compile_cexpr body env num_args is_tail)
+    (compile_cexpr body env num_args is_tail current_env)
   | ALetRec(binds, body, _) -> 
     let lambda_setups = List.flatten (List.map (fun (name, bind) -> 
         match bind with 
@@ -1144,25 +1150,25 @@ and compile_aexpr (e : tag aexpr) (env : arg name_envt) (num_args : int) (is_tai
           let newname = sprintf "fun_%d" tag in
           let frees = free_vars body args in
           (setup_lambda newname args frees)
-          @ [IInstrComment(IMov(find env name, Reg(RAX)), sprintf "save (rec) %s" name)]
+          @ [IInstrComment(IMov(find (find env current_env) name, Reg(RAX)), sprintf "save (rec) %s" name)]
         | _ -> raise (InternalCompilerError "Tried to compile non lambda in let rec")) binds)
     in 
     let lambda_comps = List.flatten (List.map (fun (name, bind) ->
-        IMov(Reg(RAX), find env name)
-        :: (compile_lambda bind env false)) binds)
+        IMov(Reg(RAX), find (find env current_env) name)
+        :: (compile_lambda bind env false current_env)) binds)
     in 
     lambda_setups 
     @ lambda_comps
-    @ (compile_aexpr body env num_args is_tail)
-and compile_cexpr (e : tag cexpr) env num_args is_tail =
+    @ (compile_aexpr body env num_args is_tail current_env)
+and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
   match e with 
   | CIf(cond, thn, els, tag) ->
     let if_t = (sprintf "if_true_%n" tag) and
     if_f = (sprintf "if_false_%n" tag) and
     done_txt = (sprintf "done_%n" tag) and
-    thn = compile_aexpr thn env num_args is_tail and
-    els = compile_aexpr els env num_args is_tail and
-    cond_value = compile_imm cond env in
+    thn = compile_aexpr thn env num_args is_tail current_env and
+    els = compile_aexpr els env num_args is_tail current_env and
+    cond_value = compile_imm cond env current_env in
     IMov(Reg(RAX), cond_value) ::
     (tag_check cond_value label_NOT_BOOL bool_tag_mask bool_tag)
     @ [
@@ -1176,7 +1182,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
       ILabel(done_txt);
     ]
   | CPrim1(op, body, tag) ->
-    let e_reg = compile_imm body env in
+    let e_reg = compile_imm body env current_env in
     begin match op with
       | Add1 -> 
         IMov(Reg(RAX), e_reg) ::
@@ -1234,8 +1240,8 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
       | PrintStack -> (setup_call_to_func num_args [e_reg; Reg(RSP); Reg(RBP); Const(Int64.of_int num_args)] (Label("print_stack")) false)
     end
   | CPrim2(op, l, r, tag) ->
-    let e1_reg = (compile_imm l env) in
-    let e2_reg = (compile_imm r env) in
+    let e1_reg = (compile_imm l env current_env) in
+    let e2_reg = (compile_imm r env current_env) in
     (* generates the instructions for performing a Prim2 arith operation on args e1_reg and e2_reg.
      * the body should perform operations using RAX and R10, where e1_reg and e2_reg 
      * will be moved to respectively.
@@ -1283,12 +1289,12 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
          IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
     end
   | CApp(func, args, Native, _) -> 
-    let arg_regs = (List.map (fun (a) -> (compile_imm a env)) args) in 
+    let arg_regs = (List.map (fun (a) -> (compile_imm a env current_env)) args) in 
     (setup_call_to_func num_args arg_regs (Label(get_func_name_imm func)) false)
   | CApp(func, args, Snake, _) -> 
-    (setup_call_to_func num_args (List.map (fun e -> compile_imm e env) args) (compile_imm func env) true)
+    (setup_call_to_func num_args (List.map (fun e -> compile_imm e env current_env) args) (compile_imm func env current_env) true)
   | CApp(func, args, _, _) -> (raise (InternalCompilerError "unknown function type"))
-  | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env)]
+  | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env current_env)]
   | CTuple(vals, _) ->
     let length = List.length vals in
     (* length at [0] *)
@@ -1296,7 +1302,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
     (* items at [1:length + 1] *)
     List.flatten (List.mapi (fun idx v -> 
         [
-          IMov(Reg(R11), compile_imm v env);
+          IMov(Reg(R11), compile_imm v env current_env);
           IMov(Sized(QWORD_PTR, RegOffset((idx + 1) * word_size, heap_reg)), Reg(R11));
         ]) vals)
     (* filler at [length + 1:16 byte alignment]?*)
@@ -1309,8 +1315,8 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
       IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
     ]
   | CGetItem(tuple, idx, tag) -> 
-    let tuple = compile_imm tuple env in
-    let idx = compile_imm idx env in
+    let tuple = compile_imm tuple env current_env in
+    let idx = compile_imm idx env current_env in
     (* Check tuple is tuple *)
     (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
      (* Check index is num *)
@@ -1337,9 +1343,9 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
        (* get value *)
        IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, word_size))])
   | CSetItem(tuple, idx, set, _) -> 
-    let tuple = compile_imm tuple env in
-    let idx = compile_imm idx env in
-    let set = compile_imm set env in
+    let tuple = compile_imm tuple env current_env in
+    let idx = compile_imm idx env current_env in
+    let set = compile_imm set env current_env in
     (* Check tuple is tuple *)
     (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
      (* Check index is num *)
@@ -1369,13 +1375,13 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail =
        IMov(Reg(R12), set);
        IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, R11, word_size, word_size)), Reg(R12));
        IMov(Reg(RAX), set)])
-  | CLambda(_) -> compile_lambda e env true
-and compile_imm e env =
+  | CLambda(_) -> compile_lambda e env true current_env
+and compile_imm e env current_env =
   match e with
   | ImmNum(n, _) -> Const(Int64.shift_left n 1)
   | ImmBool(true, _) -> const_true
   | ImmBool(false, _) -> const_false
-  | ImmId(x, _) -> (find env x)
+  | ImmId(x, _) -> (find (find env current_env) x)
   | ImmNil(_) -> nil
 and setup_lambda name args frees =
   [
@@ -1395,14 +1401,15 @@ and setup_lambda name args frees =
     ILineComment("Tag lambda");
     IAdd(Reg(RAX), Const(closure_tag));
   ]
-and compile_lambda lam env do_setup =
+and compile_lambda lam env do_setup current_env =
   match lam with
   | CLambda(args, body, tag) -> 
     let name = sprintf "fun_%d" tag in
     let frees = free_vars body args in
-    let newenv = (get_lambda_envt args body frees) @ env in
+    let newenv = (name, (get_lambda_envt args body frees)) :: env in
+    let fun_prologue, fun_body, fun_epilogue = (compile_fun name args body newenv current_env) in
     ILineComment(sprintf "Compile lambda (%d args)" (List.length args))
-    :: compile_fun name args body newenv
+    :: (fun_prologue @ fun_body @ fun_epilogue)
     @ (if do_setup 
        then setup_lambda name args frees
        else [])
@@ -1414,7 +1421,7 @@ and compile_lambda lam env do_setup =
     (* store free variables at [3:] *)
     @ List.flatten (List.mapi (fun idx (id: string) -> 
         [
-          IMov(Reg(R11), (find env id));
+          IMov(Reg(R11), (find (find env current_env) id));
           IMov(Sized(QWORD_PTR, RegOffset((idx + 3) * word_size, RAX)), Reg(R11));
         ]) frees)
     @ [
@@ -1431,39 +1438,6 @@ and args_help args regs =
   | args, [] ->
     List.rev_map (fun arg -> IPush arg) args
   | [], _ -> []
-and native_call label args =
-  (* We know that on entry to every function, RSP is 16-byte aligned.
-     We know that every frame is a multiple of 16 bytes.
-     The call instruction pushes one return pointer onto the stack.
-     The first thing we do is push RBP onto the stack
-     So, we add 8 bytes of padding IFF the number of spilled args is *ODD*.
-  *)
-  let num_stack_args = max (List.length args - 6) 0 in
-  let padding_needed = (num_stack_args mod 2) <> 0 in
-  let setup = (if padding_needed
-               then [IInstrComment(IPush(Sized(QWORD_PTR, Const(0L))), "Padding to 16-byte alignment")]
-               else []) @ args_help args first_six_args_registers in
-  let teardown =
-    (if num_stack_args = 0 then []
-     else [ IInstrComment(IAdd(Reg(RSP), Const(Int64.of_int(word_size * num_stack_args))),
-                          sprintf "Popping %d arguments" num_stack_args) ])
-    @ (if padding_needed then [IInstrComment(IAdd(Reg(RSP), Const(Int64.of_int word_size)), "Unpadding one word")]
-       else []) in
-  setup @ [ ICall(label) ] @ teardown
-
-
-(* UPDATE THIS TO HANDLE FIRST-CLASS FUNCTIONS AS NEEDED -- THIS CODE WILL NOT WORK AS WRITTEN *)
-and call (closure : arg) args =
-  let setup = List.rev_map (fun arg ->
-      match arg with
-      | Sized _ -> IPush(arg)
-      | _ -> IPush(Sized(DWORD_PTR, arg))) args in
-  let teardown =
-    let len = List.length args in
-    if len = 0 then []
-    else [ IInstrComment(IAdd(Reg(RSP), Const(Int64.of_int(word_size * len))), sprintf "Popping %d arguments" len) ] in
-  setup @ [ ICall(closure) ] @ teardown
-;;
 
 (* This function can be used to take the native functions and produce DFuns whose bodies
    simply contain an EApp (with a Native call_type) to that native function.  Then,
@@ -1479,6 +1453,9 @@ let add_native_lambdas (p : sourcespan program) =
   | Program(declss, body, tag) ->
     Program((List.fold_left (fun declss (name, (_, arity)) -> (wrap_native name arity)::declss) declss native_fun_bindings), body, tag)
 
+let compile_error_handler ((err_name : string), (err_code : int64)) : instruction list =
+  ILabel(err_name) :: setup_call_to_func 0 [Const(err_code); Reg(RAX)] (Label("?error")) false
+
 let compile_prog (anfed, (env : arg name_envt name_envt)) =
   let prelude =
     "section .text
@@ -1487,49 +1464,31 @@ extern ?input
 extern ?print
 extern ?print_stack
 extern ?equal
-extern ?try_gc
-extern ?naive_print_heap
-extern ?HEAP
+extern ?try_gc\n" ^ 
+(* extern ?naive_print_heap *)
+" extern ?HEAP
 extern ?HEAP_END
 extern ?set_stack_bottom
 global ?our_code_starts_here" in
-  let suffix = sprintf "
-?err_comp_not_num:%s
-?err_arith_not_num:%s
-?err_logic_not_bool:%s
-?err_if_not_bool:%s
-?err_overflow:%s
-?err_get_not_tuple:%s
-?err_get_low_index:%s
-?err_get_high_index:%s
-?err_nil_deref:%s
-?err_out_of_memory:%s
-?err_set_not_tuple:%s
-?err_set_low_index:%s
-?err_set_high_index:%s
-?err_call_not_closure:%s
-?err_call_arity_err:%s
-"
-      (to_asm (native_call (Label "?error") [Const(err_COMP_NOT_NUM); Reg(scratch_reg)]))
-      (to_asm (native_call (Label "?error") [Const(err_ARITH_NOT_NUM); Reg(scratch_reg)]))
-      (to_asm (native_call (Label "?error") [Const(err_LOGIC_NOT_BOOL); Reg(scratch_reg)]))
-      (to_asm (native_call (Label "?error") [Const(err_IF_NOT_BOOL); Reg(scratch_reg)]))
-      (to_asm (native_call (Label "?error") [Const(err_OVERFLOW); Reg(RAX)]))
-      (to_asm (native_call (Label "?error") [Const(err_GET_NOT_TUPLE); Reg(scratch_reg)]))
-      (to_asm (native_call (Label "?error") [Const(err_GET_LOW_INDEX); Reg(scratch_reg)]))
-      (to_asm (native_call (Label "?error") [Const(err_GET_HIGH_INDEX)]))
-      (to_asm (native_call (Label "?error") [Const(err_NIL_DEREF); Reg(scratch_reg)]))
-      (to_asm (native_call (Label "?error") [Const(err_OUT_OF_MEMORY); Reg(scratch_reg)]))
-      (to_asm (native_call (Label "?error") [Const(err_SET_NOT_TUPLE); Reg(scratch_reg)]))
-      (to_asm (native_call (Label "?error") [Const(err_SET_LOW_INDEX); Reg(scratch_reg)]))
-      (to_asm (native_call (Label "?error") [Const(err_SET_HIGH_INDEX); Reg(scratch_reg)]))
-      (to_asm (native_call (Label "?error") [Const(err_CALL_NOT_CLOSURE); Reg(scratch_reg)]))
-      (to_asm (native_call (Label "?error") [Const(err_CALL_ARITY_ERR); Reg(scratch_reg)]))
+  let suffix = (List.flatten (List.map compile_error_handler [
+      (label_COMP_NOT_NUM, err_COMP_NOT_NUM);
+      (label_ARITH_NOT_NUM, err_ARITH_NOT_NUM);
+      (label_NOT_BOOL, err_NOT_BOOL);
+      (label_NOT_TUPLE, err_GET_NOT_TUPLE);
+      (label_GET_LOW_INDEX, err_GET_LOW_INDEX);
+      (label_GET_HIGH_INDEX, err_GET_HIGH_INDEX);
+      (label_TUPLE_ACCESS_NOT_NUM, err_NIL_DEREF);
+      (label_OVERFLOW, err_OVERFLOW);
+      (label_NIL_DEREF, err_NIL_DEREF);
+      (label_DESTRUCTURE_INVALID_LEN, err_DESTRUCTURE_INVALID_LEN);
+      (label_SHOULD_BE_FUN, err_CALL_NOT_CLOSURE);
+      (label_ARITY, err_CALL_ARITY_ERR);
+    ]))
   in
   match anfed with
-  | AProgram(body, _) ->
+  | AProgram(body, tag) ->
     (* $heap and $size are mock parameter names, just so that compile_fun knows our_code_starts_here takes in 2 parameters *)
-    let (prologue, comp_main, epilogue) = compile_fun "?our_code_starts_here" ["$heap"; "$size"] body env in
+    let (prologue, comp_main, epilogue) = compile_fun "?our_code_starts_here" ["$heap"; "$size"] body env (sprintf "fun_%d" tag) in
     let heap_start =
       [
         ILineComment("heap start");
@@ -1540,15 +1499,14 @@ global ?our_code_starts_here" in
       ] in
     let set_stack_bottom =
       [
-        ILabel("?our_code_starts_here");
         IMov(Reg R12, Reg RDI);
       ]
-      @ (native_call (Label "?set_stack_bottom") [Reg(RBP)])
+      @ (setup_call_to_func 1 [Reg(RBP)] (Label "?set_stack_bottom") false)
       @ [
         IMov(Reg RDI, Reg R12)
       ] in
-    let main = (prologue @ heap_start @ comp_main @ epilogue) in
-    sprintf "%s%s%s%s\n" prelude (to_asm set_stack_bottom) (to_asm main) suffix
+    let main = (prologue @ set_stack_bottom @ heap_start @ comp_main @ epilogue) in
+    sprintf "%s%s%s\n" prelude (to_asm main) (to_asm suffix)
 ;;
 
 let run_if should_run f =
