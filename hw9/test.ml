@@ -15,13 +15,13 @@ let tvgc name heap_size program input expected = name>::test_run_valgrind ~args:
 let terr name program input expected = name>::test_err ~args:[] ~std_input:input program name expected;;
 let tgcerr name heap_size program input expected = name>::test_err ~args:[string_of_int heap_size] ~std_input:input program name expected;;
 let tanf name program input expected = name>::fun _ ->
-  assert_equal expected (anf (tag program)) ~printer:string_of_aprogram;;
+    assert_equal expected (anf (tag program)) ~printer:string_of_aprogram;;
 
 let tparse name program expected = name>::fun _ ->
-  assert_equal (untagP expected) (untagP (parse_string name program)) ~printer:string_of_program;;
+    assert_equal (untagP expected) (untagP (parse_string name program)) ~printer:string_of_program;;
 
 let teq name actual expected = name>::fun _ ->
-  assert_equal expected actual ~printer:(fun s -> s);;
+    assert_equal expected actual ~printer:(fun s -> s);;
 
 (* let tfvs name program expected = name>:: *)
 (*   (fun _ -> *)
@@ -53,8 +53,8 @@ let pair_tests = [
             end" "" "(4, <cyclic tuple 1>)";
   t "tup4" "let t = (4, 6) in
             (t, t)"
-           ""
-           "((4, 6), (4, 6))"
+    ""
+    "((4, 6), (4, 6))"
 
 ]
 
@@ -68,25 +68,26 @@ let oom = [
 
 let gc = [
   tgc "gc_lam1" (10 + builtins_size)
-      "let f = (lambda: (1, 2)) in
+    "let f = (lambda: (1, 2)) in
        begin
          f();
          f();
          f();
          f()
        end"
-      ""
-      "(1, 2)";
-  ]
+    ""
+    "(1, 2)";
+]
 
 let input = [
-    t "input1" "let x = input() in x + 2" "123" "125"
-  ]
+  t "input0" "input() + 2" "123" "125";
+  t "input1" "let x = input() in x + 2" "123" "125";
+]
 
 
 let suite =
-"unit_tests">:::
- pair_tests @ oom @ gc @ input
+  "unit_tests">:::
+  pair_tests @ oom @ gc @ input
 
 
 

@@ -77,13 +77,11 @@ let scratch_reg = R11
 let nil = HexConst(tuple_tag)
 
 (* you can add any functions or data defined by the runtime here for future use *)
-let initial_val_env = [
+let prim_bindings = [];;
+let native_fun_bindings = [
   ("input", (Native, 0));
   ("equal", (Native, 2));
 ];;
-
-let prim_bindings = [];;
-let native_fun_bindings = [];;
 
 let initial_fun_env = prim_bindings @ native_fun_bindings;;
 
@@ -385,11 +383,9 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
   in
   match p with
   | Program(decls, body, _) ->
-    let initial_env = initial_val_env in
     let initial_env = List.fold_left
         (fun env (name, (_, arg_count)) -> (name, (dummy_span, Some arg_count, Some arg_count))::env)
-        initial_fun_env
-        initial_env in
+        [] initial_fun_env in
     let rec find name (decls : 'a decl list) =
       match decls with
       | [] -> None
@@ -568,12 +564,13 @@ let rename_and_tag (p : tag program) : tag program =
       (try
          EId(find env name, tag)
        with InternalCompilerError _ -> e)
-    | EApp(func, args, native, tag) ->
+    | EApp(func, args, Snake, tag) ->
       let func = helpE env func in
-      let call_type =
-        (* TODO: If you want, try to determine whether func is a known function name, and if so,
-           whether it's a Snake function or a Native function *)
-        Snake in
+      EApp(func, List.map (helpE env) args, Snake, tag)
+    | EApp(func, args, Native, tag) ->
+      EApp(func, List.map (helpE env) args, Native, tag)
+    | EApp(func, args, call_type, tag) ->
+      let func = helpE env func in
       EApp(func, List.map (helpE env) args, call_type, tag)
     | ELet(binds, body, tag) ->
       let (binds', env') = helpBG env binds in
@@ -1293,7 +1290,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
     (setup_call_to_func num_args arg_regs (Label(get_func_name_imm func)) false)
   | CApp(func, args, Snake, _) -> 
     (setup_call_to_func num_args (List.map (fun e -> compile_imm e env current_env) args) (compile_imm func env current_env) true)
-  | CApp(func, args, _, _) -> (raise (InternalCompilerError "unknown function type"))
+  | CApp(func, args, _, _) -> (raise (InternalCompilerError (sprintf "unknown function type for %s" (get_func_name_imm func))))
   | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env current_env)]
   | CTuple(vals, _) ->
     let length = List.length vals in
@@ -1407,7 +1404,7 @@ and compile_lambda lam env do_setup current_env =
     let name = sprintf "fun_%d" tag in
     let frees = free_vars body args in
     let newenv = (name, (get_lambda_envt args body frees)) :: env in
-    let fun_prologue, fun_body, fun_epilogue = (compile_fun name args body newenv current_env) in
+    let fun_prologue, fun_body, fun_epilogue = (compile_fun name args body newenv name) in
     ILineComment(sprintf "Compile lambda (%d args)" (List.length args))
     :: (fun_prologue @ fun_body @ fun_epilogue)
     @ (if do_setup 
