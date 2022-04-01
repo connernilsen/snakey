@@ -1297,8 +1297,8 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
   | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env current_env)]
   | CTuple(vals, _) ->
     let length = List.length vals in
-    (* length at [0] *)
-    IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int length)) :: 
+    (* snake length at [0] *)
+    IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (length * 2))) :: 
     (* items at [1:length + 1] *)
     List.flatten (List.mapi (fun idx v -> 
         [
@@ -1465,8 +1465,8 @@ extern ?print
 extern ?print_stack
 extern ?equal
 extern ?try_gc\n" ^ 
-(* extern ?naive_print_heap *)
-" extern ?HEAP
+    (* extern ?naive_print_heap *)
+    " extern ?HEAP
 extern ?HEAP_END
 extern ?set_stack_bottom
 global ?our_code_starts_here" in
