@@ -148,6 +148,7 @@ let rec find_opt (env : 'a name_envt) (elt: string) : 'a option =
 let merge_envs list_env1 list_env2 =
   list_env1 @ list_env2
 ;;
+
 (* Combines two name_envts into one, preferring the first one *)
 let prepend env1 env2 =
   let rec help env1 env2 =
@@ -646,15 +647,16 @@ let anf (p : tag program) : unit aprogram =
     | ELet((BTuple(binds, _), exp, _)::rest, body, pos) ->
       raise (InternalCompilerError("Tuple bindings should have been desugared away"))
     | EApp(func, args, native, _) ->
+      let ct = if native = Native
+        then Native
+        else Snake in
       let (func_ans, func_setup) = helpI func in
       let (new_args, new_setup) = List.split (List.map helpI args) in
-      (CApp(func_ans, new_args, native, ()), func_setup @ List.concat new_setup)
-
+      (CApp(func_ans, new_args, ct, ()), func_setup @ List.concat new_setup)
     | ESeq(e1, e2, _) ->
       let (e1_ans, e1_setup) = helpC e1 in
       let (e2_ans, e2_setup) = helpC e2 in
       (e2_ans, e1_setup @ [BSeq e1_ans] @ e2_setup)
-
     | ETuple(args, _) ->
       let (new_args, new_setup) = List.split (List.map helpI args) in
       (CTuple(new_args, ()), List.concat new_setup)
@@ -714,10 +716,13 @@ let anf (p : tag program) : unit aprogram =
       let (cond_imm, cond_setup) = helpI cond in
       (ImmId(tmp, ()), cond_setup @ [BLet (tmp, CIf(cond_imm, helpA _then, helpA _else, ()))])
     | EApp(func, args, native, tag) ->
+      let ct = if native = Native
+        then Native
+        else Snake in
       let tmp = sprintf "app_%d" tag in
       let (new_func, func_setup) = helpI func in
       let (new_args, new_setup) = List.split (List.map helpI args) in
-      (ImmId(tmp, ()), func_setup @ (List.concat new_setup) @ [BLet (tmp, CApp(new_func, new_args, native, ()))])
+      (ImmId(tmp, ()), func_setup @ (List.concat new_setup) @ [BLet (tmp, CApp(new_func, new_args, ct, ()))])
     | ELet([], body, _) -> helpI body
     | ELet((BBlank _, exp, _)::rest, body, pos) ->
       let (exp_ans, exp_setup) = helpC exp in
@@ -822,20 +827,22 @@ let free_vars (e: 'a aexpr) (args : string list) : string list =
     | ACExpr(e) ->
       help_cexpr e env
   in 
-  let arg_set = stringset_of_list args in
+  let new_args = "?equal" :: "?input" :: args in
+  let arg_set = stringset_of_list new_args in
   StringSet.(diff (help_aexpr e arg_set) arg_set |> elements)
 ;;
 
+type flat_nested_envt = (tag * string * arg) list;;
 (** Gets an environment mapping id names to register names or stack offsets.
  * This makes it easy for callee functions to use args *)
-let get_func_call_params (params : string list) (closure_args : string list) : arg name_envt =
-  let rec pair_stack (params : string list) (next_off : int) (direction : int) : arg name_envt =
+let get_func_call_params (params : string list) (closure_args : string list) (wrapping_tag : tag) : flat_nested_envt =
+  let rec pair_stack (params : string list) (next_off : int) (direction : int) : flat_nested_envt =
     match params with 
     | [] -> []
     | first :: rest ->
-      (first, RegOffset(next_off * word_size * direction, RBP))
+      (wrapping_tag, first, RegOffset(next_off * word_size * direction, RBP))
       :: (pair_stack rest (next_off + 1) direction)
-  and pair_regs (params : string list) (regs : reg list) : arg name_envt =
+  and pair_regs (params : string list) (regs : reg list) : flat_nested_envt =
     match regs with 
     | [] -> 
       begin 
@@ -848,43 +855,58 @@ let get_func_call_params (params : string list) (closure_args : string list) : a
         match params with 
         | [] -> []
         | param_first :: param_rest ->
-          (param_first, Reg(reg_first))
+          (wrapping_tag, param_first, Reg(reg_first))
           :: (pair_regs param_rest reg_rest)
       end
   in
   (pair_regs params first_six_args_registers) @ (pair_stack closure_args 1 ~-1)
 ;;
 
-(* TODO: change to arg name_envt name_envt *)
 (* ASSUMES that the program has been alpha-renamed and all names are unique *)
 let rec naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg name_envt name_envt =
+  let rec add_to_assoc_list 
+      (key : string) 
+      (name : string) 
+      (value : arg) 
+      (ls : arg name_envt name_envt) : arg name_envt name_envt =
+    match ls with
+    | [] -> [(key, [(name, value)])]
+    | (found, others) :: rest -> 
+      if found = key 
+      then (found, (name, value) :: others) :: rest
+      else (found, others) :: add_to_assoc_list key name value rest
+  in
   match prog with 
   | AProgram(expr, tag) ->
-    (prog, 
-     [(sprintf "fun_%d" tag, (get_aexpr_envt expr 1))])
-and get_aexpr_envt (expr : tag aexpr) (si : int) : arg name_envt =
+    (prog, List.fold_left 
+       (fun acc (t, name, value) -> add_to_assoc_list (string_of_int t) name value acc) 
+       [] 
+       (get_aexpr_envt expr 1 tag))
+and get_aexpr_envt (expr : tag aexpr) (si : int) (wrapping_tag : tag) :  flat_nested_envt =
   match expr with 
   (* TODO: confirm this is correct *)
-  | ASeq(expr1, expr2, _) -> (merge_envs (get_cexpr_envt expr1 si) (get_aexpr_envt expr2 si))
+  | ASeq(expr1, expr2, _) -> (merge_envs (get_cexpr_envt expr1 si wrapping_tag) (get_aexpr_envt expr2 si wrapping_tag))
   | ALet(name, bind, body, _) ->
-    (name, RegOffset(~-si * word_size, RBP))
-    :: (get_cexpr_envt bind (si + 1))
-    @ (get_aexpr_envt body (si + 1))
+    (wrapping_tag, name, RegOffset(~-si * word_size, RBP))
+    :: (get_cexpr_envt bind (si + 1) wrapping_tag)
+    @ (get_aexpr_envt body (si + 1) wrapping_tag)
   | ACExpr(body) ->
-    (get_cexpr_envt body si)
+    (get_cexpr_envt body si wrapping_tag)
   | ALetRec(binds, body, _) -> 
     let num_binds = List.length binds in
-    List.mapi (fun i (name, bind) -> (name, RegOffset(~-(si + i) * word_size, RBP))) binds
-    @ List.flatten (List.map (fun (_, bind) -> get_cexpr_envt bind (si + 1 + num_binds)) binds)
-    @ (get_aexpr_envt body (si + num_binds + 1))
-and get_cexpr_envt (expr : tag cexpr) (si : int) : arg name_envt =
+    List.mapi (fun i (name, bind) -> (wrapping_tag, name, RegOffset(~-(si + i) * word_size, RBP))) binds
+    @ List.flatten (List.map (fun (_, bind) -> get_cexpr_envt bind (si + 1 + num_binds) wrapping_tag) binds)
+    @ (get_aexpr_envt body (si + num_binds + 1) wrapping_tag)
+and get_cexpr_envt (expr : tag cexpr) (si : int) (wrapping_tag : tag) : flat_nested_envt =
   match expr with 
   | CIf(_, l, r, _) -> 
-    (get_aexpr_envt l si)
-    @ (get_aexpr_envt r si)
-  | CLambda(_) | CPrim1(_) | CPrim2(_) | CApp(_) | CImmExpr(_) | CTuple(_) | CGetItem(_) | CSetItem(_) -> []
-and get_lambda_envt (binds : string list) (body : tag aexpr) frees : arg name_envt =
-  (get_func_call_params binds frees) @ get_aexpr_envt body (1 + List.length frees) 
+    (get_aexpr_envt l si wrapping_tag)
+    @ (get_aexpr_envt r si wrapping_tag)
+  | CLambda(binds, body, tag) ->
+    let frees = free_vars body binds in
+    (get_func_call_params binds frees tag)
+    @ get_aexpr_envt body (1 + List.length frees) wrapping_tag
+  | CPrim1(_) | CPrim2(_) | CApp(_) | CImmExpr(_) | CTuple(_) | CGetItem(_) | CSetItem(_) -> []
 
 
 (* Jumps to to_label if not a num *)
@@ -1403,8 +1425,7 @@ and compile_lambda lam env do_setup current_env =
   | CLambda(args, body, tag) -> 
     let name = sprintf "fun_%d" tag in
     let frees = free_vars body args in
-    let newenv = (name, (get_lambda_envt args body frees)) :: env in
-    let fun_prologue, fun_body, fun_epilogue = (compile_fun name args body newenv name) in
+    let fun_prologue, fun_body, fun_epilogue = (compile_fun name args body env (string_of_int tag)) in
     ILineComment(sprintf "Compile lambda (%d args)" (List.length args))
     :: (fun_prologue @ fun_body @ fun_epilogue)
     @ (if do_setup 
@@ -1444,11 +1465,24 @@ and args_help args regs =
 let add_native_lambdas (p : sourcespan program) =
   let wrap_native name arity =
     let argnames = List.init arity (fun i -> sprintf "%s_arg_%d" name i) in
-    [DFun(name, List.map (fun name -> BName(name, false, dummy_span)) argnames, EApp(EId(name, dummy_span), List.map(fun name -> EId(name, dummy_span)) argnames, Native, dummy_span), dummy_span)]
+    [DFun(name, 
+          List.map (fun name -> 
+              BName(name, false, dummy_span)) argnames, 
+          EApp(EId("?" ^ name, dummy_span), 
+               List.map(fun name -> 
+                   EId(name, dummy_span)) argnames, 
+               Native, dummy_span), 
+          dummy_span)]
   in
   match p with
   | Program(declss, body, tag) ->
-    Program((List.fold_left (fun declss (name, (_, arity)) -> (wrap_native name arity)::declss) declss native_fun_bindings), body, tag)
+    let new_decls = List.fold_left 
+        (fun declss (name, (_, arity)) -> (wrap_native name arity)::declss) 
+        declss 
+        native_fun_bindings
+    in
+    Program(new_decls, body, tag)
+
 
 let compile_error_handler ((err_name : string), (err_code : int64)) : instruction list =
   ILabel(err_name) :: setup_call_to_func 0 [Const(err_code); Reg(RAX)] (Label("?error")) false
@@ -1485,7 +1519,7 @@ global ?our_code_starts_here" in
   match anfed with
   | AProgram(body, tag) ->
     (* $heap and $size are mock parameter names, just so that compile_fun knows our_code_starts_here takes in 2 parameters *)
-    let (prologue, comp_main, epilogue) = compile_fun "?our_code_starts_here" ["$heap"; "$size"] body env (sprintf "fun_%d" tag) in
+    let (prologue, comp_main, epilogue) = compile_fun "?our_code_starts_here" ["$heap"; "$size"] body env (string_of_int tag) in
     let heap_start =
       [
         ILineComment("heap start");

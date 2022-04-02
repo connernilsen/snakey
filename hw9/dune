@@ -10,7 +10,8 @@
 (executable
   (name main)
   (modules main)
-  (libraries garter_impl))
+  (libraries garter_impl)
+  (modes byte exe))
 
 (test
   (name test)

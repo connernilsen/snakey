@@ -60,42 +60,42 @@ type 'a pipeline = ('a * phase list, failure) result
    If the function succeeds, then the pipeline grows (using log to add the result
    onto the pipeline).
    NOTE: Executing add_err_phase will never throw any exceptions.
- *)
+*)
 let add_err_phase
-      (log : 'b -> phase)
-      (next : 'a -> 'b fallible)
-      (cur_pipeline : 'a pipeline)
-    : 'b pipeline =
+    (log : 'b -> phase)
+    (next : 'a -> 'b fallible)
+    (cur_pipeline : 'a pipeline)
+  : 'b pipeline =
   match cur_pipeline with
   | Error (errs, trace) -> Error (errs, trace)
   | Ok (cur_val, trace) ->
-     try
-       match (next cur_val) with
-       | Error errs -> Error(errs, trace)
-       | Ok new_val -> Ok(new_val, (log new_val) :: trace)
-     with
-     | Failure s -> Error([Failure("Compile error: " ^ s)], trace)
-     | err -> Error([Failure("Unexpected compile error: " ^ Printexc.to_string err)], trace)
+    try
+      match (next cur_val) with
+      | Error errs -> Error(errs, trace)
+      | Ok new_val -> Ok(new_val, (log new_val) :: trace)
+    with
+    | Failure s -> Error([Failure("Compile error: " ^ s)], trace)
+    | err -> Error([Failure("Unexpected compile error: " ^ Printexc.to_string err)], trace)
 ;;
 (* Adds another phase to the growing pipeline, using a function that should never fail.
    If the function *throws* an exception, the pipeline dies right there.
    Otherwise, the pipeline grows (using log to add the result onto the pipeline).
    NOTE: Executing add_phase will never throw any exceptions.
- *)
+*)
 let add_phase
-      (log : 'b -> phase)
-      (next : 'a -> 'b)
-      (cur_pipeline : 'a pipeline)
-    : 'b pipeline =
+    (log : 'b -> phase)
+    (next : 'a -> 'b)
+    (cur_pipeline : 'a pipeline)
+  : 'b pipeline =
   match cur_pipeline with
   | Error(errs, trace)-> Error(errs, trace)
   | Ok(cur_val, trace) ->
-     try
-       let new_val = next cur_val in
-       Ok(new_val, (log new_val) :: trace)
-     with
-     | Failure s -> Error([Failure("Compile error: " ^ s)], trace)
-     | err -> Error([Failure("Unexpected compile error: " ^ Printexc.to_string err)], trace)
+    try
+      let new_val = next cur_val in
+      Ok(new_val, (log new_val) :: trace)
+    with
+    | Failure s -> Error([Failure("Compile error: " ^ s)], trace)
+    | err -> Error([Failure("Unexpected compile error: " ^ Printexc.to_string err)], trace)
 ;;
 
 let no_op_phase (cur_pipeline : 'a pipeline) = cur_pipeline
@@ -128,12 +128,12 @@ let print_trace (trace : phase list) : string list =
       ^ "\nEnvs:\n"
       ^ ExtString.String.join "\n"
         (List.map
-          (fun (name, env) ->
-            name
-            ^ ":\n\t"
-            ^ (ExtString.String.join
-               "\n\t"
-               (List.map (fun (name, arg) -> name ^ "=>" ^ (arg_to_asm arg)) env))) e)
+           (fun (name, env) ->
+              name
+              ^ ":\n\t"
+              ^ (ExtString.String.join
+                   "\n\t"
+                   (List.map (fun (name, arg) -> name ^ "=>" ^ (arg_to_asm arg)) env))) e)
     | Result s -> s in
   List.mapi (fun n p -> sprintf "Phase %d (%s):\n%s" n (phase_name p) (string_of_phase p)) (List.rev trace)
 ;;

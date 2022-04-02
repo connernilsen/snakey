@@ -88,15 +88,14 @@ gctest.o: gctest.c gc.h
 # 	gcc -m32 cutest-1.5/AllTests.c cutest-1.5/CuTest.o gctest.o gc.c -o gctest
 
 
-clean:
-	rm -rf output/*.o output/*.s output/*.dSYM output/*.run *.log *.o
-	rm -rf output/*/*.o output/*/*.s output/*/*.dSYM output/*/*.run
-	rm -rf _build/
-	rm -f main test
-
 clean-test-out:
 	rm -rf output/*.o output/*.s output/*.dSYM output/*.run *.log
 	rm -rf output/*/*.o output/*/*.s output/*/*.dSYM output/*/*.run
 	rm -f test
+
+clean: clean-test-out
+	rm -rf *.o
+	rm -rf _build/
+	rm -f main 
 
 ct: clean-test-out test

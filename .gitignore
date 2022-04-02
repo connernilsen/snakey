@@ -17,3 +17,5 @@ test
 **/output/**/*.o
 main
 main.o
+
+**/*.debug
