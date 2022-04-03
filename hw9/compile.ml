@@ -827,7 +827,7 @@ let free_vars (e: 'a aexpr) (args : string list) : string list =
     | ACExpr(e) ->
       help_cexpr e env
   in 
-  let new_args = "?equal" :: "?input" :: args in
+  let new_args = List.map (fun (name, _) -> sprintf "?%s" name) native_fun_bindings @ args in
   let arg_set = stringset_of_list new_args in
   StringSet.(diff (help_aexpr e arg_set) arg_set |> elements)
 ;;
