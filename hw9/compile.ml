@@ -905,7 +905,7 @@ and get_cexpr_envt (expr : tag cexpr) (si : int) (wrapping_tag : tag) : flat_nes
   | CLambda(binds, body, tag) ->
     let frees = free_vars body binds in
     (get_func_call_params binds frees tag)
-    @ get_aexpr_envt body (1 + List.length frees) wrapping_tag
+    @ get_aexpr_envt body (1 + List.length frees) tag
   | CPrim1(_) | CPrim2(_) | CApp(_) | CImmExpr(_) | CTuple(_) | CGetItem(_) | CSetItem(_) -> []
 
 
