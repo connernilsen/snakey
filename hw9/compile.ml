@@ -1255,8 +1255,8 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
           IMov(Reg(R10), bool_mask);
           IXor(Reg(RAX), Reg(R10));
         ]
-      | Print -> (setup_call_to_func num_args [e_reg] (Label("print")) false)
-      | PrintStack -> (setup_call_to_func num_args [e_reg; Reg(RSP); Reg(RBP); Const(Int64.of_int num_args)] (Label("print_stack")) false)
+      | Print -> (setup_call_to_func num_args [e_reg] (Label("?print")) false)
+      | PrintStack -> (setup_call_to_func num_args [e_reg; Reg(RSP); Reg(RBP); Const(Int64.of_int num_args)] (Label("?print_stack")) false)
     end
   | CPrim2(op, l, r, tag) ->
     let e1_reg = (compile_imm l env current_env) in

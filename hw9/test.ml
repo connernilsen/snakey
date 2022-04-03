@@ -6,6 +6,7 @@ open Pretty
 open Exprs
 open Phases
 open Errors
+open Libtest
 
 let t name program input expected = name>::test_run ~args:[] ~std_input:input program name expected;;
 let ta name program input expected = name>::test_run_anf ~args:[] ~std_input:input program name expected;;
@@ -79,18 +80,23 @@ let gc = [
     "(1, 2)";
 ]
 
-let input = [
+let native = [
   t "input0" "input() + 2" "123" "125";
+  t "print0" "print(125) + 2" "" "125\n127";
   t "input1" "let x = input() in x + 2" "123" "125";
+  t "input2" "let x = input() in print(x + 2)" "123" "125\n125";
 ]
 
 
 let suite =
   "unit_tests">:::
-  pair_tests @ oom @ gc @ input
+  pair_tests @ oom @ gc @ native
 
 
 
 let () =
-  run_test_tt_main ("all_tests">:::[suite; input_file_test_suite ()])
+  run_test_tt_main ("all_tests">:::[
+      suite;
+      (* old_tests; *)
+      input_file_test_suite ()])
 ;;
