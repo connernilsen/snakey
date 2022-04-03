@@ -296,10 +296,10 @@ void error(uint64_t code, SNAKEVAL val)
     printHelp(stderr, val);
     break;
   case ERR_GET_LOW_INDEX:
-    fprintf(stderr, "Error: index too small to get, got %ld\n", (uint64_t)val);
+    fprintf(stderr, "Error: index too small to get, got %ld\n", (int64_t)(val >> 1));
     break;
   case ERR_GET_HIGH_INDEX:
-    fprintf(stderr, "Error: index too large to get, got %ld\n", (uint64_t)val);
+    fprintf(stderr, "Error: index too large to get, got %ld\n", (int64_t)(val >> 1));
     break;
   case ERR_NIL_DEREF:
     fprintf(stderr, "Error: tried to access component of nil\n");

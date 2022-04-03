@@ -487,8 +487,29 @@ let desugar (p : sourcespan program) : sourcespan program =
     | ENil(t, tag) -> ENil(t, tag)
     | EPrim1(op, e, tag) ->
       EPrim1(op, helpE e, tag)
-    | EPrim2(op, e1, e2, tag) ->
-      EPrim2(op, helpE e1, helpE e2, tag)
+    | EPrim2(op, e1, e2, a) ->
+      begin
+        match op with
+        | And -> EIf(
+            helpE e1,
+            EIf(
+              helpE e2,
+              EBool(true, a),
+              EBool(false, a),
+              a),
+            EBool(false, a),
+            a)
+        | Or -> EIf(
+            helpE e1,
+            EBool(true, a),
+            EIf(
+              helpE e2,
+              EBool(true, a),
+              EBool(false, a),
+              a),
+            a)
+        | p -> EPrim2(p, helpE e1, helpE e2, a)
+      end
     | ELet(binds, body, tag) ->
       let newbinds = (List.map helpBE binds) in
       List.fold_right (fun binds body -> ELet(binds, body, tag)) newbinds (helpE body)
