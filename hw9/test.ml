@@ -87,16 +87,26 @@ let native = [
   t "input2" "let x = input() in print(x + 2)" "123" "125\n125";
 ]
 
+let prim = [
+  t "prim1_in_lambda" "(lambda: 1 + 1)()" "" "2";
+]
+
+let nested = [
+  t "lambda" "(lambda: 1)()" "" "1";
+  t "nested_lambda" "(lambda: (lambda: 1)())()" "" "1";
+  t "free_in_nested_fun" "let x = 5 in (lambda: (lambda: x)())()" "" "5";
+]
+
 
 let suite =
   "unit_tests">:::
-  pair_tests @ oom @ gc @ native
+  pair_tests @ oom @ gc @ native @ prim @ nested
 
 
 
 let () =
   run_test_tt_main ("all_tests">:::[
       suite;
-      (* old_tests; *)
+      old_tests;
       input_file_test_suite ()])
 ;;
