@@ -38,15 +38,15 @@ let err_OVERFLOW         = 5L
 let err_GET_NOT_TUPLE    = 6L
 let err_GET_LOW_INDEX    = 7L
 let err_GET_HIGH_INDEX   = 8L
-let err_GET_NOT_NUM      = 9L
-let err_NIL_DEREF        = 10L
-let err_OUT_OF_MEMORY    = 11L
-let err_SET_NOT_TUPLE    = 12L
-let err_SET_LOW_INDEX    = 13L
-let err_SET_NOT_NUM      = 14L
-let err_SET_HIGH_INDEX   = 15L
-let err_CALL_NOT_CLOSURE = 16L
-let err_CALL_ARITY_ERR   = 17L
+let err_NIL_DEREF        = 9L
+let err_OUT_OF_MEMORY    = 10L
+let err_SET_NOT_TUPLE    = 11L
+let err_SET_LOW_INDEX    = 12L
+let err_SET_HIGH_INDEX   = 13L
+let err_CALL_NOT_CLOSURE = 14L
+let err_CALL_ARITY_ERR   = 15L
+let err_GET_NOT_NUM      = 16L
+let err_SET_NOT_NUM      = 17L
 
 (* label names for errors *)
 let label_COMP_NOT_NUM         = "error_comp_not_num"
@@ -1301,9 +1301,9 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
          IJe(Label(label_done)); IMov(Reg(RAX), const_false);
          ILabel(label_done)]
       | CheckSize ->
-        (* convert to snake val then compare *)
+        (* compare *)
         (* Then move to RAX *)
-        [IMov(Reg(R11), Sized(QWORD_PTR, e1_reg)); ISub(Reg(R11), Const(1L)); IMov(Reg(R11), RegOffset(0, R11)); IShl(Reg(R11), Const(1L));
+        [IMov(Reg(R11), Sized(QWORD_PTR, e1_reg)); ISub(Reg(R11), Const(1L)); IMov(Reg(R11), RegOffset(0, R11));
          ICmp(Reg(R11), Sized(QWORD_PTR, e2_reg)); IJne(Label(label_DESTRUCTURE_INVALID_LEN));
          IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
     end
@@ -1352,6 +1352,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
        (* check bounds *)
        ISub(Reg(RAX), Const(tuple_tag));
        IMov(Reg(RAX), RegOffset(0, RAX));
+       IShr(Reg(RAX), Const(1L));
        ICmp(Reg(R11), Reg(RAX));
        IMov(Reg(RAX), idx);
        IJge(Label(label_GET_HIGH_INDEX));
@@ -1383,6 +1384,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
        ILineComment("check bounds");
        ISub(Reg(RAX), Const(tuple_tag));
        IMov(Reg(RAX), RegOffset(0, RAX));
+       IShr(Reg(RAX), Const(1L));
        ICmp(Reg(R11), Reg(RAX));
        IMov(Reg(RAX), idx);
        IJge(Label(label_GET_HIGH_INDEX));
