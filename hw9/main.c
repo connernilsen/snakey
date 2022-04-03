@@ -44,8 +44,7 @@ const uint64_t ERR_SET_LOW_INDEX = 12;
 const uint64_t ERR_SET_HIGH_INDEX = 13;
 const uint64_t ERR_CALL_NOT_CLOSURE = 14;
 const uint64_t ERR_CALL_ARITY_ERR = 15;
-const uint64_t ERR_SET_NOT_NUM = 16;
-const uint64_t ERR_GET_NOT_NUM = 17;
+const uint64_t ERR_GET_NOT_NUM = 16;
 
 size_t HEAP_SIZE;
 uint64_t *STACK_BOTTOM;
@@ -296,10 +295,12 @@ void error(uint64_t code, SNAKEVAL val)
     printHelp(stderr, val);
     break;
   case ERR_GET_LOW_INDEX:
-    fprintf(stderr, "Error: index too small to get, got %ld\n", (int64_t)(val >> 1));
+    fprintf(stderr, "Error: index too small to get, got ");
+    printHelp(stderr, val);
     break;
   case ERR_GET_HIGH_INDEX:
-    fprintf(stderr, "Error: index too large to get, got %ld\n", (int64_t)(val >> 1));
+    fprintf(stderr, "Error: index too large to get, got ");
+    printHelp(stderr, val);
     break;
   case ERR_NIL_DEREF:
     fprintf(stderr, "Error: tried to access component of nil\n");
@@ -322,9 +323,6 @@ void error(uint64_t code, SNAKEVAL val)
     break;
   case ERR_CALL_ARITY_ERR:
     fprintf(stderr, "Error: arity mismatch in call\n");
-    break;
-  case ERR_SET_NOT_NUM:
-    fprintf(stderr, "Error: set tuple not num\n");
     break;
   case ERR_GET_NOT_NUM:
     fprintf(stderr, "Error: get tuple not number\n");

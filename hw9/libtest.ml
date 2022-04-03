@@ -145,21 +145,21 @@ let old_tests =
     t "or3" "true || true" "true";
     t "andSS" "false && 1" "false";
     t "orSS" "true || 1" "true";
-    te "andE1" "1 && true" "Error 3: expected a boolean, got 1";
-    te "andE2" "true && 1" "Error 3: expected a boolean, got 1";
-    te "orE1" "1 || true" "Error 3: expected a boolean, got 1";
-    te "orE2" "false || 1" "Error 3: expected a boolean, got 1";
+    te "andE1" "1 && true" "expected a boolean, got 1";
+    te "andE2" "true && 1" "expected a boolean, got 1";
+    te "orE1" "1 || true" "expected a boolean, got 1";
+    te "orE2" "false || 1" "expected a boolean, got 1";
     t "notIsbool" "!(isbool(40))" "true";
     t "notIsboolT" "!(isbool(true))" "false";
     t "notIsnumT" "!(isnum(40))" "false";
     t "notIsnum" "!(isnum(false))" "true";
-    te "bool_instead_of_num" "add1(true)" "Error 2: arithmetic expected a number, got true";
-    te "bool_instead_of_num_in_if" "add1(if true: false else: 5)" "Error 2: arithmetic expected a number, got false";
-    te "bool_instead_of_num2" "sub1(false)" "Error 2: arithmetic expected a number, got false";
-    te "num_instead_of_bool" "!(1)" "Error 3: expected a boolean, got 1";
-    te "num_instead_of_bool_in_if" "!(if false: false else: 5)" "Error 3: expected a boolean, got 5";
-    te "bool_instead_of_num3" "1 < true" "Error 1: comparison expected a number, got true";
-    te "num_instead_of_bool2" "if (1): 1 else: 0" "Error 3: expected a boolean, got 1";
+    te "bool_instead_of_num" "add1(true)" "arithmetic expected a number, got true";
+    te "bool_instead_of_num_in_if" "add1(if true: false else: 5)" "arithmetic expected a number, got false";
+    te "bool_instead_of_num2" "sub1(false)" "arithmetic expected a number, got false";
+    te "num_instead_of_bool" "!(1)" "expected a boolean, got 1";
+    te "num_instead_of_bool_in_if" "!(if false: false else: 5)" "expected a boolean, got 5";
+    te "bool_instead_of_num3" "1 < true" "comparison expected a number, got true";
+    te "num_instead_of_bool2" "if (1): 1 else: 0" "expected a boolean, got 1";
     t "if_short_circuits1" "add1(if true: 1 else: add1(false))" "2";
     t "if_short_circuits2" "add1(if false: add1(false) else: 1)" "2";
     t "greater1" "1 > 1" "false";
@@ -184,16 +184,16 @@ let old_tests =
     t "equal8" "8 == true" "false";
     t "equal9" "false == 100" "false";
     t "conditional_in_let" "let x = 1 == 1 in x == true" "true";
-    te "greaterE1" "1 > true" "Error 1: comparison expected a number, got true";
-    te "greaterE2" "false > 1" "Error 1: comparison expected a number, got false";
-    te "greaterEqE1" "1 >= false" "Error 1: comparison expected a number, got false";
-    te "greaterEqE2" "true >= 1" "Error 1: comparison expected a number, got true";
-    te "lessE1" "1 < true" "Error 1: comparison expected a number, got true";
-    te "lessE2" "false < 1" "Error 1: comparison expected a number, got false";
-    te "lessEqE1" "1 <= false" "Error 1: comparison expected a number, got false";
-    te "lessEqE2" "true <= 1" "Error 1: comparison expected a number, got true";
-    te "lessEqE2_in_if" "1 <= (if true: false else: 5)" "Error 1: comparison expected a number, got false";
-    te "lessEqE2_in_if_in_let" "let x = 1 <= (if true: false else: 5) in x" "Error 1: comparison expected a number, got false";
+    te "greaterE1" "1 > true" "comparison expected a number, got true";
+    te "greaterE2" "false > 1" "comparison expected a number, got false";
+    te "greaterEqE1" "1 >= false" "comparison expected a number, got false";
+    te "greaterEqE2" "true >= 1" "comparison expected a number, got true";
+    te "lessE1" "1 < true" "comparison expected a number, got true";
+    te "lessE2" "false < 1" "comparison expected a number, got false";
+    te "lessEqE1" "1 <= false" "comparison expected a number, got false";
+    te "lessEqE2" "true <= 1" "comparison expected a number, got true";
+    te "lessEqE2_in_if" "1 <= (if true: false else: 5)" "comparison expected a number, got false";
+    te "lessEqE2_in_if_in_let" "let x = 1 <= (if true: false else: 5) in x" "comparison expected a number, got false";
 
     t "let_typing"
       "let x = isnum(5 * add1(7)), y = (if x: isnum(x) else: 10) in if (x && y): 27 else: !(x && y)" 
@@ -212,25 +212,25 @@ let old_tests =
       "-4611686018427387905" 
       "The number literal -4611686018427387905, used at <overflow_-2^62_base, 1:0-1:20>, is not supported in this language";
     te "overflow_2^62_plus_positive"
-      "4611686018427387903 + 1" "Error 5: overflow occurred for arithmetic operation, got -4611686018427387904";
+      "4611686018427387903 + 1" "Integer overflow, got -4611686018427387904";
     te "overflow_2^62_plus_negative"
-      "-4611686018427387904 + -1" "Error 5: overflow occurred for arithmetic operation, got 4611686018427387903";
+      "-4611686018427387904 + -1" "Integer overflow, got 4611686018427387903";
     te "overflow_2^62_add1"
-      "add1(4611686018427387903)" "Error 5: overflow occurred for arithmetic operation, got -4611686018427387904";
+      "add1(4611686018427387903)" "Integer overflow, got -4611686018427387904";
     te "overflow_-2^62_minus_positive"
-      "4611686018427387903 - -1" "Error 5: overflow occurred for arithmetic operation, got -4611686018427387904";
+      "4611686018427387903 - -1" "Integer overflow, got -4611686018427387904";
     te "overflow_-2^62_minus_negative"
-      "-4611686018427387904 - 1" "Error 5: overflow occurred for arithmetic operation, got 4611686018427387903";
+      "-4611686018427387904 - 1" "Integer overflow, got 4611686018427387903";
     te "overflow_-2^62_sub1"
-      "sub1(-4611686018427387904)" "Error 5: overflow occurred for arithmetic operation, got 4611686018427387903";
+      "sub1(-4611686018427387904)" "Integer overflow, got 4611686018427387903";
     te "overflow_2^61_times_positive_1"
-      "4611686018427387903 * 4" "Error 5: overflow occurred for arithmetic operation, got -4";
+      "4611686018427387903 * 4" "Integer overflow, got -4";
     te "overflow_2^61_times_positive_2"
-      "-4611686018427387903 * -4" "Error 5: overflow occurred for arithmetic operation, got -4";
+      "-4611686018427387903 * -4" "Integer overflow, got -4";
     te "overflow_2^61_times_negative_1"
-      "4611686018427387903 * -4" "Error 5: overflow occurred for arithmetic operation, got 4";
+      "4611686018427387903 * -4" "Integer overflow, got 4";
     te "overflow_2^61_times_negative_2"
-      "-4611686018427387903 * 4" "Error 5: overflow occurred for arithmetic operation, got 4";
+      "-4611686018427387903 * 4" "Integer overflow, got 4";
 
     t "add_large_numbers_1"
       "4611686018427387903 + -4511686018427387903" "100000000000000000";
@@ -316,22 +316,22 @@ let old_tests =
     t "if2" "if false: 4 else: 2" "2";
     t "multi_let" "let a = 1, b = a in b" "1";
     t "let_in_let_in_if_it_1"
-      ("if (let x = 5, y = (let x = sub1(x), y = (add1(x) - 10) in y) in ((y + x) == 0)): " ^
+      ("if (let x = 5, y = (let shadow x = sub1(x), y = (add1(x) - 10) in y) in ((y + x) == 0)): " ^
        "(let abcd = 10 in add1(abcd)) " ^
        "else: (let x = 0, y = sub1(if isbool(x): x else: 1) in y)")
       "11";
     t "let_in_let_in_if_it_2"
-      ("if (let x = 4, y = (let x = sub1(x), y = (add1(x) - 10) in y) in ((y + x) >= 0)): " ^
+      ("if (let x = 4, y = (let shadow x = sub1(x), y = (add1(x) - 10) in y) in ((y + x) >= 0)): " ^
        "(let abcd = 10 in add1(abcd)) " ^
        "else: (let x = 0, y = sub1(if (x == 1): x else: 1) in y)")
       "0";
     t "let_in_let_in_if_it_3"
-      ("if (let x = 5, y = (let x = sub1(x), y = (add1(x) - 10) in y) in ((y + x) < -5)): " ^
+      ("if (let x = 5, y = (let shadow x = sub1(x), y = (add1(x) - 10) in y) in ((y + x) < -5)): " ^
        "(let abcd = 10 in add1(abcd)) " ^
        "else: (let x = 1, y = sub1(if isnum(x): x else: 2) in y)")
       "0";
     t "let_in_let_in_if_it_4"
-      ("if (let x = 4, y = (let x = sub1(x), y = (add1(x) - 10) in y) in ((y + x) < -5)): " ^
+      ("if (let x = 4, y = (let shadow x = sub1(x), y = (add1(x) - 10) in y) in ((y + x) < -5)): " ^
        "(let abcd = 10 in add1(abcd)) " ^
        "else: (let x = 0, y = sub1(if (x == 0): x else: 1) in y)")
       "-1";
@@ -356,7 +356,7 @@ let old_tests =
        "(let y = sub1(if isbool(x * 1): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))")
       "26";
     t "wrapped_let_and_if"
-      ("((let x = 10, z = (let x = (x + 1), y = (x * 2) in x - y), " ^
+      ("((let x = 10, z = (let shadow x = (x + 1), y = (x * 2) in x - y), " ^
        "y = (if isnum(z): 1 else: z) in (if (sub1(sub1(y)) == sub1(y)): z else: (z - y))) - " ^
        "(if (let abcd = true in abcd): 11 else: -11))") "-23";
 
@@ -433,40 +433,32 @@ let old_tests =
                   (Label("label")) false)) ~printer:to_asm);
     tanf_improved "let_in_prim"
       "add1(let x = 5 in x)"
-      "(alet x_5 = 5 in add1(x_5))";
+      "(alet x = 5 in add1(x))";
     tanf_improved "let_in_prim_with_eval"
       "add1(let x = 5 in add1(x))"
-      "(alet x_5 = 5 in (alet unary_7 = add1(x_5) in add1(unary_7)))";
+      "(alet x = 5 in (alet unary_7 = add1(x) in add1(unary_7)))";
     tanf_improved "let_in_prim2_with_eval"
       "add1(let x = 5 in (x + (let x = 2 in x)))"
-      "(alet x_5 = 5 in (alet x_11 = 2 in (alet binop_7 = (x_5 + x_11) in add1(binop_7))))";
+      "(alet x = 5 in (alet x = 2 in (alet binop_7 = (x + x) in add1(binop_7))))";
     tanf_improved "let_in_let_in_if" 
       ("if (let x = 5, y = (let x = sub1(x), y = (add1(x) - 10) in y) in (y + x)): " ^
        "(let abcd = 10 in add1(abcd)) " ^
        "else: (let x = 0, y = sub1(if x: x else: 1) in y)")
-      ("(alet x_5 = 5 in (alet x_11 = sub1(x_5) in (alet unary_17 = add1(x_11) in " ^
-       "(alet y_15 = (unary_17 - 10) in (alet y_8 = y_15 in (alet binop_21 = (y_8 + x_5) in " ^
-       "(if binop_21: (alet abcd_26 = 10 in add1(abcd_26)) else: (alet x_32 = 0 in " ^
-       "(alet if_37 = (if x_32: x_32 else: 1) in (alet y_35 = sub1(if_37) in y_35))))))))))");
+      ("(alet x = 5 in (alet x = sub1(x) in (alet unary_19 = add1(x) in (alet y = (unary_19 - 10) in (alet y = y in (alet binop_23 = (y + x) in (if binop_23: (alet abcd = 10 in add1(abcd)) else: (alet x = 0 in (alet if_40 = (if x: x else: 1) in (alet y = sub1(if_40) in y))))))))))");
     tanf_improved "lets_in_prim"
       "(let x = 1 in x) + (let x = 2 in x)"
-      "(alet x_5 = 1 in (alet x_10 = 2 in (x_5 + x_10)))";
+      "(alet x = 1 in (alet x = 2 in (x + x)))";
     tanf_improved "if_in_if_in_let_in_add1"
       "add1(let x = (if (if 0: 0 else: 1): 2 else: 3) in (if x: 4 else: 5))"
-      "(alet if_7 = (if 0: 0 else: 1) in (alet x_5 = (if if_7: 2 else: 3) in (alet if_13 = (if x_5: 4 else: 5) in add1(if_13))))";
+      "(alet if_7 = (if 0: 0 else: 1) in (alet x = (if if_7: 2 else: 3) in (alet if_13 = (if x: 4 else: 5) in add1(if_13))))";
     tanf_improved "simple_conditional"
       "(let x = (if 1: 5 + 5 else: 6 * 2) in (let y = (if 0: x * 3 else: x + 5) in x + y))"
-      ("(alet x_4 = (if 1: (5 + 5) else: (6 * 2)) in (alet y_15 = (if 0: (x_4 * 3) else: (x_4 + 5)) in (x_4 + y_15)))");
+      ("(alet x = (if 1: (5 + 5) else: (6 * 2)) in (alet y = (if 0: (x * 3) else: (x + 5)) in (x + y)))");
     tanf_improved "complex_conditional"
       ("(let x = (if (5 - 10): add1(5 + 5) else: sub1(6 * 2)) in " ^
        "(let y = sub1(if (x * 0): x * sub1(3) else: add1(x) + 5) in sub1(x + y)))"
       )
-      ("(alet binop_6 = (5 - 10) in " ^
-       "(alet x_4 = (if binop_6: (alet binop_10 = (5 + 5) in " ^
-       "add1(binop_10)) else: (alet binop_14 = (6 * 2) in sub1(binop_14))) in " ^
-       "(alet binop_22 = (x_4 * 0) in " ^
-       "(alet if_21 = (if binop_22: (alet unary_27 = sub1(3) in (x_4 * unary_27)) else: (alet unary_30 = add1(x_4) in (unary_30 + 5))) in " ^
-       "(alet y_19 = sub1(if_21) in (alet binop_34 = (x_4 + y_19) in sub1(binop_34)))))))");
+      ("(alet binop_6 = (5 - 10) in (alet x = (if binop_6: (alet binop_10 = (5 + 5) in add1(binop_10)) else: (alet binop_14 = (6 * 2) in sub1(binop_14))) in (alet binop_22 = (x * 0) in (alet if_21 = (if binop_22: (alet unary_27 = sub1(3) in (x * unary_27)) else: (alet unary_30 = add1(x) in (unary_30 + 5))) in (alet y = sub1(if_21) in (alet binop_34 = (x + y) in sub1(binop_34)))))))");
     tanf_improved "expr_basic"
       ("def f() : 1\n1")
       ("(aletrec f = (lam() 1) in 1)");
@@ -475,31 +467,28 @@ let old_tests =
       ("(aletrec f = (lam() 1) in (f()))");
     tanf_improved "expr_call_w_imm_args"
       ("def f(a, b) : 1\n(f(1, 2))")
-      ("(aletrec f = (lam(a_3, b_4) 1) in (f(1, 2)))");
+      ("(aletrec f = (lam(a, b) 1) in (f(1, 2)))");
     tanf_improved "multiple_expr_call_w_multiple_compound_args"
       ("def f(a, b) : 1\ndef g(a, b, c) : a == b\nlet c = f(add1(1), add1(1)), d = g(add1(2), add1(3), 4 + 3) in d")
-      ("(aletrec f = (lam(a_3, b_4) 1) in (aletrec g = (lam(a_7, b_8, c_9) (a_7 == b_8)) in " ^
-       "(alet unary_23 = add1(1) in (alet unary_25 = add1(1) in (alet c_15 = (f(unary_23, unary_25)) in " ^
-       "(alet unary_31 = add1(2) in (alet unary_33 = add1(3) in (alet binop_35 = (4 + 3) in " ^
-       "(alet d_23 = (g(unary_31, unary_33, binop_35)) in d_23)))))))))");
+      ("(aletrec f = (lam(a, b) 1) in (aletrec g = (lam(a, b, c) (a == b)) in (alet unary_23 = add1(1) in (alet unary_25 = add1(1) in (alet c = (f(unary_23, unary_25)) in (alet unary_32 = add1(2) in (alet unary_34 = add1(3) in (alet binop_36 = (4 + 3) in (alet d = (g(unary_32, unary_34, binop_36)) in d)))))))))");
     tanf_improved "expr_within_expr"
       ("def f(a) : a\ndef g(b) : add1(b)\nf(g(1))")
-      ("(aletrec f = (lam(a_3) a_3) in (aletrec g = (lam(b_6) add1(b_6)) in (alet app_16 = (g(1)) in (f(app_16)))))");
+      ("(aletrec f = (lam(a) a) in (aletrec g = (lam(b) add1(b)) in (alet app_16 = (g(1)) in (f(app_16)))))");
     tanf_improved "expr_within_expr_within_expr"
       ("def f(a) : a\ndef g(b) : add1(b)\ndef h(b) : b\nh(f(g(1)))")
-      ("(aletrec f = (lam(a_3) a_3) in (aletrec g = (lam(b_6) add1(b_6)) in (aletrec h = (lam(b_10) b_10) in (alet app_23 = (g(1)) in (alet app_22 = (f(app_23)) in (h(app_22)))))))");
+      ("(aletrec f = (lam(a) a) in (aletrec g = (lam(b) add1(b)) in (aletrec h = (lam(b) b) in (alet app_23 = (g(1)) in (alet app_22 = (f(app_23)) in (h(app_22)))))))");
     tanf_improved "infinite_loop_anf"
       ("def f(a) : g(a)\ndef g(a) : f(a)\ng(1)")
-      ("(aletrec f = (lam(a_3) (g(a_3))) in (aletrec g = (lam(a_8) (f(a_8))) in (g(1))))");
+      ("(aletrec f = (lam(a) (g(a))) in (aletrec g = (lam(a) (f(a))) in (g(1))))");
     te "basic" "f()" "The identifier f, used at <basic, 1:0-1:1>, is not in scope";
     te "dup_fun" 
       "def test(): 1
 def test(): 2
 test()"
       (print_te 
-         [DuplicateId("test", 
-                      (create_ss "dup_fun" 2 0 2 13), 
-                      (create_ss "dup_fun" 1 0 1 13))]);
+         [DuplicateFun("test", 
+                       (create_ss "dup_fun" 2 0 2 13), 
+                       (create_ss "dup_fun" 1 0 1 13))]);
     te "dup_binds_fun"
       "def test(x, x): x
 test(1, 2)"
@@ -525,28 +514,29 @@ test(1, 2)"
      def b(a):
       a
     b(a)"
-    "";
+      "tried to call a non-closure value";
     te "let_call"
       "let a = 1 in a(1)"
-      "Error 16: tried to call a non-function value: 1";
+      "tried to call a non-closure value: 1";
     te "arity_less"
       "def test(x): x test()"
-      "Error 17: arity mismatch in call";
+      "expected an arity of 1, but received 0 arguments";
     te "arity_more"
       "def test(x, y): x + y test(1)"
-      "Error 17: arity mismatch in call";
+      "expected an arity of 2, but received 1 arguments";
     te "arity_and_dup_correct"
       "def test(x): x def test(x, y): x + y test(1)"
       (print_te 
-         [DuplicateId("test", 
-                      (create_ss "arity_and_dup_correct" 1 15 1 36), 
-                      (create_ss "arity_and_dup_correct" 1 0 1 14))]);
+         [DuplicateFun("test", 
+                       (create_ss "arity_and_dup_correct" 1 15 1 36), 
+                       (create_ss "arity_and_dup_correct" 1 0 1 14))]);
     te "arity_and_dup_incorrect"
       "def test(x, y): x + y def test(x): x test(1)"
       (print_te 
-         [DuplicateId("test", 
-                      (create_ss "arity_and_dup_incorrect" 1 22 1 36), 
-                      (create_ss "arity_and_dup_incorrect" 1 0 1 21))]);
+         [DuplicateFun("test", 
+                       (create_ss "arity_and_dup_incorrect" 1 22 1 36), 
+                       (create_ss "arity_and_dup_incorrect" 1 0 1 21));
+          Arity(2, 1, create_ss "arity_and_dup_incorrect" 1 37 1 44)];);
     te "overflow"
       "4611686018427387904" 
       (print_te [Overflow(4611686018427387904L,
@@ -577,6 +567,7 @@ test(1, 2)"
           UnboundId("b", create_ss "nested_errors" 2 18 2 19);
           UnboundId("a", create_ss "nested_errors" 3 8 3 9);
           UnboundId("b", create_ss "nested_errors" 5 8 5 9);
+          Arity(1, 2, create_ss "nested_errors" 6 12 6 22);
           UnboundId("a", create_ss "nested_errors" 6 20 6 21);
           UnboundId("hello", create_ss "nested_errors" 6 26 6 31);
           UnboundId("b", create_ss "nested_errors" 6 32 6 33);
@@ -697,8 +688,8 @@ test(1, 2)"
       "30";
     te "function_def_in_let"
       "def run(val):
-      let run = val in print(run)
-    let run = 5 in run(run)"
+      let shadow run = val in print(run)
+    let shadow run = 5 in run(run)"
       "Error 16: tried to call a non-function value: 5";
     t "short_circuit_def_1"
       "def run(run): print(run)
@@ -1111,8 +1102,8 @@ test(1, 2)"
     terr "wf_tuple_set_set" "(1, 2, 3)[0] := a" "" "The identifier a, used at <wf_tuple_set_set, 1:16-1:17>, is not in scope";
     te "wf_rebind_fun" "def a(): true\nand def a(): true\n1" (print_te 
                                                                 [DuplicateId("a",
-                                                                             (create_ss "wf_rebind_fun" 1 0 1 13),
-                                                                             (create_ss "wf_rebind_fun" 2 4 2 17))]);
+                                                                             (create_ss "wf_rebind_fun" 2 4 2 17),
+                                                                             (create_ss "wf_rebind_fun" 1 0 1 13))]);
     terr "wf_sequence_1" "a; a" "" "The identifier a, used at <wf_sequence_1, 1:0-1:1>, is not in scope\nThe identifier a, used at <wf_sequence_1, 1:3-1:4>, is not in scope";
     te "wf_let_tuple_repeats" "let (a, a) = (1, 2) in true"
       (print_te 
@@ -1200,11 +1191,11 @@ test(1, 2)"
     terr "get_value_from_tuple_high_idx" "(1, 2, 3, 4, 5)[5]" "" "index too large to get, got 5";
     terr "get_value_from_tuple_high_idx_expr" "(1, 2, 3, 4, 5)[add1(4)]" "" "index too large to get, got 5";
     terr "tuple_access_wrong_type" "1[5]" "" "get expected tuple, got 1";
-    terr "tuple_access_idx_wrong_type" "(1, 2)[true]" "" "tuple access numeric index, got true";
+    terr "tuple_access_idx_wrong_type" "(1, 2)[true]" "" "get tuple not number";
     ti "nil_list_1" "(1, nil)" "" "(1, nil)";
     ti "nil_list_2" "(1, (2, nil))" "" "(1, (2, nil))";
-    terr "tuple_access_idx_wrong_type_nil_access" "nil[true]" "" "tuple access numeric index, got true";
-    terr "tuple_access_idx_wrong_type_nil_idx" "(1, 2)[nil]" "" "tried to access component of nil";
+    terr "tuple_access_idx_wrong_type_nil_access" "nil[true]" "" "tried to access component of nil";
+    terr "tuple_access_idx_wrong_type_nil_idx" "(1, 2)[nil]" "" "get tuple not number";
     ti "get_value_from_tuple_0_set" "(1, 2, 3, 4, 5)[0] := 3" "" "3";
     ti "get_value_from_tuple_4_set" "(1, 2, 3, 4, 5)[4] := 3" "" "3";
     ti "get_value_from_tuple_expr_set" "(1, 2, 3, 4, 5)[add1(3)] := 3" "" "3";
@@ -1216,7 +1207,7 @@ test(1, 2)"
     terr "get_value_from_tuple_high_idx_set" "(1, 2, 3, 4, 5)[5] := 3" "" "index too large to get, got 5";
     terr "get_value_from_tuple_high_idx_expr_set" "(1, 2, 3, 4, 5)[add1(4)] := 3" "" "index too large to get, got 5";
     terr "tuple_access_wrong_type_set" "1[5] := 3" "" "get expected tuple, got 1";
-    terr "tuple_access_idx_wrong_type_set" "(1, 2)[true] := 3" "" "tuple access numeric index, got true";
+    terr "tuple_access_idx_wrong_type_set" "(1, 2)[true] := 3" "" "get tuple not number";
     terr "tuple_unary_type" "add1((1, 2))" "" "arithmetic expected a number, got (1, 2)";
     terr "tuple_binary_type_l" "(1, 2) + 1" "" "arithmetic expected a number, got (1, 2)";
     terr "tuple_binary_type_r" "1 + (1, 2)" "" "arithmetic expected a number, got (1, 2)";

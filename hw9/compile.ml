@@ -46,7 +46,6 @@ let err_SET_HIGH_INDEX   = 13L
 let err_CALL_NOT_CLOSURE = 14L
 let err_CALL_ARITY_ERR   = 15L
 let err_GET_NOT_NUM      = 16L
-let err_SET_NOT_NUM      = 17L
 
 (* label names for errors *)
 let label_COMP_NOT_NUM         = "error_comp_not_num"
@@ -1531,7 +1530,7 @@ global ?our_code_starts_here" in
       (label_NOT_TUPLE, err_GET_NOT_TUPLE);
       (label_GET_LOW_INDEX, err_GET_LOW_INDEX);
       (label_GET_HIGH_INDEX, err_GET_HIGH_INDEX);
-      (label_TUPLE_ACCESS_NOT_NUM, err_NIL_DEREF);
+      (label_TUPLE_ACCESS_NOT_NUM, err_GET_NOT_NUM);
       (label_OVERFLOW, err_OVERFLOW);
       (label_NIL_DEREF, err_NIL_DEREF);
       (label_DESTRUCTURE_INVALID_LEN, err_DESTRUCTURE_INVALID_LEN);
