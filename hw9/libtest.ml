@@ -690,7 +690,7 @@ test(1, 2)"
       "def run(val):
       let shadow run = val in print(run)
     let shadow run = 5 in run(run)"
-      "Error 16: tried to call a non-function value: 5";
+      "tried to call a non-function value: 5";
     t "short_circuit_def_1"
       "def run(run): print(run)
     false && run(6)"
@@ -1101,7 +1101,7 @@ test(1, 2)"
     terr "wf_tuple_set_arg" "(1, 2, 3)[a] := 0" "" "The identifier a, used at <wf_tuple_set_arg, 1:10-1:11>, is not in scope";
     terr "wf_tuple_set_set" "(1, 2, 3)[0] := a" "" "The identifier a, used at <wf_tuple_set_set, 1:16-1:17>, is not in scope";
     te "wf_rebind_fun" "def a(): true\nand def a(): true\n1" (print_te 
-                                                                [DuplicateId("a",
+                                                                [DuplicateFun("a",
                                                                              (create_ss "wf_rebind_fun" 2 4 2 17),
                                                                              (create_ss "wf_rebind_fun" 1 0 1 13))]);
     terr "wf_sequence_1" "a; a" "" "The identifier a, used at <wf_sequence_1, 1:0-1:1>, is not in scope\nThe identifier a, used at <wf_sequence_1, 1:3-1:4>, is not in scope";
@@ -1513,4 +1513,59 @@ The identifier a, used at <def_no_shadow, 4:2-4:3>, is not in scope";
     t "map"
       (list_library ^ "let mylist = map((lambda(x): x + 1), generate(4)) in mylist")
       "(2, (3, (4, (5, nil))))";
+    te "wf_lambda_unbound_id" "(lambda (x): y)" (print_te [UnboundId("y",
+                                                                    (create_ss "wf_lambda_unbound_id" 1 13 1 14))]);
+    te "wf_lambda_app_unbound_id" "(lambda (x): y)(5)" (print_te [UnboundId("y",
+                                                                            (create_ss "wf_lambda_app_unbound_id" 1 13 1 14))]);
+    te "wf_lambda_dup_args" "(lambda (x, x): x)" (print_te [DuplicateId("x", (create_ss "wf_lambda_dup_args" 1 12 1 13),
+                                                                        (create_ss "wf_lambda_dup_args" 1 9 1 10))]);
+    te "wf_lambda_app_dup_args" "(lambda (x, x): x)(5, 5)" (print_te [DuplicateId("x", (create_ss "wf_lambda_app_dup_args" 1 12 1 13),
+                                                                                  (create_ss "wf_lambda_app_dup_args" 1 9 1 10))]);
+    te "wf_letrec_dup" "let rec x = (lambda: 5), x = 6 in x" (print_te [DuplicateId("x", (create_ss "wf_letrec_dup" 1 8 1 13),
+                                                                          (create_ss "wf_letrec_dup" 1 15 1 20))]);
+    te "wf_letrec_not_lambda" "let rec x = 5 in y" (print_te [LetRecNonFunction(BName("x", false, (create_ss "wf_letrec_not_lambda" 1 8 1 13)),
+                                                                                (create_ss "wf_letrec_not_lambda" 1 8 1 13)); 
+                                                              UnboundId("y", (create_ss "wf_letrec_not_lambda" 1 17 1 18))]);
+    t "wf_letrec" "let rec x = (lambda: y()), y = (lambda: x()) in 6" "6";
+    te "wf_unrelated_in_lambda_in_lambda" "(lambda (x): (lambda (y): (let z = 5, z = 6 in z)))(5, 5)" (print_te [DuplicateId("z", (create_ss "wf_unrelated_in_lambda_in_lambda" 1 38 1 39),
+                                                                                                                            (create_ss "wf_unrelated_in_lambda_in_lambda" 1 31 1 32))]);
+    te "wf_letrec_lambda_with_nonlambda" "let rec a = (lambda(x): x), b = 5 in b" 
+      "Binding error at wf_letrec_lambda_with_nonlambda, 1:28-1:33: Let-rec expected a name binding to a lambda; got b";
+    te "wf_letrec_lambda_error" "let rec a = (lambda(x, x): x) in a(5)" 
+      "The identifier x, redefined at <wf_letrec_lambda_error, 1:23-1:24>, duplicates one at <wf_letrec_lambda_error, 1:20-1:21>";
+    te "wf_letrec_body_error" "let rec a = (lambda(x, x): x) in b(5)" 
+      "The identifier x, redefined at <wf_letrec_body_error, 1:23-1:24>, duplicates one at <wf_letrec_body_error, 1:20-1:21>
+The identifier x, redefined at <wf_letrec_body_error, 1:23-1:24>, duplicates one at <wf_letrec_body_error, 1:20-1:21>
+The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
+    t "compile_native_1" "let _ = print(10) in print(100)" "10\n100\n100";
+    t "compile_native_2" "let a = print((1, 2, 3)) in equal(a, (1, 2, 3))" "(1, 2, 3)\ntrue";
+    t "compile_native_in_closure_let" "let a = (lambda (y): print(y)) in a(6)" "6\n6";
+    t "compile_native_in_closure_noarg" "(lambda: print(6))()" "6\n6";
+    t "compile_native_in_closure" "(lambda (y): print(y))(6)" "6\n6";
+    t "compile_native_in_closure_temp" "let f = (lambda (x): x) in (lambda (y): f(y))(6)" "6";
+    t "compile_native_in_closure_multiple_args" "(lambda (x, y): print(y))(1, 6)" "6\n6";
+    t "compile_native_in_closure_more_args" "(lambda (x, y, z): print(z))(1, 1, 6)" "6\n6";
+    tcontains "print_stack" "printStack(1)" "Num args: 2";
+    ti "compile_native_as_free" "let a = input in a()" "1" "1";
+    ti "compile_input" "input()" "5" "5";
+    ti "compile_input_in_lambda" "let a = (lambda: input()) in a()" "5" "5";
+    terr "arg_count_low" "(lambda (x): x)()" "" "arity mismatch in call";
+    terr "arg_count_high" "(lambda: 1)(1)" "" "arity mismatch in call";
+    terr "arg_count_native_low" "equal(1)" "" "expected an arity of 2, but received 1 arguments";
+    terr "arg_count_native_high" "equal(1, 2, 3)" "" "expected an arity of 2, but received 3 arguments";
+    terr "print_arity" "print(1, 2)" "" "Parse error at line 1, col 8: token `,`";
+    t "sequencing_1" "print(1); print(2)" "1\n2\n2";
+    t "sequencing_2" "let _ = print(1) in print(2)" "1\n2\n2";
+    t "compile_lambda_recursion"
+      "let rec y = (lambda(arg): if arg == 0: 0 else: 1 + y(arg - 1)) in y(4)"
+      "4";
+    terr "compile_lambda_infinite_loop"
+      "let rec y = (lambda(arg): y(arg - 1)) in y(4)"
+      ""
+      "Signalled with -10";
+    t "compile_lambda_mutual_recursion"
+      "let rec x = (lambda(arg): if arg == 0: 0 else: 1 + y(arg - 1)), y = (lambda(arg): if arg == 0: 0 else: 1 + x(arg - 1)) in y(4)"
+      "4";
+    t "compile_decl" "def a(x): x\n a(1)" "1";
+    t "equal_basic" "equal(0, 0)" "true";
   ]
