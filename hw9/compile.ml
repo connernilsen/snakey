@@ -1135,18 +1135,19 @@ let rec replicate x i =
   if i = 0 then []
   else x :: (replicate x (i - 1))
 
-and reserve (size: int64) tag =
+and reserve size tag =
   let ok = sprintf "$memcheck_%d" tag in
+  let size = (size * word_size) in
   [
     IInstrComment(IMov(Reg(RAX), LabelContents("?HEAP_END")),
-                  sprintf "Reserving %Ld words" (Int64.div size (Int64.of_int word_size)));
-    ISub(Reg(RAX), Const(size));
+                  sprintf "Reserving %d words" (size / word_size));
+    ISub(Reg(RAX), Const(Int64.of_int size));
     ICmp(Reg(RAX), Reg(heap_reg));
     IJge(Label ok);
   ]
   @ (setup_call_to_func 4 [
       (Sized(QWORD_PTR, Reg(heap_reg))); (* alloc_ptr in C *)
-      (Sized(QWORD_PTR, Const(size))); (* bytes_needed in C *)
+      (Sized(QWORD_PTR, Const(Int64.of_int size))); (* bytes_needed in C *)
       (Sized(QWORD_PTR, Reg(RBP))); (* first_frame in C *)
       (Sized(QWORD_PTR, Reg(RSP))); (* stack_top in C *)
     ] (Label "?try_gc") false)
@@ -1174,8 +1175,8 @@ and compile_fun (fun_name : string) args body (env: arg name_envt name_envt) cur
     (* TODO: change to maybe when implementing tail recursion *)
   ]
     @ (List.mapi (fun (i: int) (f: string) -> IPush(Sized(QWORD_PTR, RegOffset((i + 3) * word_size, RAX)))) frees)
-    @ [ILineComment(sprintf "Push %i filler variables" (stack_alloc_space * word_size))]
-    @ List.init (stack_alloc_space * word_size) (fun (i) -> (IPush(stack_filler))) in 
+    @ [ILineComment(sprintf "Push %i filler variables" stack_alloc_space)]
+    @ List.init stack_alloc_space (fun (i) -> (IPush(stack_filler))) in 
   let fun_body = (compile_aexpr body env (List.length args) false current_env) in 
   let fun_epilogue = [
     IMov(Reg(RSP), Reg(RBP));
@@ -1348,10 +1349,11 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
   | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env current_env)]
   | CTuple(vals, tag) ->
     let length = List.length vals in
-    let size = (byte_align_16 ((Int.max 1 length) + 1)) in 
-    (reserve size tag)
-    @
-    [
+    let size = (align_stack_by_words ((Int.max 1 length) + 1)) in 
+    (reserve size tag)  
+    (* todo: don't need to zero everything *)
+    @ List.init size (fun (i) -> (IMov(Sized(QWORD_PTR, RegOffset(i * word_size, heap_reg)), stack_filler))) 
+    @ [
       IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (length * 2)))
     ]
     @
@@ -1369,8 +1371,10 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
       IMov(Reg(RAX), Reg(heap_reg));
       IAdd(Reg(RAX), Const(tuple_tag));
       (* mov heap_reg to new aligned heap_reg 1 space later *)
-      IAdd(Reg(heap_reg), Const(Int64.of_int (word_size * ((Int.max length 1) + 1) + word_size)));
-      IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
+    ]
+    (* mov heap_reg to new aligned heap_reg *)
+    @ [
+      IAdd(Reg(heap_reg), Const(Int64.of_int (size * word_size)));
     ]
   | CGetItem(tuple, idx, tag) -> 
     let tuple = compile_imm tuple env current_env in
@@ -1444,10 +1448,11 @@ and compile_imm e env current_env =
   | ImmId(x, _) -> (find (find env current_env) x)
   | ImmNil(_) -> nil
 and setup_lambda name args frees tag =
-  let size = (byte_align_16 (Int.max 1 ((List.length args) + (List.length frees)) + 1)) in 
+  let size = (align_stack_by_words (Int.max 1 ((List.length frees) + 3))) in 
   (reserve size tag)
-  @
-  [
+  (* todo: maybe don't zero out everything if we don't need to *)
+  @ List.init size (fun (i) -> (IMov(Sized(QWORD_PTR, RegOffset(i * word_size, heap_reg)), stack_filler))) 
+  @ [
     ILineComment("Setup lambda");
     (* store arity in first slot as a machine number since it's never accessed in our language *)
     IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (List.length args)));
@@ -1458,9 +1463,10 @@ and setup_lambda name args frees tag =
     ILineComment("Save lambda");
     (* Move result to result place *)
     IMov(Reg(RAX), Reg(heap_reg));
-    (* mov heap_reg to new aligned heap_reg *)
-    IAdd(Reg(heap_reg), Const(Int64.of_int (16 * ((List.length frees) + 3) + 1)));
-    IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
+  ]
+  (* mov heap_reg to new aligned heap_reg *)
+  @ [
+    IAdd(Reg(heap_reg), Const(Int64.of_int (size * word_size)));
     ILineComment("Tag lambda");
     IAdd(Reg(RAX), Const(closure_tag));
   ]
