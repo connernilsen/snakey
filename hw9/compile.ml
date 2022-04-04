@@ -176,11 +176,11 @@ let rec deepest_stack e (env: arg name_envt name_envt) current_env =
     | CIf(c, t, f, _) -> List.fold_left max 0 [helpI c; helpA t; helpA f]
     | CPrim1(_, i, _) -> helpI i
     | CPrim2(_, i1, i2, _) -> max (helpI i1) (helpI i2)
-    | CApp(_, args, _, _) -> List.fold_left max 0 (List.map helpI args)
+    | CApp(name, args, _, _) -> List.fold_left max (helpI name) (List.map helpI args)
     | CTuple(vals, _) -> List.fold_left max 0 (List.map helpI vals)
     | CGetItem(t, _, _) -> helpI t
     | CSetItem(t, _, v, _) -> max (helpI t) (helpI v)
-    | CLambda(args, body, _) -> 1
+    | CLambda(_, _, _) -> 1
     | CImmExpr i -> helpI i
   and helpI i =
     match i with
@@ -189,9 +189,11 @@ let rec deepest_stack e (env: arg name_envt name_envt) current_env =
     | ImmBool _ -> 0
     | ImmId(name, _) -> name_to_offset name
   and name_to_offset name =
-    match find (find env current_env) name with
-    | RegOffset(bytes, RBP) -> bytes / (-1 * word_size) (* negative because stack direction *)
-    | _ -> 0
+    (* TODO: i don't like this but it'll work for now *)
+    try (match find (find env current_env) name with
+        | RegOffset(bytes, RBP) -> bytes / (-1 * word_size) (* negative because stack direction *)
+        | _ -> 0) 
+    with InternalCompilerError _ -> 0
   in max (helpA e) 0 (* if only parameters are used, helpA might return a negative value *)
 ;;
 
@@ -915,8 +917,8 @@ and get_aexpr_envt (expr : tag aexpr) (si : int) (wrapping_tag : tag) :  flat_ne
   | ALetRec(binds, body, _) -> 
     let num_binds = List.length binds in
     List.mapi (fun i (name, bind) -> (wrapping_tag, name, RegOffset(~-(si + i) * word_size, RBP))) binds
-    @ List.flatten (List.map (fun (_, bind) -> get_cexpr_envt bind (si + 1 + num_binds) wrapping_tag) binds)
-    @ (get_aexpr_envt body (si + num_binds + 1) wrapping_tag)
+    @ List.flatten (List.map (fun (_, bind) -> get_cexpr_envt bind (si + num_binds) wrapping_tag) binds)
+    @ (get_aexpr_envt body (si + num_binds) wrapping_tag)
 and get_cexpr_envt (expr : tag cexpr) (si : int) (wrapping_tag : tag) : flat_nested_envt =
   match expr with 
   | CIf(_, l, r, _) -> 
