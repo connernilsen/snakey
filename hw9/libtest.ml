@@ -17,9 +17,9 @@ let check_name (name : string) : string =
 
 let t name program expected = name>::test_run program name expected;;
 
-let tcontains name program expected = name>::test_run ~args:[] program name expected ~cmp: (fun check result ->
+let tcontains name program expected = name>::test_run ~args:[] program name expected ~cmp:(fun check result ->
     match check, result with
-    | Ok(a), Ok(b) -> (String.exists b a)
+    | Ok(a), Ok(b) -> (ExtLib.String.exists b a)
     | _ -> false
   );;
 
@@ -383,7 +383,7 @@ let old_tests =
                   (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_4">::(fun _ -> 
         assert_equal [
-          IPush(Const(0L));
+          IPush(Const(62L));
           IMov(Reg(RDI), Const(1L));
           IMov(Reg(RSI), Const(2L));
           IMov(Reg(RDX), Const(3L));
@@ -415,7 +415,7 @@ let old_tests =
                   (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_6">::(fun _ -> 
         assert_equal [
-          IPush(Const(0L));
+          IPush(Const(62L));
           IMov(Reg(RDI), Const(1L));
           IMov(Reg(RSI), Const(2L));
           IMov(Reg(RDX), Const(3L));
@@ -514,7 +514,7 @@ test(1, 2)"
      def b(a):
       a
     b(a)"
-      "tried to call a non-closure value";
+      "<function";
     te "let_call"
       "let a = 1 in a(1)"
       "tried to call a non-closure value: 1";
@@ -690,7 +690,7 @@ test(1, 2)"
       "def run(val):
       let shadow run = val in print(run)
     let shadow run = 5 in run(run)"
-      "tried to call a non-function value: 5";
+      "tried to call a non-closure value: 5";
     t "short_circuit_def_1"
       "def run(run): print(run)
     false && run(6)"
@@ -766,7 +766,7 @@ test(1, 2)"
     "setup_call_to_func_save_regs_one_1">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
-          IPush(Const(0L));
+          IPush(Const(62L));
           IMov(Reg(RDI), Const(1L));
           ICall(Label("label"));
           IAdd(Reg(RSP), Const(Int64.of_int word_size));
@@ -777,7 +777,7 @@ test(1, 2)"
     "setup_call_to_func_save_regs_one_2">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
-          IPush(Const(0L));
+          IPush(Const(62L));
           IMov(Reg(RDI), RegOffset(word_size, RSP));
           ICall(Label("label"));
           IAdd(Reg(RSP), Const(Int64.of_int word_size));
@@ -788,7 +788,7 @@ test(1, 2)"
     "setup_call_to_func_save_regs_one_3">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
-          IPush(Const(0L));
+          IPush(Const(62L));
           IMov(Reg(RDI), Const(0L));
           IMov(Reg(RSI), Const(1L));
           ICall(Label("label"));
@@ -800,7 +800,7 @@ test(1, 2)"
     "setup_call_to_func_save_regs_one_4">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
-          IPush(Const(0L));
+          IPush(Const(62L));
           IMov(Reg(RDI), Const(0L));
           IMov(Reg(RSI), RegOffset(word_size, RSP));
           ICall(Label("label"));
@@ -860,7 +860,7 @@ test(1, 2)"
           IPush(Reg(RDI));
           IPush(Reg(RSI));
           IPush(Reg(RDX));
-          IPush(Const(0L));
+          IPush(Const(62L));
           IMov(Reg(RDI), Const(1L));
           ICall(Label("label"));
           IAdd(Reg(RSP), Const(Int64.of_int word_size));
@@ -875,7 +875,7 @@ test(1, 2)"
           IPush(Reg(RDI));
           IPush(Reg(RSI));
           IPush(Reg(RDX));
-          IPush(Const(0L));
+          IPush(Const(62L));
           IMov(Reg(RDI), RegOffset(word_size * 3, RSP));
           ICall(Label("label"));
           IAdd(Reg(RSP), Const(Int64.of_int word_size));
@@ -890,7 +890,7 @@ test(1, 2)"
           IPush(Reg(RDI));
           IPush(Reg(RSI));
           IPush(Reg(RDX));
-          IPush(Const(0L));
+          IPush(Const(62L));
           IMov(Reg(RDI), Const(0L));
           IMov(Reg(RSI), Const(1L));
           ICall(Label("label"));
@@ -906,7 +906,7 @@ test(1, 2)"
           IPush(Reg(RDI));
           IPush(Reg(RSI));
           IPush(Reg(RDX));
-          IPush(Const(0L));
+          IPush(Const(62L));
           IMov(Reg(RDI), RegOffset(word_size * 2, RSP));
           IMov(Reg(RSI), RegOffset(word_size * 3, RSP));
           ICall(Label("label"));
@@ -924,7 +924,7 @@ test(1, 2)"
           IPush(Reg(RDX));
           IPush(Reg(RCX));
           IPush(Reg(R8));
-          IPush(Const(0L));
+          IPush(Const(62L));
           IMov(Reg(RDI), Const(1L));
           IMov(Reg(RSI), Const(2L));
           IMov(Reg(RDX), Const(3L));
@@ -1002,7 +1002,7 @@ test(1, 2)"
           IPush(Reg(RCX));
           IPush(Reg(R8));
           IPush(Reg(R9));
-          IPush(Const(0L));
+          IPush(Const(62L));
           IMov(Reg(RDI), Const(1L));
           IMov(Reg(RSI), Const(2L));
           IMov(Reg(RDX), Const(3L));
@@ -1102,8 +1102,8 @@ test(1, 2)"
     terr "wf_tuple_set_set" "(1, 2, 3)[0] := a" "" "The identifier a, used at <wf_tuple_set_set, 1:16-1:17>, is not in scope";
     te "wf_rebind_fun" "def a(): true\nand def a(): true\n1" (print_te 
                                                                 [DuplicateFun("a",
-                                                                             (create_ss "wf_rebind_fun" 2 4 2 17),
-                                                                             (create_ss "wf_rebind_fun" 1 0 1 13))]);
+                                                                              (create_ss "wf_rebind_fun" 2 4 2 17),
+                                                                              (create_ss "wf_rebind_fun" 1 0 1 13))]);
     terr "wf_sequence_1" "a; a" "" "The identifier a, used at <wf_sequence_1, 1:0-1:1>, is not in scope\nThe identifier a, used at <wf_sequence_1, 1:3-1:4>, is not in scope";
     te "wf_let_tuple_repeats" "let (a, a) = (1, 2) in true"
       (print_te 
@@ -1514,7 +1514,7 @@ The identifier a, used at <def_no_shadow, 4:2-4:3>, is not in scope";
       (list_library ^ "let mylist = map((lambda(x): x + 1), generate(4)) in mylist")
       "(2, (3, (4, (5, nil))))";
     te "wf_lambda_unbound_id" "(lambda (x): y)" (print_te [UnboundId("y",
-                                                                    (create_ss "wf_lambda_unbound_id" 1 13 1 14))]);
+                                                                     (create_ss "wf_lambda_unbound_id" 1 13 1 14))]);
     te "wf_lambda_app_unbound_id" "(lambda (x): y)(5)" (print_te [UnboundId("y",
                                                                             (create_ss "wf_lambda_app_unbound_id" 1 13 1 14))]);
     te "wf_lambda_dup_args" "(lambda (x, x): x)" (print_te [DuplicateId("x", (create_ss "wf_lambda_dup_args" 1 12 1 13),
@@ -1522,13 +1522,13 @@ The identifier a, used at <def_no_shadow, 4:2-4:3>, is not in scope";
     te "wf_lambda_app_dup_args" "(lambda (x, x): x)(5, 5)" (print_te [DuplicateId("x", (create_ss "wf_lambda_app_dup_args" 1 12 1 13),
                                                                                   (create_ss "wf_lambda_app_dup_args" 1 9 1 10))]);
     te "wf_letrec_dup" "let rec x = (lambda: 5), x = 6 in x" (print_te [DuplicateId("x", (create_ss "wf_letrec_dup" 1 8 1 13),
-                                                                          (create_ss "wf_letrec_dup" 1 15 1 20))]);
+                                                                                    (create_ss "wf_letrec_dup" 1 15 1 20))]);
     te "wf_letrec_not_lambda" "let rec x = 5 in y" (print_te [LetRecNonFunction(BName("x", false, (create_ss "wf_letrec_not_lambda" 1 8 1 13)),
                                                                                 (create_ss "wf_letrec_not_lambda" 1 8 1 13)); 
                                                               UnboundId("y", (create_ss "wf_letrec_not_lambda" 1 17 1 18))]);
     t "wf_letrec" "let rec x = (lambda: y()), y = (lambda: x()) in 6" "6";
     te "wf_unrelated_in_lambda_in_lambda" "(lambda (x): (lambda (y): (let z = 5, z = 6 in z)))(5, 5)" (print_te [DuplicateId("z", (create_ss "wf_unrelated_in_lambda_in_lambda" 1 38 1 39),
-                                                                                                                            (create_ss "wf_unrelated_in_lambda_in_lambda" 1 31 1 32))]);
+                                                                                                                             (create_ss "wf_unrelated_in_lambda_in_lambda" 1 31 1 32))]);
     te "wf_letrec_lambda_with_nonlambda" "let rec a = (lambda(x): x), b = 5 in b" 
       "Binding error at wf_letrec_lambda_with_nonlambda, 1:28-1:33: Let-rec expected a name binding to a lambda; got b";
     te "wf_letrec_lambda_error" "let rec a = (lambda(x, x): x) in a(5)" 

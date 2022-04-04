@@ -73,6 +73,8 @@ let first_six_args_registers = [RDI; RSI; RDX; RCX; R8; R9]
 let heap_reg = R15
 let scratch_reg = R11
 
+let stack_filler = Const(62L)
+
 let nil = HexConst(tuple_tag)
 
 (* you can add any functions or data defined by the runtime here for future use *)
@@ -1093,7 +1095,7 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (func : arg) (
   :: (backup_caller_saved_registers num_regs_to_save first_six_args_registers)
   (* align the stack if necessary *)
   @ (if should_stack_align 
-     then [ILineComment("Stack align"); IPush(Const(0L))] 
+     then [ILineComment("Stack align"); IPush(stack_filler)] 
      else [ILineComment("No stack align")])
   @ check_call_type
   @ [ILineComment("Setup args")]
@@ -1163,9 +1165,8 @@ and compile_fun (fun_name : string) args body (env: arg name_envt name_envt) cur
     (* TODO: change to maybe when implementing tail recursion *)
   ]
     @ (List.mapi (fun (i: int) (f: string) -> IPush(Sized(QWORD_PTR, RegOffset((i + 3) * word_size, RAX)))) frees)
-    @ [
-      ISub(Reg(RSP), Const(Int64.of_int (stack_alloc_space * word_size)));
-    ] in 
+    @ [ILineComment(sprintf "Push %i filler variables" (stack_alloc_space * word_size))]
+    @ List.init (stack_alloc_space * word_size) (fun (i) -> (IPush(stack_filler))) in 
   let fun_body = (compile_aexpr body env (List.length args) false current_env) in 
   let fun_epilogue = [
     IMov(Reg(RSP), Reg(RBP));
