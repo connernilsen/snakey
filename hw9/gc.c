@@ -111,32 +111,24 @@ uint64_t *copy_if_needed(uint64_t *val_addr, uint64_t *heap_top)
     return heap_top;
   }
 
-  int metadata_length;
-  uint64_t length_raw;
+  int metadata_length, length;
   if (tag == CLOSURE_TAG)
   {
-    heap_top[0] = memory_addr[0];
-    heap_top[1] = memory_addr[1];
-    uint64_t length_raw = memory_addr[2];
-    heap_top[2] = length_raw;
-
-    int metadata_length = 3;
+    length = memory_addr[2];
+    metadata_length = 3;
   }
   else
   {
-    uint64_t length_raw = memory_addr[0];
-    heap_top[0] = length_raw;
-
-    int metadata_length = 1;
+    length = memory_addr[0];
+    metadata_length = 1;
   }
-
-  int length = ((int)length_raw) / 2;
+  length /= 2;
 
   int slots = get_padded_slots(length + metadata_length);
 
-  for (int i = 0; i < length; i++)
+  for (int i = 0; i < length + metadata_length; i++)
   {
-    heap_top[metadata_length + i] = memory_addr[metadata_length + i];
+    heap_top[i] = memory_addr[i];
   }
 
   replace_with_forward(memory_addr, heap_top, slots);
@@ -181,6 +173,7 @@ uint64_t *gc(uint64_t *bottom_frame, uint64_t *top_frame, uint64_t *top_stack, u
 
   do
   {
+    // TODO: how do we figure out tag here?
     uint64_t tag = ((uint64_t)to_start_origin) & FORWARD_TAG_MASK;
     int length, metadata_offset;
     uint64_t *heap_addr = (uint64_t *)((uint64_t)to_start_origin - tag);
