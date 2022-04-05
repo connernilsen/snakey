@@ -21,10 +21,12 @@ const uint64_t NUM_TAG_MASK = 0x0000000000000001;
 const uint64_t BOOL_TAG_MASK = 0x0000000000000007;
 const uint64_t TUPLE_TAG_MASK = 0x0000000000000007;
 const uint64_t CLOSURE_TAG_MASK = 0x0000000000000007;
+const uint64_t FORWARD_TAG_MASK = 0x0000000000000007;
 const uint64_t NUM_TAG = 0x0000000000000000;
 const uint64_t BOOL_TAG = 0x0000000000000007;
 const uint64_t TUPLE_TAG = 0x0000000000000001;
 const uint64_t CLOSURE_TAG = 0x0000000000000005;
+const uint64_t FORWARD_TAG = 0x0000000000000003;
 const uint64_t BOOL_TRUE = 0xFFFFFFFFFFFFFFFF;
 const uint64_t BOOL_FALSE = 0x7FFFFFFFFFFFFFFF;
 const uint64_t NIL = ((uint64_t)NULL | TUPLE_TAG);
@@ -432,6 +434,7 @@ int main(int argc, char **argv)
   HEAP_SIZE = 100000;
   if (argc > 1)
   {
+    // TODO: should we try to align this?
     HEAP_SIZE = atoi(argv[1]);
   }
   if (HEAP_SIZE < 0 || HEAP_SIZE > 1000000)

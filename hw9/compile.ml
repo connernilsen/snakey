@@ -1109,6 +1109,14 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (func : arg) (
   @ (restore_caller_saved_registers ((List.length first_six_args_registers) - num_regs_to_save) (List.rev first_six_args_registers))
 ;;
 
+
+let align_stack_by_words (n : int) : int = 
+  ((n + 1) / 2) * 2
+;;
+let byte_align_16 (words : int) : int64 = 
+  Int64.of_int (word_size * (align_stack_by_words words))
+;;
+
 let count_vars e =
   let rec helpA e =
     match e with
@@ -1129,6 +1137,7 @@ let rec replicate x i =
 
 and reserve size tag =
   let ok = sprintf "$memcheck_%d" tag in
+  let size = (size * word_size) in
   [
     IInstrComment(IMov(Reg(RAX), LabelContents("?HEAP_END")),
                   sprintf "Reserving %d words" (size / word_size));
@@ -1156,7 +1165,8 @@ and compile_fun (fun_name : string) args body (env: arg name_envt name_envt) cur
   (* get max allocation needed as an even value, possibly rounded up *)
   let frees = free_vars body args in 
   let parity_offset = (List.length frees) mod 2 in
-  let stack_alloc_space = (((deepest_stack body env current_env) + 1 + parity_offset) / 2 ) * 2 in
+  let stack_alloc_space = (align_stack_by_words ((deepest_stack body env current_env) + parity_offset)) in
+  (* let stack_alloc_space = (((deepest_stack body env current_env) + 1 + parity_offset) / 2 ) * 2 in *)
   let fun_prologue = [
     IJmp(Label(sprintf "%s_end" fun_name));
     ILabel(fun_name);
@@ -1165,8 +1175,8 @@ and compile_fun (fun_name : string) args body (env: arg name_envt name_envt) cur
     (* TODO: change to maybe when implementing tail recursion *)
   ]
     @ (List.mapi (fun (i: int) (f: string) -> IPush(Sized(QWORD_PTR, RegOffset((i + 3) * word_size, RAX)))) frees)
-    @ [ILineComment(sprintf "Push %i filler variables" (stack_alloc_space * word_size))]
-    @ List.init (stack_alloc_space * word_size) (fun (i) -> (IPush(stack_filler))) in 
+    @ [ILineComment(sprintf "Push %i filler variables" stack_alloc_space)]
+    @ List.init stack_alloc_space (fun (i) -> (IPush(stack_filler))) in 
   let fun_body = (compile_aexpr body env (List.length args) false current_env) in 
   let fun_epilogue = [
     IMov(Reg(RSP), Reg(RBP));
@@ -1191,7 +1201,7 @@ and compile_aexpr (e : tag aexpr) (env : arg name_envt name_envt) (num_args : in
         | CLambda(args, body, tag) -> 
           let newname = sprintf "fun_%d" tag in
           let frees = free_vars body args in
-          (setup_lambda newname args frees)
+          (setup_lambda newname args frees tag)
           @ [IInstrComment(IMov(find (find env current_env) name, Reg(RAX)), sprintf "save (rec) %s" name)]
         | _ -> raise (InternalCompilerError "Tried to compile non lambda in let rec")) binds)
     in 
@@ -1344,9 +1354,13 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
     (setup_call_to_func num_args (List.map (fun e -> compile_imm e env current_env) args) (compile_imm func env current_env) true)
   | CApp(func, args, _, _) -> (raise (InternalCompilerError (sprintf "unknown function type for %s" (get_func_name_imm func))))
   | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env current_env)]
-  | CTuple(vals, _) ->
+  | CTuple(vals, tag) ->
     let length = List.length vals in
-    (* snake length at [0] *)
+    let size = (align_stack_by_words (length + 1)) in 
+    (reserve size tag)  
+    (* todo: don't need to zero everything *)
+    @ List.init size (fun (i) -> (IMov(Sized(QWORD_PTR, RegOffset(i * word_size, heap_reg)), stack_filler))) 
+    @ (* snake length at [0] *)
     IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (length * 2))) :: 
     (* items at [1:length + 1] *)
     List.flatten (List.mapi (fun idx v -> 
@@ -1360,8 +1374,10 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
       IMov(Reg(RAX), Reg(heap_reg));
       IAdd(Reg(RAX), Const(tuple_tag));
       (* mov heap_reg to new aligned heap_reg 1 space later *)
-      IAdd(Reg(heap_reg), Const(Int64.of_int (16 * (Int.max length 1) + 1)));
-      IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
+    ]
+    (* mov heap_reg to new aligned heap_reg *)
+    @ [
+      IAdd(Reg(heap_reg), Const(Int64.of_int (size * word_size)));
     ]
   | CGetItem(tuple, idx, tag) -> 
     let tuple = compile_imm tuple env current_env in
@@ -1434,8 +1450,12 @@ and compile_imm e env current_env =
   | ImmBool(false, _) -> const_false
   | ImmId(x, _) -> (find (find env current_env) x)
   | ImmNil(_) -> nil
-and setup_lambda name args frees =
-  [
+and setup_lambda name args frees tag =
+  let size = (align_stack_by_words ((List.length frees) + 3)) in 
+  (reserve size tag)
+  (* todo: maybe don't zero out everything if we don't need to *)
+  @ List.init size (fun (i) -> (IMov(Sized(QWORD_PTR, RegOffset(i * word_size, heap_reg)), stack_filler))) 
+  @ [
     ILineComment("Setup lambda");
     (* store arity in first slot as a machine number since it's never accessed in our language *)
     IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (List.length args)));
@@ -1446,9 +1466,10 @@ and setup_lambda name args frees =
     ILineComment("Save lambda");
     (* Move result to result place *)
     IMov(Reg(RAX), Reg(heap_reg));
-    (* mov heap_reg to new aligned heap_reg *)
-    IAdd(Reg(heap_reg), Const(Int64.of_int (16 * ((List.length frees) + 3) + 1)));
-    IAnd(Reg(heap_reg), HexConst(0xfffffffffffffff0L));
+  ]
+  (* mov heap_reg to new aligned heap_reg *)
+  @ [
+    IAdd(Reg(heap_reg), Const(Int64.of_int (size * word_size)));
     ILineComment("Tag lambda");
     IAdd(Reg(RAX), Const(closure_tag));
   ]
@@ -1461,7 +1482,7 @@ and compile_lambda lam env do_setup current_env =
     ILineComment(sprintf "Compile lambda (%d args)" (List.length args))
     :: (fun_prologue @ fun_body @ fun_epilogue)
     @ (if do_setup 
-       then setup_lambda name args frees
+       then setup_lambda name args frees tag
        else [])
     @ [
       (* remove tag *)
