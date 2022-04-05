@@ -1326,9 +1326,16 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
       | CheckSize ->
         (* compare *)
         (* Then move to RAX *)
-        [IMov(Reg(R11), Sized(QWORD_PTR, e1_reg)); ISub(Reg(R11), Const(1L)); IMov(Reg(R11), RegOffset(0, R11));
-         ICmp(Reg(R11), Sized(QWORD_PTR, e2_reg)); IJne(Label(label_DESTRUCTURE_INVALID_LEN));
-         IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
+        IMov(Reg(RAX), e1_reg) :: (tag_check e1_reg label_DESTRUCTURE_INVALID_LEN tuple_tag_mask tuple_tag)
+        @ [
+          (* ensure tuple isnt nil *)
+          IMov(Reg(R11), nil);
+          ICmp(Reg(R11), Reg(RAX));
+          IJe(Label(label_NIL_DEREF));
+
+          IMov(Reg(R11), Sized(QWORD_PTR, e1_reg)); ISub(Reg(R11), Const(1L)); IMov(Reg(R11), RegOffset(0, R11));
+          ICmp(Reg(R11), Sized(QWORD_PTR, e2_reg)); IJne(Label(label_DESTRUCTURE_INVALID_LEN));
+          IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
     end
   | CApp(func, args, Native, _) -> 
     let arg_regs = (List.map (fun (a) -> (compile_imm a env current_env)) args) in 

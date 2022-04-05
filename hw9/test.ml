@@ -55,8 +55,15 @@ let pair_tests = [
   t "tup4" "let t = (4, 6) in
             (t, t)"
     ""
-    "((4, 6), (4, 6))"
-
+    "((4, 6), (4, 6))";
+  terr "bad_destruct_func" "def new_func((a, v, bong, (e, w)), tree):
+   if a: true else: bong + tree 
+new_func((1, 2, 1, true), 1)" "" "unable to destructure tuple with incorrect length, got true";
+  terr "bad_destruct" "let ((a, b), _) = (true, 0) in 0" "" "unable to destructure tuple with incorrect length, got true";
+  terr "bad_tuple" "(true, 0)[0][0]" "" "get expected tuple, got true";
+  terr "bad_destruct_2" "let (a, _) = true in 0" "" "unable to destructure tuple with incorrect length, got true";
+  terr "nil_destruct" "let (a, b) = nil in a" "" "tried to access component of nil";
+  terr "nil_tuple" "nil[0]" "" "tried to access component of nil";
 ]
 
 let oom = [
