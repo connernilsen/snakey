@@ -1349,15 +1349,11 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
   | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env current_env)]
   | CTuple(vals, tag) ->
     let length = List.length vals in
-    let size = (align_stack_by_words ((Int.max 1 length) + 1)) in 
+    let size = (align_stack_by_words (length + 1)) in 
     (reserve size tag)  
     (* todo: don't need to zero everything *)
     @ List.init size (fun (i) -> (IMov(Sized(QWORD_PTR, RegOffset(i * word_size, heap_reg)), stack_filler))) 
-    @ [
-      IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (length * 2)))
-    ]
-    @
-    (* snake length at [0] *)
+    @ (* snake length at [0] *)
     IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (length * 2))) :: 
     (* items at [1:length + 1] *)
     List.flatten (List.mapi (fun idx v -> 
@@ -1448,7 +1444,7 @@ and compile_imm e env current_env =
   | ImmId(x, _) -> (find (find env current_env) x)
   | ImmNil(_) -> nil
 and setup_lambda name args frees tag =
-  let size = (align_stack_by_words (Int.max 1 ((List.length frees) + 3))) in 
+  let size = (align_stack_by_words ((List.length frees) + 3)) in 
   (reserve size tag)
   (* todo: maybe don't zero out everything if we don't need to *)
   @ List.init size (fun (i) -> (IMov(Sized(QWORD_PTR, RegOffset(i * word_size, heap_reg)), stack_filler))) 

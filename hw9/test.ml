@@ -34,7 +34,7 @@ let teq name actual expected = name>::fun _ ->
 (*     assert_equal (List.sort c vars) (List.sort c expected) ~printer:str_list_print) *)
 (* ;; *)
 
-let builtins_size = 4 (* arity + 0 vars + codeptr + padding *) * 1 (* TODO FIXME (List.length Compile.native_fun_bindings) *)
+let builtins_size = 4 (* arity + 0 vars + codeptr + padding *) * (List.length Compile.native_fun_bindings)
 
 let pair_tests = [
   t "tup1" "let t = (4, (5, 6)) in
@@ -63,7 +63,7 @@ let oom = [
   tgcerr "oomgc1" (7 + builtins_size) "(1, (3, 4))" "" "Out of memory";
   tgc "oomgc2" (8 + builtins_size) "(1, (3, 4))" "" "(1, (3, 4))";
   tvgc "oomgc3" (8 + builtins_size) "(1, (3, 4))" "" "(1, (3, 4))";
-  tgc "oomgc4" (4 + builtins_size) "(3, 4)" "" "(3, 4)";
+  tvgc "oomgc4" (4 + builtins_size) "(3, 4)" "" "(3, 4)";
   tgcerr "oomgc5" (3 + builtins_size) "(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)" "" "Allocation";
 ]
 
