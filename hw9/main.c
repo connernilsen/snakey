@@ -383,7 +383,7 @@ uint64_t *try_gc(uint64_t *alloc_ptr, uint64_t bytes_needed, uint64_t *cur_frame
 
   /* printf("FROM_S = %p, FROM_E = %p, TO_S = %p, TO_E = %p\n", FROM_S, FROM_E, TO_S, TO_E); */
   /* naive_print_heap(FROM_S, FROM_E); */
-  // printStack(BOOL_TRUE, cur_stack_top, cur_frame, 0);
+  /* printStack(BOOL_TRUE, cur_stack_top, cur_frame, 0); */
 
   // Abort early, if we can't allocate a new to-space
   if (new_heap == NULL)

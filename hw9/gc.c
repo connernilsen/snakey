@@ -20,7 +20,7 @@ extern uint64_t *FROM_E;
 extern uint64_t *TO_S;
 extern uint64_t *TO_E;
 
-const uint64_t FILLER = 64;
+const uint64_t FILLER = 63;
 
 void naive_print_heap(uint64_t *heap, uint64_t *heap_end)
 {
@@ -143,18 +143,12 @@ uint64_t *copy_if_needed(uint64_t *val_addr, uint64_t *heap_top)
   {
     heap_top[i] = memory_addr[i];
   }
+
   replace_with_forward(memory_addr, heap_top, slots);
+
   *val_addr = (uint64_t *)((uint64_t)heap_top + tag);
 
-  uint64_t *old_heap_top = heap_top;
-  heap_top += slots;
-
-  for (int i = 0; i < length; i++)
-  {
-    heap_top = copy_if_needed(old_heap_top + (i + metadata_length), heap_top);
-  }
-
-  return heap_top;
+  return heap_top + slots;
 }
 
 /*
@@ -172,6 +166,7 @@ uint64_t *copy_if_needed(uint64_t *val_addr, uint64_t *heap_top)
  */
 uint64_t *gc(uint64_t *bottom_frame, uint64_t *top_frame, uint64_t *top_stack, uint64_t *from_start, uint64_t *from_end, uint64_t *to_start)
 {
+  uint64_t *to_start_origin = to_start;
   uint64_t *old_top_frame = top_frame;
   do
   {
@@ -188,6 +183,36 @@ uint64_t *gc(uint64_t *bottom_frame, uint64_t *top_frame, uint64_t *top_stack, u
     old_top_frame = top_frame;
     top_frame = (uint64_t *)(*top_frame);
   } while (old_top_frame < bottom_frame); // Use the old stack frame to decide if there's more GC'ing to do
+
+  do
+  {
+    // TODO: how do we figure out tag here?
+    uint64_t tag = ((uint64_t)to_start_origin) & FORWARD_TAG_MASK;
+    int length, metadata_offset;
+    uint64_t *heap_addr = (uint64_t *)((uint64_t)to_start_origin - tag);
+    if (tag == CLOSURE_TAG)
+    {
+      metadata_offset = 3;
+      length = ((int)heap_addr[2]) / 2;
+    }
+    else if (tag == TUPLE_TAG)
+    {
+      metadata_offset = 1;
+      length = ((int)heap_addr[0]) / 2;
+    }
+    else
+    {
+      fprintf(stderr, "Got unexpected tag type: %ld", tag);
+      exit(17);
+    }
+
+    int slots = get_padded_slots(metadata_offset + length);
+    for (int i = metadata_offset; i < length; i++)
+    {
+      to_start = copy_if_needed(heap_addr + i, to_start);
+    }
+    to_start_origin += slots;
+  } while (to_start_origin < to_start);
 
   // after copying and GC'ing all the stack frames, return the new allocation starting point
   return to_start;
