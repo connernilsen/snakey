@@ -33,11 +33,24 @@ void naive_print_heap(uint64_t *heap, uint64_t *heap_end)
 
 // Implement the functions below
 
+int smarter_print_one_heap(uint64_t *start, uint64_t *end)
+{
+  while (start < end)
+  {
+    printHelp(stdout, start);
+    printf("\n");
+    fflush(stdout);
+    start += 1;
+  }
+}
+
 void smarter_print_heap(uint64_t *from_start, uint64_t *from_end, uint64_t *to_start, uint64_t *to_end)
 {
-  // Print out the entire heap (both semispaces), and
-  // try to print values readably when possible
-  exit(1);
+  printf("Old semispace:\n");
+  smarter_print_one_heap(from_start, from_end);
+
+  printf("New semispace:\n");
+  smarter_print_one_heap(to_start, to_end);
 }
 
 /**

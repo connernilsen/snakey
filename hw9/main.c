@@ -447,7 +447,7 @@ int main(int argc, char **argv)
   HEAP_END = aligned + HEAP_SIZE;
   /* printf("HEAP = %p, aligned = %p, HEAP_END = %p\n", HEAP, aligned, HEAP_END); */
   SNAKEVAL result = our_code_starts_here(aligned, HEAP_SIZE);
-  /* smarter_print_heap(aligned, HEAP_END, TO_S, TO_E); */
+  // smarter_print_heap(aligned, HEAP_END, TO_S, TO_E);
   print(result);
 
   free(HEAP);

@@ -107,7 +107,12 @@ let nested = [
 
 let suite =
   "unit_tests">:::
-  pair_tests @ oom @ gc @ native @ prim @ nested
+  pair_tests 
+  @ oom 
+  @ gc 
+  @ native 
+  @ prim 
+  @ nested
 
 
 
