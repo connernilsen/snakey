@@ -1521,8 +1521,20 @@ The identifier a, used at <def_no_shadow, 4:2-4:3>, is not in scope";
                                                                         (create_ss "wf_lambda_dup_args" 1 9 1 10))]);
     te "wf_lambda_app_dup_args" "(lambda (x, x): x)(5, 5)" (print_te [DuplicateId("x", (create_ss "wf_lambda_app_dup_args" 1 12 1 13),
                                                                                   (create_ss "wf_lambda_app_dup_args" 1 9 1 10))]);
-    te "wf_letrec_dup" "let rec x = (lambda: 5), x = 6 in x" (print_te [DuplicateId("x", (create_ss "wf_letrec_dup" 1 8 1 13),
-                                                                                    (create_ss "wf_letrec_dup" 1 15 1 20))]);
+    te "wf_letrec_dup" "let rec x = (lambda: 5), x = (lambda: 6) in x" (print_te [DuplicateId("x", (create_ss "wf_letrec_dup" 1 25 1 26),
+                                                                                              (create_ss "wf_letrec_dup" 1 8 1 9));
+                                                                                  ShadowId("x", (create_ss "wf_letrec_dup" 1 25 1 26),
+                                                                                           (create_ss "wf_letrec_dup" 1 8 1 9));
+                                                                                  ShadowId("x", (create_ss "wf_letrec_dup" 1 8 1 9),
+                                                                                           (create_ss "wf_letrec_dup" 1 25 1 26));
+                                                                                  ShadowId("x", (create_ss "wf_letrec_dup" 1 25 1 26),
+                                                                                           (create_ss "wf_letrec_dup" 1 8 1 9));
+                                                                                 ]);
+    te "wf_letrec_dup_shadow" "let rec x = (lambda: 5), shadow x = (lambda: 6) in x" (print_te [DuplicateId("x", (create_ss "wf_letrec_dup_shadow" 1 25 1 33),
+                                                                                                            (create_ss "wf_letrec_dup_shadow" 1 8 1 9));
+                                                                                                ShadowId("x", (create_ss "wf_letrec_dup_shadow" 1 8 1 9),
+                                                                                                         (create_ss "wf_letrec_dup_shadow" 1 25 1 33));
+                                                                                               ]);
     te "wf_letrec_not_lambda" "let rec x = 5 in y" (print_te [LetRecNonFunction(BName("x", false, (create_ss "wf_letrec_not_lambda" 1 8 1 13)),
                                                                                 (create_ss "wf_letrec_not_lambda" 1 8 1 13)); 
                                                               UnboundId("y", (create_ss "wf_letrec_not_lambda" 1 17 1 18))]);
