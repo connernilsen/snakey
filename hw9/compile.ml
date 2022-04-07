@@ -1135,7 +1135,7 @@ let rec replicate x i =
   if i = 0 then []
   else x :: (replicate x (i - 1))
 
-and reserve size tag =
+and reserve size tag num_regs_to_save =
   let ok = sprintf "$memcheck_%d" tag in
   let size = (size * word_size) in
   [
@@ -1145,7 +1145,7 @@ and reserve size tag =
     ICmp(Reg(RAX), Reg(heap_reg));
     IJge(Label ok);
   ]
-  @ (setup_call_to_func 4 [
+  @ (setup_call_to_func num_regs_to_save [
       (Sized(QWORD_PTR, Reg(heap_reg))); (* alloc_ptr in C *)
       (Sized(QWORD_PTR, Const(Int64.of_int size))); (* bytes_needed in C *)
       (Sized(QWORD_PTR, Reg(RBP))); (* first_frame in C *)
@@ -1201,13 +1201,13 @@ and compile_aexpr (e : tag aexpr) (env : arg name_envt name_envt) (num_args : in
         | CLambda(args, body, tag) -> 
           let newname = sprintf "fun_%d" tag in
           let frees = free_vars body args in
-          (setup_lambda newname args frees tag)
+          (setup_lambda newname args frees tag num_args)
           @ [IInstrComment(IMov(find (find env current_env) name, Reg(RAX)), sprintf "save (rec) %s" name)]
         | _ -> raise (InternalCompilerError "Tried to compile non lambda in let rec")) binds)
     in 
     let lambda_comps = List.flatten (List.map (fun (name, bind) ->
         IMov(Reg(RAX), find (find env current_env) name)
-        :: (compile_lambda bind env false current_env)) binds)
+        :: (compile_lambda bind env false current_env num_args)) binds)
     in 
     lambda_setups 
     @ lambda_comps
@@ -1357,7 +1357,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
   | CTuple(vals, tag) ->
     let length = List.length vals in
     let size = (align_stack_by_words (length + 1)) in 
-    (reserve size tag)  
+    (reserve size tag num_args)  
     (* todo: don't need to zero everything *)
     @ List.init size (fun (i) -> (IMov(Sized(QWORD_PTR, RegOffset(i * word_size, heap_reg)), stack_filler))) 
     @ (* snake length at [0] *)
@@ -1442,7 +1442,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
        IMov(Reg(R12), set);
        IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, R11, word_size, word_size)), Reg(R12));
        IMov(Reg(RAX), set)])
-  | CLambda(_) -> compile_lambda e env true current_env
+  | CLambda(_) -> compile_lambda e env true current_env num_args
 and compile_imm e env current_env =
   match e with
   | ImmNum(n, _) -> Const(Int64.shift_left n 1)
@@ -1450,9 +1450,9 @@ and compile_imm e env current_env =
   | ImmBool(false, _) -> const_false
   | ImmId(x, _) -> (find (find env current_env) x)
   | ImmNil(_) -> nil
-and setup_lambda name args frees tag =
+and setup_lambda name args frees tag num_regs_to_save =
   let size = (align_stack_by_words ((List.length frees) + 3)) in 
-  (reserve size tag)
+  (reserve size tag num_regs_to_save)
   (* todo: maybe don't zero out everything if we don't need to *)
   @ List.init size (fun (i) -> (IMov(Sized(QWORD_PTR, RegOffset(i * word_size, heap_reg)), stack_filler))) 
   @ [
@@ -1473,7 +1473,7 @@ and setup_lambda name args frees tag =
     ILineComment("Tag lambda");
     IAdd(Reg(RAX), Const(closure_tag));
   ]
-and compile_lambda lam env do_setup current_env =
+and compile_lambda lam env do_setup current_env num_regs_to_save =
   match lam with
   | CLambda(args, body, tag) -> 
     let name = sprintf "fun_%d" tag in
@@ -1482,7 +1482,7 @@ and compile_lambda lam env do_setup current_env =
     ILineComment(sprintf "Compile lambda (%d args)" (List.length args))
     :: (fun_prologue @ fun_body @ fun_epilogue)
     @ (if do_setup 
-       then setup_lambda name args frees tag
+       then setup_lambda name args frees tag num_regs_to_save
        else [])
     @ [
       (* remove tag *)
@@ -1572,7 +1572,7 @@ global ?our_code_starts_here" in
   match anfed with
   | AProgram(body, tag) ->
     (* $heap and $size are mock parameter names, just so that compile_fun knows our_code_starts_here takes in 2 parameters *)
-    let (prologue, comp_main, epilogue) = compile_fun "?our_code_starts_here" ["$heap"; "$size"] body env (string_of_int tag) in
+    let (prologue, comp_main, epilogue) = compile_fun "?our_code_starts_here" [(*"$heap"; "$size"*)] body env (string_of_int tag) in
     let heap_start =
       [
         ILineComment("heap start");
@@ -1585,7 +1585,7 @@ global ?our_code_starts_here" in
       [
         IMov(Reg R12, Reg RDI);
       ]
-      @ (setup_call_to_func 1 [Reg(RBP)] (Label "?set_stack_bottom") false)
+      @ (setup_call_to_func 0 [Reg(RBP)] (Label "?set_stack_bottom") false)
       @ [
         IMov(Reg RDI, Reg R12)
       ] in

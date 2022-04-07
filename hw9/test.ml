@@ -72,17 +72,33 @@ let oom = [
   tvgc "oomgc3" (8 + builtins_size) "(1, (3, 4))" "" "(1, (3, 4))";
   tvgc "oomgc4" (4 + builtins_size) "(3, 4)" "" "(3, 4)";
   tgcerr "oomgc5" (3 + builtins_size) "(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)" "" "Allocation";
+  tgc "oomgc6" (6 + builtins_size)
+    "let a = (1, 2, nil),
+         _ = a[2] := a,
+         _ = (9,),
+         c = (3,) in 
+        print(c);
+        a"
+    "" "(3, )\n(1, 2, <cyclic tuple 2>)";
+  tgcerr "oomgc7" (5 + builtins_size)
+    "let a = (1, 2, nil),
+         _ = a[2] := a,
+         _ = (9,),
+         c = (3,) in 
+        print(c);
+        a"
+    "" "Out of memory";
 ]
 
 let gc = [
   tgc "gc_lam1" (10 + builtins_size)
     "let f = (lambda: (1, 2)) in
-       begin
-         f();
-         f();
-         f();
-         f()
-       end"
+begin
+  f();
+  f();
+  f();
+  f()
+end"
     ""
     "(1, 2)";
 ]
