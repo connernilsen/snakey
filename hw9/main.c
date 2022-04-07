@@ -53,7 +53,7 @@ uint64_t *STACK_BOTTOM;
 uint64_t *HEAP;
 uint64_t *HEAP_END;
 
-const int DEBUG_MEM = 1;
+const int DEBUG_MEM = 0;
 
 SNAKEVAL set_stack_bottom(uint64_t *stack_bottom)
 {

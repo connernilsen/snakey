@@ -126,28 +126,28 @@ let oom = [
           fn1) in 
       fn(1)"
     "" "Out of memory";
-  tgc "oomgc10" (12 + builtins_size)
+  tgc "oomgc10" (16 + builtins_size)
     "let ctr1 = (8,), # 2
-         fn = 
-       (let rec 
-          fn1 = # 6
-            (lambda(x): 
-              if ctr1[0] == 0: 
-                ctr1[0] := 50;
-                x
-              else:
-                ctr1[0] := ctr1[0] - 1;
-                fn1(x + 1)),
-          fn2 = # 4
-            (lambda(y, z):
-              print(y);
-              print(z);
-              ctr1[0]) in
-          fn1) in 
+         fn = (lambda(dummy):
+            let rec 
+               fn1 = # 6
+                 (lambda(x): 
+                   if ctr1[0] == 0: 
+                     ctr1[0] := 50;
+                     x
+                   else:
+                     ctr1[0] := ctr1[0] - 1;
+                     fn1(x + 1)),
+               fn2 = # 4
+                 (lambda(y, z):
+                   print(y);
+                   print(z);
+                   ctr1[0]) in
+               fn1)(1) in 
       print(fn(1));
       print(ctr1);
       (1, 2, 3)"
-    "" "9\n50\n(1, 2, 3)";
+    "" "9\n(50, )\n(1, 2, 3)";
   tgcerr "oomgc11" (12 + builtins_size)
     "let ctr1 = (8,), # 2
          fn = 
