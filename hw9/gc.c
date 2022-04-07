@@ -37,7 +37,7 @@ void smarter_print_one_heap(uint64_t *start, uint64_t *end)
 {
   while (start < end)
   {
-    printHelp(stdout, (uint64_t)start);
+    printHelp(stdout, *start);
     printf("\n");
     fflush(stdout);
     start += 1;
@@ -142,6 +142,10 @@ uint64_t *copy_if_needed(uint64_t *val_addr, uint64_t *heap_top)
   for (int i = 0; i < length + metadata_length; i++)
   {
     heap_top[i] = memory_addr[i];
+  }
+  if (length + metadata_length < slots)
+  {
+    heap_top[slots - 1] = FILLER;
   }
 
   replace_with_forward(memory_addr, heap_top, slots);

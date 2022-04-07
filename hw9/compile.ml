@@ -1085,6 +1085,7 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (func : arg) (
         ISub(Reg(RAX), Const(5L));
         (* check arity *)
         IMov(Reg(R10), RegOffset(0, RAX));
+        ISar(Reg(R10), Const(1L));
         ICmp(Reg(R10), Const(Int64.of_int (List.length args)));
         IJne(Label(label_ARITY))
       ]
@@ -1458,11 +1459,11 @@ and setup_lambda name args frees tag num_regs_to_save =
   @ [
     ILineComment("Setup lambda");
     (* store arity in first slot as a machine number since it's never accessed in our language *)
-    IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (List.length args)));
+    IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int ((List.length args) * 2)));
     (* store the function address in the second slot *)
     IMov(Sized(QWORD_PTR, RegOffset(word_size, heap_reg)), Label(name));
     (* store the # of free variables in the 3rd slot as a machine # since it's never accessed in our language *)
-    IMov(Sized(QWORD_PTR, RegOffset(word_size * 2, heap_reg)), Const(Int64.of_int (List.length frees)));
+    IMov(Sized(QWORD_PTR, RegOffset(word_size * 2, heap_reg)), Const(Int64.of_int ((List.length frees) * 2)));
     ILineComment("Save lambda");
     (* Move result to result place *)
     IMov(Reg(RAX), Reg(heap_reg));

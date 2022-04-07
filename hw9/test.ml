@@ -88,6 +88,85 @@ let oom = [
         print(c);
         a"
     "" "Out of memory";
+  tvgc "oomgc8" (12 + builtins_size)
+    "let ctr1 = (8,), # 2
+         fn = 
+       (let rec 
+          fn1 = # 6
+            (lambda(x): 
+              if ctr1[0] == 0: 
+                ctr1[0] := 50;
+                fn2(x)
+              else:
+                ctr1[0] := ctr1[0] - 1;
+                fn1(x + 1)),
+          fn2 = # 4
+            (lambda(y):
+              print(y);
+              ctr1[0]) in
+          fn1) in 
+      fn(1)"
+    "" "9\n50";
+  tgcerr "oomgc9" (11 + builtins_size)
+    "let ctr1 = (8,), # 2
+         fn = 
+       (let rec 
+          fn1 = # 6
+            (lambda(x): 
+              if ctr1[0] == 0: 
+                ctr1[0] := 50;
+                fn2(x)
+              else:
+                ctr1[0] := ctr1[0] - 1;
+                fn1(x + 1)),
+          fn2 = # 4
+            (lambda(y):
+              print(y);
+              ctr1[0]) in
+          fn1) in 
+      fn(1)"
+    "" "Out of memory";
+  tgc "oomgc10" (12 + builtins_size)
+    "let ctr1 = (8,), # 2
+         fn = 
+       (let rec 
+          fn1 = # 6
+            (lambda(x): 
+              if ctr1[0] == 0: 
+                ctr1[0] := 50;
+                x
+              else:
+                ctr1[0] := ctr1[0] - 1;
+                fn1(x + 1)),
+          fn2 = # 4
+            (lambda(y, z):
+              print(y);
+              print(z);
+              ctr1[0]) in
+          fn1) in 
+      print(fn(1));
+      print(ctr1);
+      (1, 2, 3)"
+    "" "9\n50\n(1, 2, 3)";
+  tgcerr "oomgc11" (12 + builtins_size)
+    "let ctr1 = (8,), # 2
+         fn = 
+       (let rec 
+          fn1 = # 6
+            (lambda(x): 
+              if ctr1[0] == 0: 
+                ctr1[0] := 50;
+                fn2(x)
+              else:
+                ctr1[0] := ctr1[0] - 1;
+                fn1(x + 1)),
+          fn2 = # 4
+            (lambda(y):
+              print(y);
+              ctr1[0]) in
+          fn1) in 
+      (1, 2, 3)"
+    "" "Out of memory";
 ]
 
 let gc = [
@@ -101,6 +180,36 @@ begin
 end"
     ""
     "(1, 2)";
+  tgc "copy_nil_on_heap" (6 + builtins_size)
+    "let a = (1, 2, nil),
+             _ = (9,),
+             c = (3,) in 
+print(c);
+a"
+    "" "(3, )\n(1, 2, nil)";
+  tgc "gcc_many_refs" (16 + builtins_size)
+    "let x = (5,), # 2
+         y = (1, nil), # 4
+         _ = (y, y, y), # 4, should get gc'd
+         z = (3, x, nil, y) in # 5
+         y[1] := z;
+z[2] := z;
+(1,); # 2
+         print(x);
+print(y);
+z"
+    "" "(5, )\n(1, (3, (5, ), <cyclic tuple 3>, <cyclic tuple 2>))
+(3, (5, ), <cyclic tuple 5>, (1, <cyclic tuple 5>))";
+  tgc "copy_lambda_values" (18 + builtins_size)
+    "let x = (lambda(x): 
+         let y = (1, 2, x), 
+             z = (4, 5, 6, 7) in 
+           (lambda(x): y)) in
+         let a = x(123), 
+             b = (8, 9, 10) in 
+         print(b);
+         a(1)"
+    "" "(8, 9, 10)\n(1, 2, 123)";
 ]
 
 let native = [
@@ -119,7 +228,6 @@ let nested = [
   t "nested_lambda" "(lambda: (lambda: 1)())()" "" "1";
   t "free_in_nested_fun" "let x = 5 in (lambda: (lambda: x)())()" "" "5";
 ]
-
 
 let suite =
   "unit_tests">:::
