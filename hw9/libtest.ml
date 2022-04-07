@@ -1545,7 +1545,7 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
     t "compile_native_in_closure_temp" "let f = (lambda (x): x) in (lambda (y): f(y))(6)" "6";
     t "compile_native_in_closure_multiple_args" "(lambda (x, y): print(y))(1, 6)" "6\n6";
     t "compile_native_in_closure_more_args" "(lambda (x, y, z): print(z))(1, 1, 6)" "6\n6";
-    tcontains "print_stack" "printStack(1)" "Num args: 2";
+    tcontains "print_stack" "printStack(1)" "Num args: 0";
     ti "compile_native_as_free" "let a = input in a()" "1" "1";
     ti "compile_input" "input()" "5" "5";
     ti "compile_input_in_lambda" "let a = (lambda: input()) in a()" "5" "5";
