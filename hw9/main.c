@@ -53,6 +53,8 @@ uint64_t *STACK_BOTTOM;
 uint64_t *HEAP;
 uint64_t *HEAP_END;
 
+const int DEBUG_MEM = 0;
+
 SNAKEVAL set_stack_bottom(uint64_t *stack_bottom)
 {
   STACK_BOTTOM = stack_bottom;
@@ -382,8 +384,13 @@ uint64_t *try_gc(uint64_t *alloc_ptr, uint64_t bytes_needed, uint64_t *cur_frame
   TO_E = new_heap_end;
 
   /* printf("FROM_S = %p, FROM_E = %p, TO_S = %p, TO_E = %p\n", FROM_S, FROM_E, TO_S, TO_E); */
-  /* naive_print_heap(FROM_S, FROM_E); */
-  // printStack(BOOL_TRUE, cur_stack_top, cur_frame, 0);
+  // naive_print_heap(FROM_S, FROM_E);
+
+  if (DEBUG_MEM)
+  {
+    smarter_print_heap(FROM_S, FROM_E, TO_S, TO_S);
+    printStack(BOOL_TRUE, cur_stack_top, cur_frame, 0);
+  }
 
   // Abort early, if we can't allocate a new to-space
   if (new_heap == NULL)
@@ -409,7 +416,13 @@ uint64_t *try_gc(uint64_t *alloc_ptr, uint64_t bytes_needed, uint64_t *cur_frame
             bytes_needed / sizeof(uint64_t), HEAP_SIZE);
     fflush(stderr);
     if (new_heap != NULL)
+    {
+      if (DEBUG_MEM)
+      {
+        smarter_print_heap(FROM_S, FROM_S, TO_S, TO_E);
+      }
       free(new_heap);
+    }
     exit(ERR_OUT_OF_MEMORY);
   }
   else if ((new_r15 + (bytes_needed / sizeof(uint64_t))) > HEAP_END)
@@ -418,13 +431,23 @@ uint64_t *try_gc(uint64_t *alloc_ptr, uint64_t bytes_needed, uint64_t *cur_frame
             bytes_needed / sizeof(uint64_t), (HEAP_END - new_r15));
     fflush(stderr);
     if (new_heap != NULL)
+    {
+      if (DEBUG_MEM)
+      {
+        smarter_print_heap(FROM_S, FROM_S, TO_S, TO_E);
+      }
       free(new_heap);
+    }
     exit(ERR_OUT_OF_MEMORY);
   }
   else
   {
     /* fprintf(stderr, "new_r15 = %p\n", new_r15); */
     /* naive_print_heap(HEAP, HEAP_END); */
+    if (DEBUG_MEM)
+    {
+      smarter_print_heap(FROM_S, FROM_S, TO_S, TO_E);
+    }
     return new_r15;
   }
 }
@@ -434,7 +457,6 @@ int main(int argc, char **argv)
   HEAP_SIZE = 100000;
   if (argc > 1)
   {
-    // TODO: should we try to align this?
     HEAP_SIZE = atoi(argv[1]);
   }
   if (HEAP_SIZE < 0 || HEAP_SIZE > 1000000)
@@ -447,7 +469,7 @@ int main(int argc, char **argv)
   HEAP_END = aligned + HEAP_SIZE;
   /* printf("HEAP = %p, aligned = %p, HEAP_END = %p\n", HEAP, aligned, HEAP_END); */
   SNAKEVAL result = our_code_starts_here(aligned, HEAP_SIZE);
-  /* smarter_print_heap(aligned, HEAP_END, TO_S, TO_E); */
+  // smarter_print_heap(aligned, HEAP_END, TO_S, TO_E);
   print(result);
 
   free(HEAP);

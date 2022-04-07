@@ -33,11 +33,24 @@ void naive_print_heap(uint64_t *heap, uint64_t *heap_end)
 
 // Implement the functions below
 
+void smarter_print_one_heap(uint64_t *start, uint64_t *end)
+{
+  while (start < end)
+  {
+    printHelp(stdout, *start);
+    printf("\n");
+    fflush(stdout);
+    start += 1;
+  }
+}
+
 void smarter_print_heap(uint64_t *from_start, uint64_t *from_end, uint64_t *to_start, uint64_t *to_end)
 {
-  // Print out the entire heap (both semispaces), and
-  // try to print values readably when possible
-  exit(1);
+  printf("Old semispace:\n");
+  smarter_print_one_heap(from_start, from_end);
+
+  printf("New semispace:\n");
+  smarter_print_one_heap(to_start, to_end);
 }
 
 /**
@@ -66,7 +79,7 @@ int get_padded_slots(int slots)
  */
 void replace_with_forward(uint64_t *start, uint64_t *new_addr, int length)
 {
-  start[0] = (uint64_t *)((uint64_t)new_addr + FORWARD_TAG);
+  start[0] = (uint64_t)new_addr + FORWARD_TAG;
   for (int i = 1; i < length; i++)
   {
     start[i] = FILLER;
@@ -96,7 +109,7 @@ uint64_t *copy_if_needed(uint64_t *val_addr, uint64_t *heap_top)
   // and exit if it's not a closure or tuple
   uint64_t top_level_val = *val_addr;
   uint64_t tag = top_level_val & FORWARD_TAG_MASK;
-  if (tag != CLOSURE_TAG && tag != TUPLE_TAG)
+  if ((tag != CLOSURE_TAG && tag != TUPLE_TAG) || top_level_val == NIL)
   {
     return heap_top;
   }
@@ -106,7 +119,7 @@ uint64_t *copy_if_needed(uint64_t *val_addr, uint64_t *heap_top)
   if (((*memory_addr) & FORWARD_TAG_MASK) == FORWARD_TAG)
   {
     uint64_t forwarded_addr = (*memory_addr) - FORWARD_TAG;
-    uint64_t *tagged_addr = (uint64_t *)(forwarded_addr + tag);
+    uint64_t tagged_addr = forwarded_addr + tag;
     *val_addr = tagged_addr;
     return heap_top;
   }
@@ -130,18 +143,16 @@ uint64_t *copy_if_needed(uint64_t *val_addr, uint64_t *heap_top)
   {
     heap_top[i] = memory_addr[i];
   }
-  replace_with_forward(memory_addr, heap_top, slots);
-  *val_addr = (uint64_t *)((uint64_t)heap_top + tag);
-
-  uint64_t *old_heap_top = heap_top;
-  heap_top += slots;
-
-  for (int i = 0; i < length; i++)
+  if (length + metadata_length < slots)
   {
-    heap_top = copy_if_needed(old_heap_top + (i + metadata_length), heap_top);
+    heap_top[slots - 1] = FILLER;
   }
 
-  return heap_top;
+  replace_with_forward(memory_addr, heap_top, slots);
+
+  *val_addr = (uint64_t)heap_top + tag;
+
+  return heap_top + slots;
 }
 
 /*
@@ -159,6 +170,7 @@ uint64_t *copy_if_needed(uint64_t *val_addr, uint64_t *heap_top)
  */
 uint64_t *gc(uint64_t *bottom_frame, uint64_t *top_frame, uint64_t *top_stack, uint64_t *from_start, uint64_t *from_end, uint64_t *to_start)
 {
+  uint64_t *heap_addr = to_start;
   uint64_t *old_top_frame = top_frame;
   do
   {
@@ -174,7 +186,13 @@ uint64_t *gc(uint64_t *bottom_frame, uint64_t *top_frame, uint64_t *top_stack, u
     top_stack = top_frame + 2;
     old_top_frame = top_frame;
     top_frame = (uint64_t *)(*top_frame);
-  } while (old_top_frame < bottom_frame); // Use the old stack frame to decide if there's more GC'ing to do
+  } while (old_top_frame <= bottom_frame); // Use the old stack frame to decide if there's more GC'ing to do
+
+  do
+  {
+    to_start = copy_if_needed(heap_addr, to_start);
+    heap_addr += 1;
+  } while (heap_addr < to_start);
 
   // after copying and GC'ing all the stack frames, return the new allocation starting point
   return to_start;
