@@ -19,7 +19,7 @@ let t name program expected = name>::test_run program name expected;;
 
 let tcontains name program expected = name>::test_run ~args:[] program name expected ~cmp:(fun check result ->
     match check, result with
-    | Ok(a), Ok(b) -> (ExtLib.String.exists b a)
+    | Ok(a), Ok(b) -> (ExtLib.String.exists b (String.strip a))
     | _ -> false
   );;
 
@@ -514,7 +514,7 @@ test(1, 2)"
      def b(a):
       a
     b(a)"
-      "<function";
+      "function";
     te "let_call"
       "let a = 1 in a(1)"
       "tried to call a non-closure value: 1";
