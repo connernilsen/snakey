@@ -82,6 +82,7 @@ let prim_bindings = [];;
 let native_fun_bindings = [
   ("input", (Native, 0));
   ("equal", (Native, 2));
+  ("print_heap", (Native, 0));
 ];;
 
 let initial_fun_env = prim_bindings @ native_fun_bindings;;
@@ -1348,6 +1349,9 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
           ICmp(Reg(R11), Sized(QWORD_PTR, e2_reg)); IJne(Label(label_DESTRUCTURE_INVALID_LEN));
           IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
     end
+  | CApp(ImmId("?print_heap", _), _, Native, _) -> 
+    let arg_regs = [Const(0L); Const(0L); LabelContents("?HEAP"); Reg(R15)] in
+    (setup_call_to_func num_args arg_regs (Label("?print_heap")) false)
   | CApp(func, args, Native, _) -> 
     let arg_regs = (List.map (fun (a) -> (compile_imm a env current_env)) args) in 
     (setup_call_to_func num_args arg_regs (Label(get_func_name_imm func)) false)
@@ -1549,9 +1553,9 @@ extern ?input
 extern ?print
 extern ?print_stack
 extern ?equal
-extern ?try_gc\n" ^ 
-    (* extern ?naive_print_heap *)
-    " extern ?HEAP
+extern ?try_gc
+extern ?print_heap
+extern ?HEAP
 extern ?HEAP_END
 extern ?set_stack_bottom
 global ?our_code_starts_here" in

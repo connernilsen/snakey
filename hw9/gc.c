@@ -19,6 +19,7 @@ extern uint64_t *FROM_S;
 extern uint64_t *FROM_E;
 extern uint64_t *TO_S;
 extern uint64_t *TO_E;
+extern void print_heap(uint64_t *heap_start, uint64_t *heap_end) asm("?print_heap");
 
 const uint64_t FILLER = 64;
 
@@ -51,6 +52,12 @@ void smarter_print_heap(uint64_t *from_start, uint64_t *from_end, uint64_t *to_s
 
   printf("New semispace:\n");
   smarter_print_one_heap(to_start, to_end);
+}
+
+void print_heap(uint64_t *start, uint64_t *end)
+{
+  printf("Heap print:\n");
+  smarter_print_one_heap(start, end);
 }
 
 /**

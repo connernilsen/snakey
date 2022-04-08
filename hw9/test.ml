@@ -56,6 +56,7 @@ let pair_tests = [
             (t, t)"
     ""
     "((4, 6), (4, 6))";
+  t "tuple_of_function" "let t = ((lambda: 5),) in t[0]()" "" "5";
   terr "bad_destruct_func" "def new_func((a, v, bong, (e, w)), tree):
    if a: true else: bong + tree 
 new_func((1, 2, 1, true), 1)" "" "unable to destructure tuple with incorrect length, got true";
@@ -71,7 +72,9 @@ let oom = [
   tgc "oomgc2" (8 + builtins_size) "(1, (3, 4))" "" "(1, (3, 4))";
   tvgc "oomgc3" (8 + builtins_size) "(1, (3, 4))" "" "(1, (3, 4))";
   tvgc "oomgc4" (4 + builtins_size) "(3, 4)" "" "(3, 4)";
-  tgcerr "oomgc5" (3 + builtins_size) "(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)" "" "Allocation";
+  tgcerr "oomgc5" (3 + builtins_size) "(1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4)" "" "Allocation";
+  tgcerr "oomgc5_in_let" (3 + builtins_size) "let x = (1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4) in x" "" "Allocation";
+  tgcerr "oomgc5_in_blank_let" (3 + builtins_size) "let _ = (1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4) in 1" "" "Allocation";
   tgc "oomgc6" (6 + builtins_size)
     "let a = (1, 2, nil),
          _ = a[2] := a,
@@ -88,45 +91,71 @@ let oom = [
         print(c);
         a"
     "" "Out of memory";
-  tvgc "oomgc8" (12 + builtins_size)
+  tgc "oomgc8" (16 + builtins_size)
     "let ctr1 = (8,), # 2
-         fn = 
-       (let rec 
-          fn1 = # 6
-            (lambda(x): 
-              if ctr1[0] == 0: 
-                ctr1[0] := 50;
-                fn2(x)
-              else:
-                ctr1[0] := ctr1[0] - 1;
-                fn1(x + 1)),
-          fn2 = # 4
-            (lambda(y):
-              print(y);
-              ctr1[0]) in
-          fn1) in 
+         fn = (lambda(dummy):
+            let rec 
+               fn1 = # 6
+                 (lambda(x): 
+                   if ctr1[0] == 0: 
+                     ctr1[0] := 50;
+                     fn2(x, 72)
+                   else:
+                     ctr1[0] := ctr1[0] - 1;
+                     fn1(x + 1)),
+               fn2 = # 4
+                 (lambda(y, z):
+                   print(y);
+                   print(z);
+                   ctr1[0]) in
+               fn1)(1) in 
       fn(1)"
-    "" "9\n50";
-  tgcerr "oomgc9" (11 + builtins_size)
+    "" "9\n72\n50";
+  tgcerr "oomgc9" (16 + builtins_size)
     "let ctr1 = (8,), # 2
-         fn = 
-       (let rec 
-          fn1 = # 6
-            (lambda(x): 
-              if ctr1[0] == 0: 
-                ctr1[0] := 50;
-                fn2(x)
-              else:
-                ctr1[0] := ctr1[0] - 1;
-                fn1(x + 1)),
-          fn2 = # 4
-            (lambda(y):
-              print(y);
-              ctr1[0]) in
-          fn1) in 
-      fn(1)"
+         fn = (lambda(dummy):
+            let rec 
+               fn1 = # 6
+                 (lambda(x): 
+                   if ctr1[0] == 0: 
+                     ctr1[0] := 50;
+                     fn2(x, 72)
+                   else:
+                     ctr1[0] := ctr1[0] - 1;
+                     fn1(x + 1)),
+               fn2 = # 4
+                 (lambda(y, z):
+                   print(y);
+                   print(z);
+                   ctr1[0]) in
+               fn1)(1) in 
+      print(fn(1));
+      print(ctr1);
+      (1, 2, 3)"
     "" "Out of memory";
-  tgc "oomgc10" (16 + builtins_size)
+  tvgc "oomgc10" (20 + builtins_size)
+    "let ctr1 = (8,), # 2
+         fn = (lambda(dummy):
+            let rec 
+               fn1 = # 6
+                 (lambda(x): 
+                   if ctr1[0] == 0: 
+                     ctr1[0] := 50;
+                     fn2(x, 72)
+                   else:
+                     ctr1[0] := ctr1[0] - 1;
+                     fn1(x + 1)),
+               fn2 = # 4
+                 (lambda(y, z):
+                   print(y);
+                   print(z);
+                   ctr1[0]) in
+               fn1)(1) in 
+      print(fn(1));
+      print(ctr1);
+      (1, 2, 3)"
+    "" "9\n72\n50\n(50, )\n(1, 2, 3)";
+  tgc "oomgc11" (16 + builtins_size)
     "let ctr1 = (8,), # 2
          fn = (lambda(dummy):
             let rec 
@@ -148,25 +177,34 @@ let oom = [
       print(ctr1);
       (1, 2, 3)"
     "" "9\n(50, )\n(1, 2, 3)";
-  tgcerr "oomgc11" (12 + builtins_size)
+  tgcerr "oomgc12" (15 + builtins_size)
     "let ctr1 = (8,), # 2
-         fn = 
-       (let rec 
-          fn1 = # 6
-            (lambda(x): 
-              if ctr1[0] == 0: 
-                ctr1[0] := 50;
-                fn2(x)
-              else:
-                ctr1[0] := ctr1[0] - 1;
-                fn1(x + 1)),
-          fn2 = # 4
-            (lambda(y):
-              print(y);
-              ctr1[0]) in
-          fn1) in 
-      (1, 2, 3)"
+         fn = (lambda(dummy):
+            let rec 
+               fn1 = # 6
+                 (lambda(x): 
+                   if ctr1[0] == 0: 
+                     ctr1[0] := 50;
+                     x
+                   else:
+                     ctr1[0] := ctr1[0] - 1;
+                     fn1(x + 1)),
+               fn2 = # 4
+                 (lambda(y, z):
+                   print(y);
+                   print(z);
+                   ctr1[0]) in
+               fn1)(1) in 
+      fn(1)"
     "" "Out of memory";
+
+  tgcerr "y_combinator_10_recursions_fails" (27 + builtins_size)
+    "let y = (lambda (f): (lambda (x): x(x))((lambda (x): f((lambda (y): x(x)(y)))))), 
+     fact = (lambda (f): (lambda (x): (if x == 1: 1 else: x * f(x - 1)))) in
+    y(fact)(10)"  "" "Out of memory";
+
+  tgcerr "tuple_of_function_in_closure_2_slots" (10 + builtins_size - 1)
+    "let f = ((lambda: 5),) in (lambda: f[0]())"  "" "Out of memory";
 ]
 
 let gc = [
@@ -210,6 +248,31 @@ z"
          print(b);
          a(1)"
     "" "(8, 9, 10)\n(1, 2, 123)";
+
+  tgc "one_hundred_gecs" (4 + 100 * 2 + builtins_size)
+    "let rec x = (lambda(n): if n == 0: n else: let f = (1,) in x(n - 1))
+      in x(100); x(100)" "" "0";
+
+  tgc "one_thousand_gecs" (4 + 1000 * 2 + builtins_size)
+    "let rec x = (lambda(n): if n == 0: n else: let f = (1,) in x(n - 1))
+      in x(1000); x(1000)" "" "0";
+
+  tgc "y_combinator_10_recursions" (28 * 4 + builtins_size)
+    "let y = (lambda (f): (lambda (x): x(x))((lambda (x): f((lambda (y): x(x)(y)))))), 
+     fact = (lambda (f): (lambda (x): (if x == 1: 1 else: x * f(x - 1)))) in
+    y(fact)(10)"  "" "3628800";
+
+  tgc "tuple_of_function" (6 + builtins_size)
+    "((lambda: 5),)[0]()"  "" "5";
+
+  tgc "tuple_of_function_in_closure" (6 + 4 + builtins_size)
+    "let f = ((lambda: 5),) in (lambda: f[0]())()"  "" "5";
+
+  tgc "tuple_of_function_in_closure_with_gc" (6 + 4 + 2 + builtins_size)
+    "let f = ((lambda: 5),) in 
+      (lambda(x): print((x, )))(4);
+      print((6, 7, 8));
+      f[0]()"  "" "4\n(6, 7, 8)\n5";
 ]
 
 let native = [
@@ -243,6 +306,6 @@ let suite =
 let () =
   run_test_tt_main ("all_tests">:::[
       suite;
-      old_tests;
+      (* old_tests; *)
       input_file_test_suite ()])
 ;;
