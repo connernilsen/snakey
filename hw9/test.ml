@@ -268,11 +268,11 @@ z"
   tgc "tuple_of_function_in_closure" (6 + 4 + builtins_size)
     "let f = ((lambda: 5),) in (lambda: f[0]())()"  "" "5";
 
-  tgc "tuple_of_function_in_closure_with_gc" (6 + 4 + 2 + builtins_size)
+  tgc "tuple_of_function_in_closure_with_gc" (6 + 4 + 4 + builtins_size)
     "let f = ((lambda: 5),) in 
       (lambda(x): print((x, )))(4);
       print((6, 7, 8));
-      f[0]()"  "" "4\n(6, 7, 8)\n5";
+      f[0]()"  "" "(4, )\n(6, 7, 8)\n5";
 ]
 
 let native = [
@@ -306,6 +306,6 @@ let suite =
 let () =
   run_test_tt_main ("all_tests">:::[
       suite;
-      (* old_tests; *)
+      old_tests;
       input_file_test_suite ()])
 ;;
