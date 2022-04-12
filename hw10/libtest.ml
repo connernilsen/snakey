@@ -62,6 +62,17 @@ let teq_notstring name actual expected = (check_name name)>::fun _ ->
 let teq_num name actual expected = (check_name name)>::fun _ ->
     assert_equal expected actual ~printer:(fun d -> sprintf "%d" d);;
 
+let tfvs name ignored program expected = name>::
+                                         (fun _ ->
+                                            let ast = parse_string name program in
+                                            let anfed = anf (tag ast) in
+                                            match anfed with
+                                            | AProgram(body, _) ->
+                                              let vars = free_vars body ignored in
+                                              let str_list_print strs = "[" ^ (ExtString.String.join ", " strs) ^ "]" in
+                                              assert_equal (List.sort vars) (List.sort expected) ~printer:str_list_print)
+;;
+
 let forty = "let x = 40 in x"
 let fals = "let x = false in x"
 let tru = "let x = true in x"
@@ -107,7 +118,7 @@ def map(f, l):
 let builtins_size = 4 (* arity + 0 vars + codeptr + padding *) * (List.length Compile.native_fun_bindings)
 
 let old_tests =
-  "unit_tests">:::
+  "old_unit_tests">:::
   [
     t "forty" forty "40";
     t "fals" fals "false";
@@ -1834,4 +1845,61 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
     "let x = (1, 2, (1, 2, 3)) in
          (4,)"
     "" "Out of memory";
+  tfvs "tfvs_simple_none" []
+    "let a = 5, b = 10 in a + b"
+    [];
+  tfvs "tfvs_simple_some" []
+    "let a = 5 in a + b"
+    ["b"];
+  tfvs "tfvs_let_rec" []
+    "let rec a = 5 in a + b"
+    ["b"];
+  tfvs "tfvs_if" []
+    "if a: b else: c"
+    ["a"; "b"; "c"];
+  tfvs "tfvs_prim1" []
+    "print(a)"
+    ["a"];
+  tfvs "tfvs_app" []
+    "abcd(efgh(123, r))"
+    ["abcd"; "efgh"; "r"];
+  tfvs "tfvs_imm" []
+    "q"
+    ["q"];
+  tfvs "tfvs_tuple" []
+    "(a, b, 123)"
+    ["a"; "b"];
+  tfvs "tfvs_get" []
+    "(1, 2, 3)[a]"
+    ["a"];
+  tfvs "tfvs_set" []
+    "(1, 2, 3)[1] := a"
+    ["a"];
+  tfvs "tfvs_lambda" []
+    "(lambda(x, y): x + y + z)"
+    ["z"];
+  tfvs "tfvs_ignored" ["ignored"]
+    "(lambda(x, y): x + y + z + ignored)"
+    ["z"];
+  tfvs "tfvs_lambda_body" ["x"]
+    "x"
+    [];
+  tfvs "tfvs_lambda_body_2" ["x"; "y"]
+    "x + y + z"
+    ["z"];
+  tfvs "lambda_body_with_frees" ["y"]
+    "x + y"
+    ["x"];
+  tfvs "lambda_body_with_frees_2" ["x"; "y"]
+    "(lambda (x): x)(5) + x + y"
+    [];
+  tfvs "compile_lambda_recursion_tfvs" ["arg"]
+    "if arg == 0: 0 else: 1 + y(1 - arg)"
+    ["y"];
+  tfvs "free_let_rec" []
+    "let rec x = (lambda: y()), y = (lambda: 6) in x()"
+    [];
+  tfvs "free_let_rec_in_lambda" []
+    "(lambda(f): let rec x = (lambda: y()), y = (lambda: 6) in x())"
+    [];
   ]
