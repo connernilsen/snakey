@@ -1822,4 +1822,16 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
     terr "bad_destruct_2" "let (a, _) = true in 0" "" "unable to destructure tuple with incorrect length, got true";
     terr "nil_destruct" "let (a, b) = nil in a" "" "tried to access component of nil";
     terr "nil_tuple" "nil[0]" "" "tried to access component of nil";
+    tgc "tuple_replace_memory" (12 + builtins_size) 
+  "let x = (lambda: (1, 2, (1, 2, 3)))() in
+      print(x);
+      x[2] := 5;
+      print(x);
+      print((4, 5, 6));
+      x"
+  "" "(1, 2, (1, 2, 3))\n(1, 2, 5)\n(4, 5, 6)\n(1, 2, 5)";
+  tgcerr "tuple_replace_memory_invalid" (8 + builtins_size) 
+    "let x = (1, 2, (1, 2, 3)) in
+         (4,)"
+    "" "Out of memory";
   ]
