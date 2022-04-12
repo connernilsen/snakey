@@ -268,11 +268,24 @@ z"
   tgc "tuple_of_function_in_closure" (6 + 4 + builtins_size)
     "let f = ((lambda: 5),) in (lambda: f[0]())()"  "" "5";
 
-  tgc "tuple_of_function_in_closure_with_gc" (6 + 4 + 2 + builtins_size)
+  tgc "tuple_of_function_in_closure_with_gc" (6 + 4 + 4 + builtins_size)
     "let f = ((lambda: 5),) in 
       (lambda(x): print((x, )))(4);
       print((6, 7, 8));
-      f[0]()"  "" "4\n(6, 7, 8)\n5";
+      f[0]()"  "" "(4, )\n(6, 7, 8)\n5";
+
+  tgc "tuple_replace_memory" (12 + builtins_size) 
+    "let x = (lambda: (1, 2, (1, 2, 3)))() in
+         print(x);
+         x[2] := 5;
+         print(x);
+         print((4, 5, 6));
+         x"
+    "" "(1, 2, (1, 2, 3))\n(1, 2, 5)\n(4, 5, 6)\n(1, 2, 5)";
+  tgcerr "tuple_replace_memory_invalid" (8 + builtins_size) 
+    "let x = (1, 2, (1, 2, 3)) in
+         (4,)"
+    "" "Out of memory";
 ]
 
 let native = [
