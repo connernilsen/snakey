@@ -17,34 +17,34 @@ let tvgc name heap_size program input expected = name>::test_run_valgrind ~args:
 let terr name program input expected = name>::test_err ~args:[] ~std_input:input Naive program name expected;;
 let tgcerr name heap_size program input expected = name>::test_err ~args:[string_of_int heap_size] ~std_input:input Naive program name expected;;
 let tanf name program input expected = name>::fun _ ->
-  assert_equal expected (anf (tag program)) ~printer:string_of_aprogram;;
-  
+    assert_equal expected (anf (tag program)) ~printer:string_of_aprogram;;
+
 let tparse name program expected = name>::fun _ ->
     assert_equal (untagP expected) (untagP (parse_string name program)) ~printer:string_of_program;;
 
 let teq name actual expected = name>::fun _ ->
     assert_equal expected actual ~printer:(fun s -> s);;
 
- (* let tfvs name program expected = name>:: 
+(* let tfvs name program expected = name>:: 
    (fun _ -> 
-     let ast = parse_string name program in 
-     let anfed = anf (tag ast) in 
-     let vars = free_vars anfed [] in 
-     let c = Stdlib.compare in 
-     let str_list_print strs = "[" ^ (ExtString.String.join ", " strs) ^ "]" in 
-     assert_equal (List.sort c vars) (List.sort c expected) ~printer:str_list_print) 
- ;;  *)
-
-let tfvcs name program expected = name>:: 
-  (fun _ -> 
     let ast = parse_string name program in 
     let anfed = anf (tag ast) in 
-    let fv = free_vars_cache anfed in 
-    let str_list_print strs = 
-      let strs = StringSet.elements strs in
-      "[" ^ (ExtString.String.join ", " strs) ^ "]" in 
-    let output = string_of_aprogram_with 1000 (str_list_print) fv in
-    assert_equal expected output ~printer:(fun s -> s)) 
+    let vars = free_vars anfed [] in 
+    let c = Stdlib.compare in 
+    let str_list_print strs = "[" ^ (ExtString.String.join ", " strs) ^ "]" in 
+    assert_equal (List.sort c vars) (List.sort c expected) ~printer:str_list_print) 
+   ;;  *)
+
+let tfvcs name program expected = name>:: 
+                                  (fun _ -> 
+                                     let ast = parse_string name program in 
+                                     let anfed = anf (tag ast) in 
+                                     let fv = free_vars_cache anfed in 
+                                     let str_list_print strs = 
+                                       let strs = StringSet.elements strs in
+                                       "[" ^ (ExtString.String.join ", " strs) ^ "]" in 
+                                     let output = string_of_aprogram_with 1000 (str_list_print) fv in
+                                     assert_equal expected output ~printer:(fun s -> s)) 
 ;; 
 
 let builtins_size = 4 (* arity + 0 vars + codeptr + padding *) * (List.length Compile.native_fun_bindings)
@@ -67,8 +67,8 @@ let pair_tests = [
             end" "" "(4, <cyclic tuple 1>)";
   t "tup4" "let t = (4, 6) in
             (t, t)"
-           ""
-           "((4, 6), (4, 6))"
+    ""
+    "((4, 6), (4, 6))"
 
 ]
 
@@ -82,20 +82,20 @@ let oom = [
 
 let gc = [
   tgc "gc_lam1" (10 + builtins_size)
-      "let f = (lambda: (1, 2)) in
+    "let f = (lambda: (1, 2)) in
        begin
          f();
          f();
          f();
          f()
        end"
-      ""
-      "(1, 2)";
-  ]
+    ""
+    "(1, 2)";
+]
 
 let input = [
-    t "input1" "let x = input() in x + 2" "123" "125"
-  ]
+  t "input1" "let x = input() in x + 2" "123" "125"
+]
 
 let test_free_vars_cache = [
   tfvcs "tfvcs_simple_none" 
@@ -162,7 +162,7 @@ let test_free_vars_cache = [
 
 
 let suite =
-"unit_tests">:::
+  "unit_tests">:::
   pair_tests 
   @ oom 
   @ gc 
@@ -173,7 +173,7 @@ let suite =
 
 let () =
   run_test_tt_main ("all_tests">:::[
-    suite; 
-    (* old_tests; *)
-    input_file_test_suite ()])
+      suite; 
+      (* old_tests; *)
+      input_file_test_suite ()])
 ;;

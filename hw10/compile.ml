@@ -123,7 +123,7 @@ let count_vars e =
     | ASeq(e1, e2, _) -> max (helpC e1) (helpA e2)
     | ALet(_, bind, body, _) -> 1 + (max (helpC bind) (helpA body))
     | ALetRec(binds, body, _) ->
-       (List.length binds) + List.fold_left max (helpA body) (List.map (fun (_, rhs) -> helpC rhs) binds)
+      (List.length binds) + List.fold_left max (helpA body) (List.map (fun (_, rhs) -> helpC rhs) binds)
     | ACExpr e -> helpC e
   and helpC e =
     match e with
@@ -138,21 +138,21 @@ let rec replicate x i =
 
 let rec find_decl (ds : 'a decl list) (name : string) : 'a decl option =
   match ds with
-    | [] -> None
-    | (DFun(fname, _, _, _) as d)::ds_rest ->
-      if name = fname then Some(d) else find_decl ds_rest name
+  | [] -> None
+  | (DFun(fname, _, _, _) as d)::ds_rest ->
+    if name = fname then Some(d) else find_decl ds_rest name
 
 let rec find_one (l : 'a list) (elt : 'a) : bool =
   match l with
-    | [] -> false
-    | x::xs -> (elt = x) || (find_one xs elt)
+  | [] -> false
+  | x::xs -> (elt = x) || (find_one xs elt)
 
 let rec find_dup (l : 'a list) : 'a option =
   match l with
-    | [] -> None
-    | [x] -> None
-    | x::xs ->
-      if find_one xs x then Some(x) else find_dup xs
+  | [] -> None
+  | [x] -> None
+  | x::xs ->
+    if find_one xs x then Some(x) else find_dup xs
 ;;
 
 let rec find_opt (env : 'a name_envt) (elt: string) : 'a option =
@@ -160,7 +160,7 @@ let rec find_opt (env : 'a name_envt) (elt: string) : 'a option =
   | [] -> None
   | (x, v) :: rst -> if x = elt then Some(v) else find_opt rst elt
 ;;
-                             
+
 (* Prepends a list-like env onto an name_envt *)
 let merge_envs list_env1 list_env2 =
   list_env1 @ list_env2
@@ -437,46 +437,46 @@ let desugar (p : sourcespan program) : sourcespan program =
   let gensym =
     let next = ref 0 in
     (fun name ->
-      next := !next + 1;
-      sprintf "%s_%d" name (!next)) in
+       next := !next + 1;
+       sprintf "%s_%d" name (!next)) in
   let rec helpP (p : sourcespan program) =
     match p with
     | Program(decls, body, tag) ->
-       (* This particular desugaring will convert declgroups into ELetRecs *)
-       let merge_sourcespans ((s1, _) : sourcespan) ((_, s2) : sourcespan) : sourcespan = (s1, s2) in
-       let wrap_G g body =
-         match g with
-         | [] -> body
-         | f :: r ->
-            let span = List.fold_left merge_sourcespans (get_tag_D f) (List.map get_tag_D r) in
-            ELetRec(helpG g, body, span) in
-       Program([], List.fold_right wrap_G decls (helpE body), tag)
+      (* This particular desugaring will convert declgroups into ELetRecs *)
+      let merge_sourcespans ((s1, _) : sourcespan) ((_, s2) : sourcespan) : sourcespan = (s1, s2) in
+      let wrap_G g body =
+        match g with
+        | [] -> body
+        | f :: r ->
+          let span = List.fold_left merge_sourcespans (get_tag_D f) (List.map get_tag_D r) in
+          ELetRec(helpG g, body, span) in
+      Program([], List.fold_right wrap_G decls (helpE body), tag)
   and helpG g =
     List.map helpD g
   and helpD d =
     match d with
     | DFun(name, args, body, tag) ->
-       let helpArg a =
-         match a with
-         | BTuple(_, tag) ->
-            let name = gensym "argtup" in
-            let newbind = BName(name, false, tag) in
-            (newbind, [(a, EId(name, tag), tag)])
-         | _ -> (a, []) in
-       let (newargs, argbinds) = List.split (List.map helpArg args) in
-       let newbody = ELet(List.flatten argbinds, body, tag) in
-       (BName(name, false, tag), ELambda(newargs, helpE newbody, tag), tag)
+      let helpArg a =
+        match a with
+        | BTuple(_, tag) ->
+          let name = gensym "argtup" in
+          let newbind = BName(name, false, tag) in
+          (newbind, [(a, EId(name, tag), tag)])
+        | _ -> (a, []) in
+      let (newargs, argbinds) = List.split (List.map helpArg args) in
+      let newbody = ELet(List.flatten argbinds, body, tag) in
+      (BName(name, false, tag), ELambda(newargs, helpE newbody, tag), tag)
   and helpBE bind =
     let (b, e, btag) = bind in
     let e = helpE e in
     match b with
     | BTuple(binds, ttag) ->
-       (match e with
-        | EId _ ->
-           expandTuple binds ttag e
-        | _ ->
-           let newname = gensym "tup" in
-           (BName(newname, false, ttag), e, btag) :: expandTuple binds ttag (EId(newname, ttag)))
+      (match e with
+       | EId _ ->
+         expandTuple binds ttag e
+       | _ ->
+         let newname = gensym "tup" in
+         (BName(newname, false, ttag), e, btag) :: expandTuple binds ttag (EId(newname, ttag)))
     | _ -> [(b, e, btag)]
   and expandTuple binds tag source : sourcespan binding list =
     let tupleBind i b =
@@ -485,9 +485,9 @@ let desugar (p : sourcespan program) : sourcespan program =
       | BName(_, _, btag) ->
         [(b, EGetItem(source, ENumber(Int64.of_int(i), dummy_span), tag), btag)]
       | BTuple(binds, tag) ->
-          let newname = gensym "tup" in
-          let newexpr = EId(newname, tag) in
-          (BName(newname, false, tag), EGetItem(source, ENumber(Int64.of_int(i), dummy_span), tag), tag) :: expandTuple binds tag newexpr
+        let newname = gensym "tup" in
+        let newexpr = EId(newname, tag) in
+        (BName(newname, false, tag), EGetItem(source, ENumber(Int64.of_int(i), dummy_span), tag), tag) :: expandTuple binds tag newexpr
     in
     let size_check = EPrim2(CheckSize, source, ENumber(Int64.of_int(List.length binds), dummy_span), dummy_span) in
     let size_check_bind = (BBlank(dummy_span), size_check, dummy_span) in
@@ -503,7 +503,7 @@ let desugar (p : sourcespan program) : sourcespan program =
     | EBool(b, tag) -> EBool(b, tag)
     | ENil(t, tag) -> ENil(t, tag)
     | EPrim1(op, e, tag) ->
-       EPrim1(op, helpE e, tag)
+      EPrim1(op, helpE e, tag)
     | EPrim2(op, e1, e2, tag) ->
       begin
         match op with
@@ -528,26 +528,26 @@ let desugar (p : sourcespan program) : sourcespan program =
         | p -> EPrim2(p, helpE e1, helpE e2, tag)
       end
     | ELet(binds, body, tag) ->
-       let newbinds = (List.map helpBE binds) in
-       List.fold_right (fun binds body -> ELet(binds, body, tag)) newbinds (helpE body)
+      let newbinds = (List.map helpBE binds) in
+      List.fold_right (fun binds body -> ELet(binds, body, tag)) newbinds (helpE body)
     | ELetRec(bindexps, body, tag) ->
-       (* ASSUMES well-formed letrec, so only BName bindings *)
-       let newbinds = (List.map (fun (bind, e, tag) -> (bind, helpE e, tag)) bindexps) in
-       ELetRec(newbinds, helpE body, tag)
+      (* ASSUMES well-formed letrec, so only BName bindings *)
+      let newbinds = (List.map (fun (bind, e, tag) -> (bind, helpE e, tag)) bindexps) in
+      ELetRec(newbinds, helpE body, tag)
     | EIf(cond, thn, els, tag) ->
-       EIf(helpE cond, helpE thn, helpE els, tag)
+      EIf(helpE cond, helpE thn, helpE els, tag)
     | EApp(name, args, native, tag) ->
-       EApp(helpE name, List.map helpE args, native, tag)
+      EApp(helpE name, List.map helpE args, native, tag)
     | ELambda(binds, body, tag) ->
-       let expandBind bind =
-         match bind with
-         | BTuple(_, btag) ->
-            let newparam = gensym "tuparg" in
-            (BName(newparam, false, btag), helpBE (bind, EId(newparam, btag), btag))
-         | _ -> (bind, []) in
-       let (params, newbinds) = List.split (List.map expandBind binds) in
-       let newbody = List.fold_right (fun binds body -> ELet(binds, body, tag)) newbinds (helpE body) in
-       ELambda(params, newbody, tag)
+      let expandBind bind =
+        match bind with
+        | BTuple(_, btag) ->
+          let newparam = gensym "tuparg" in
+          (BName(newparam, false, btag), helpBE (bind, EId(newparam, btag), btag))
+        | _ -> (bind, []) in
+      let (params, newbinds) = List.split (List.map expandBind binds) in
+      let newbody = List.fold_right (fun binds body -> ELet(binds, body, tag)) newbinds (helpE body) in
+      ELambda(params, newbody, tag)
 
   in helpP p
 ;;
@@ -876,9 +876,9 @@ let free_vars_cache (prog: 'a aprogram): StringSet.t aprogram =
     match e with
     | ImmId(name, _) -> 
       let frees = 
-      if StringSet.mem name env
-      then StringSet.empty
-      else StringSet.singleton name
+        if StringSet.mem name env
+        then StringSet.empty
+        else StringSet.singleton name
       in 
       ImmId(name, frees), frees
     | ImmNum(e, _) -> ImmNum(e, StringSet.empty), StringSet.empty
@@ -905,8 +905,8 @@ let free_vars_cache (prog: 'a aprogram): StringSet.t aprogram =
       let args, args_frees = 
         (List.fold_left 
            (fun (args, frees) arg -> 
-            let arg, arg_frees = help_imm arg env in 
-            (arg :: args, StringSet.union frees arg_frees))
+              let arg, arg_frees = help_imm arg env in 
+              (arg :: args, StringSet.union frees arg_frees))
            ([], StringSet.empty)
            args)
       in
@@ -917,13 +917,13 @@ let free_vars_cache (prog: 'a aprogram): StringSet.t aprogram =
       CImmExpr(e), frees
     | CTuple(exprs, _) ->
       let exprs, frees =
-      List.fold_left 
-        (fun (exprs, frees) arg -> 
-        let arg, arg_frees = help_imm arg env in
-        (arg :: exprs, StringSet.union frees arg_frees))
-        ([], StringSet.empty)
-        exprs
-        in 
+        List.fold_left 
+          (fun (exprs, frees) arg -> 
+             let arg, arg_frees = help_imm arg env in
+             (arg :: exprs, StringSet.union frees arg_frees))
+          ([], StringSet.empty)
+          exprs
+      in 
       CTuple(exprs, frees), frees
     | CGetItem(tuple, pos, _) -> 
       let tuple, tuple_frees = help_imm tuple env in
@@ -959,9 +959,9 @@ let free_vars_cache (prog: 'a aprogram): StringSet.t aprogram =
       let binds, bind_frees =
         List.fold_left
           (fun (binds, frees) (name, bind) ->
-              let bind, bind_frees = help_cexpr bind env in
-              let frees = StringSet.union frees bind_frees in
-              ((name, bind) :: binds, frees))
+             let bind, bind_frees = help_cexpr bind env in
+             let frees = StringSet.union frees bind_frees in
+             ((name, bind) :: binds, frees))
           ([], StringSet.empty)
           name_binds
       in 
@@ -973,10 +973,10 @@ let free_vars_cache (prog: 'a aprogram): StringSet.t aprogram =
       ACExpr(e), frees
   in match prog with 
   | AProgram(body, _) ->
-  let env = stringset_of_list (List.map (fun (name, _) -> sprintf "?%s" name) native_fun_bindings) in
-  let new_body, frees = help_aexpr body env in
-  (* TODO: is the diff needed here? *)
-  AProgram(new_body, StringSet.diff frees env)
+    let env = stringset_of_list (List.map (fun (name, _) -> sprintf "?%s" name) native_fun_bindings) in
+    let new_body, frees = help_aexpr body env in
+    (* TODO: is the diff needed here? *)
+    AProgram(new_body, StringSet.diff frees env)
 ;;
 
 (* IMPLEMENT THIS FROM YOUR PREVIOUS ASSIGNMENT *)
@@ -1253,7 +1253,7 @@ let count_vars e =
     | ASeq(e1, e2, _) -> max (helpC e1) (helpA e2)
     | ALet(_, bind, body, _) -> 1 + (max (helpC bind) (helpA body))
     | ALetRec(binds, body, _) ->
-       (List.length binds) + List.fold_left max (helpA body) (List.map (fun (_, rhs) -> helpC rhs) binds)
+      (List.length binds) + List.fold_left max (helpA body) (List.map (fun (_, rhs) -> helpC rhs) binds)
     | ACExpr e -> helpC e
   and helpC e =
     match e with
