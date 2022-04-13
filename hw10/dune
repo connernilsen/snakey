@@ -10,7 +10,8 @@
 (executable
   (name main)
   (modules main)
-  (libraries racer_impl))
+  (libraries racer_impl)
+  (modes byte exe))
 
 (test
   (name test)
