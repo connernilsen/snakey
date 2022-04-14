@@ -1633,7 +1633,7 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
   print(y);
   z" ""
       "(5, )\n(1, (3, (5, ), <cyclic tuple 3>, <cyclic tuple 2>))
-  (3, (5, ), <cyclic tuple 5>, (1, <cyclic tuple 5>))";
+(3, (5, ), <cyclic tuple 5>, (1, <cyclic tuple 5>))";
     tgc "copy_lambda_values" (18 + builtins_size)
       "let x = (lambda(x): 
           let y = (1, 2, x), 
@@ -1834,72 +1834,72 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
     terr "nil_destruct" "let (a, b) = nil in a" "" "tried to access component of nil";
     terr "nil_tuple" "nil[0]" "" "tried to access component of nil";
     tgc "tuple_replace_memory" (12 + builtins_size) 
-  "let x = (lambda: (1, 2, (1, 2, 3)))() in
+      "let x = (lambda: (1, 2, (1, 2, 3)))() in
       print(x);
       x[2] := 5;
       print(x);
       print((4, 5, 6));
       x"
-  "" "(1, 2, (1, 2, 3))\n(1, 2, 5)\n(4, 5, 6)\n(1, 2, 5)";
-  tgcerr "tuple_replace_memory_invalid" (8 + builtins_size) 
-    "let x = (1, 2, (1, 2, 3)) in
+      "" "(1, 2, (1, 2, 3))\n(1, 2, 5)\n(4, 5, 6)\n(1, 2, 5)";
+    tgcerr "tuple_replace_memory_invalid" (8 + builtins_size) 
+      "let x = (1, 2, (1, 2, 3)) in
          (4,)"
-    "" "Out of memory";
-  tfvs "tfvs_simple_none" []
-    "let a = 5, b = 10 in a + b"
-    [];
-  tfvs "tfvs_simple_some" []
-    "let a = 5 in a + b"
-    ["b"];
-  tfvs "tfvs_let_rec" []
-    "let rec a = 5 in a + b"
-    ["b"];
-  tfvs "tfvs_if" []
-    "if a: b else: c"
-    ["a"; "b"; "c"];
-  tfvs "tfvs_prim1" []
-    "print(a)"
-    ["a"];
-  tfvs "tfvs_app" []
-    "abcd(efgh(123, r))"
-    ["abcd"; "efgh"; "r"];
-  tfvs "tfvs_imm" []
-    "q"
-    ["q"];
-  tfvs "tfvs_tuple" []
-    "(a, b, 123)"
-    ["a"; "b"];
-  tfvs "tfvs_get" []
-    "(1, 2, 3)[a]"
-    ["a"];
-  tfvs "tfvs_set" []
-    "(1, 2, 3)[1] := a"
-    ["a"];
-  tfvs "tfvs_lambda" []
-    "(lambda(x, y): x + y + z)"
-    ["z"];
-  tfvs "tfvs_ignored" ["ignored"]
-    "(lambda(x, y): x + y + z + ignored)"
-    ["z"];
-  tfvs "tfvs_lambda_body" ["x"]
-    "x"
-    [];
-  tfvs "tfvs_lambda_body_2" ["x"; "y"]
-    "x + y + z"
-    ["z"];
-  tfvs "lambda_body_with_frees" ["y"]
-    "x + y"
-    ["x"];
-  tfvs "lambda_body_with_frees_2" ["x"; "y"]
-    "(lambda (x): x)(5) + x + y"
-    [];
-  tfvs "compile_lambda_recursion_tfvs" ["arg"]
-    "if arg == 0: 0 else: 1 + y(1 - arg)"
-    ["y"];
-  tfvs "free_let_rec" []
-    "let rec x = (lambda: y()), y = (lambda: 6) in x()"
-    [];
-  tfvs "free_let_rec_in_lambda" []
-    "(lambda(f): let rec x = (lambda: y()), y = (lambda: 6) in x())"
-    [];
+      "" "Out of memory";
+    tfvs "tfvs_simple_none" []
+      "let a = 5, b = 10 in a + b"
+      [];
+    tfvs "tfvs_simple_some" []
+      "let a = 5 in a + b"
+      ["b"];
+    tfvs "tfvs_let_rec" []
+      "let rec a = 5 in a + b"
+      ["b"];
+    tfvs "tfvs_if" []
+      "if a: b else: c"
+      ["a"; "b"; "c"];
+    tfvs "tfvs_prim1" []
+      "print(a)"
+      ["a"];
+    tfvs "tfvs_app" []
+      "abcd(efgh(123, r))"
+      ["abcd"; "efgh"; "r"];
+    tfvs "tfvs_imm" []
+      "q"
+      ["q"];
+    tfvs "tfvs_tuple" []
+      "(a, b, 123)"
+      ["a"; "b"];
+    tfvs "tfvs_get" []
+      "(1, 2, 3)[a]"
+      ["a"];
+    tfvs "tfvs_set" []
+      "(1, 2, 3)[1] := a"
+      ["a"];
+    tfvs "tfvs_lambda" []
+      "(lambda(x, y): x + y + z)"
+      ["z"];
+    tfvs "tfvs_ignored" ["ignored"]
+      "(lambda(x, y): x + y + z + ignored)"
+      ["z"];
+    tfvs "tfvs_lambda_body" ["x"]
+      "x"
+      [];
+    tfvs "tfvs_lambda_body_2" ["x"; "y"]
+      "x + y + z"
+      ["z"];
+    tfvs "lambda_body_with_frees" ["y"]
+      "x + y"
+      ["x"];
+    tfvs "lambda_body_with_frees_2" ["x"; "y"]
+      "(lambda (x): x)(5) + x + y"
+      [];
+    tfvs "compile_lambda_recursion_tfvs" ["arg"]
+      "if arg == 0: 0 else: 1 + y(1 - arg)"
+      ["y"];
+    tfvs "free_let_rec" []
+      "let rec x = (lambda: y()), y = (lambda: 6) in x()"
+      [];
+    tfvs "free_let_rec_in_lambda" []
+      "(lambda(f): let rec x = (lambda: y()), y = (lambda: 6) in x())"
+      [];
   ]

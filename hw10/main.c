@@ -21,18 +21,20 @@ const uint64_t NUM_TAG_MASK = 0x0000000000000001;
 const uint64_t BOOL_TAG_MASK = 0x0000000000000007;
 const uint64_t TUPLE_TAG_MASK = 0x0000000000000007;
 const uint64_t CLOSURE_TAG_MASK = 0x0000000000000007;
+const uint64_t FORWARD_TAG_MASK = 0x0000000000000007;
 const uint64_t NUM_TAG = 0x0000000000000000;
 const uint64_t BOOL_TAG = 0x0000000000000007;
 const uint64_t TUPLE_TAG = 0x0000000000000001;
 const uint64_t CLOSURE_TAG = 0x0000000000000005;
+const uint64_t FORWARD_TAG = 0x0000000000000003;
 const uint64_t BOOL_TRUE = 0xFFFFFFFFFFFFFFFF;
 const uint64_t BOOL_FALSE = 0x7FFFFFFFFFFFFFFF;
 const uint64_t NIL = ((uint64_t)NULL | TUPLE_TAG);
 
 const uint64_t ERR_COMP_NOT_NUM = 1;
 const uint64_t ERR_ARITH_NOT_NUM = 2;
-const uint64_t ERR_LOGIC_NOT_BOOL = 3;
-const uint64_t ERR_IF_NOT_BOOL = 4;
+const uint64_t ERR_NOT_BOOL = 3;
+const uint64_t ERR_DESTRUCTURE_INVALID_LEN = 4;
 const uint64_t ERR_OVERFLOW = 5;
 const uint64_t ERR_GET_NOT_TUPLE = 6;
 const uint64_t ERR_GET_LOW_INDEX = 7;
@@ -44,6 +46,7 @@ const uint64_t ERR_SET_LOW_INDEX = 12;
 const uint64_t ERR_SET_HIGH_INDEX = 13;
 const uint64_t ERR_CALL_NOT_CLOSURE = 14;
 const uint64_t ERR_CALL_ARITY_ERR = 15;
+const uint64_t ERR_GET_NOT_NUM = 16;
 
 size_t HEAP_SIZE;
 uint64_t *STACK_BOTTOM;
@@ -279,12 +282,12 @@ void error(uint64_t code, SNAKEVAL val)
     fprintf(stderr, "Error: arithmetic expected a number, got ");
     printHelp(stderr, val);
     break;
-  case ERR_LOGIC_NOT_BOOL:
-    fprintf(stderr, "Error: logic expected a boolean, got ");
+  case ERR_NOT_BOOL:
+    fprintf(stderr, "Error: expected a boolean, got ");
     printHelp(stderr, val);
     break;
-  case ERR_IF_NOT_BOOL:
-    fprintf(stderr, "Error: if expected a boolean, got ");
+  case ERR_DESTRUCTURE_INVALID_LEN:
+    fprintf(stderr, "Error: unable to destructure tuple with incorrect length, got ");
     printHelp(stderr, val);
     break;
   case ERR_OVERFLOW:
@@ -296,10 +299,12 @@ void error(uint64_t code, SNAKEVAL val)
     printHelp(stderr, val);
     break;
   case ERR_GET_LOW_INDEX:
-    fprintf(stderr, "Error: index too small to get, got %ld\n", (uint64_t)val);
+    fprintf(stderr, "Error: index too small to get, got ");
+    printHelp(stderr, val);
     break;
   case ERR_GET_HIGH_INDEX:
-    fprintf(stderr, "Error: index too large to get, got %ld\n", (uint64_t)val);
+    fprintf(stderr, "Error: index too large to get, got ");
+    printHelp(stderr, val);
     break;
   case ERR_NIL_DEREF:
     fprintf(stderr, "Error: tried to access component of nil\n");
@@ -322,6 +327,9 @@ void error(uint64_t code, SNAKEVAL val)
     break;
   case ERR_CALL_ARITY_ERR:
     fprintf(stderr, "Error: arity mismatch in call\n");
+    break;
+  case ERR_GET_NOT_NUM:
+    fprintf(stderr, "Error: get tuple not number\n");
     break;
   default:
     fprintf(stderr, "Error: Unknown error code: %ld, val: ", code);

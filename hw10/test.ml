@@ -49,53 +49,6 @@ let tfvcs name program expected = name>::
 
 let builtins_size = 4 (* arity + 0 vars + codeptr + padding *) * (List.length Compile.native_fun_bindings)
 
-let pair_tests = [
-  t "tup1" "let t = (4, (5, 6)) in
-            begin
-              t[0] := 7;
-              t
-            end" "" "(7, (5, 6))";
-  t "tup2" "let t = (4, (5, nil)) in
-            begin
-              t[1] := nil;
-              t
-            end" "" "(4, nil)";
-  t "tup3" "let t = (4, (5, nil)) in
-            begin
-              t[1] := t;
-              t
-            end" "" "(4, <cyclic tuple 1>)";
-  t "tup4" "let t = (4, 6) in
-            (t, t)"
-    ""
-    "((4, 6), (4, 6))"
-
-]
-
-let oom = [
-  tgcerr "oomgc1" (7 + builtins_size) "(1, (3, 4))" "" "Out of memory";
-  tgc "oomgc2" (8 + builtins_size) "(1, (3, 4))" "" "(1, (3, 4))";
-  tvgc "oomgc3" (8 + builtins_size) "(1, (3, 4))" "" "(1, (3, 4))";
-  tgc "oomgc4" (4 + builtins_size) "(3, 4)" "" "(3, 4)";
-  tgcerr "oomgc5" (3 + builtins_size) "(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)" "" "Allocation";
-]
-
-let gc = [
-  tgc "gc_lam1" (10 + builtins_size)
-    "let f = (lambda: (1, 2)) in
-       begin
-         f();
-         f();
-         f();
-         f()
-       end"
-    ""
-    "(1, 2)";
-]
-
-let input = [
-  t "input1" "let x = input() in x + 2" "123" "125"
-]
 
 let test_free_vars_cache = [
   tfvcs "tfvcs_simple_none" 
@@ -163,17 +116,13 @@ let test_free_vars_cache = [
 
 let suite =
   "unit_tests">:::
-  pair_tests 
-  @ oom 
-  @ gc 
-  @ input
-  @ test_free_vars_cache
+  test_free_vars_cache
 
 
 
 let () =
   run_test_tt_main ("all_tests">:::[
       suite; 
-      (* old_tests; *)
+      old_tests;
       input_file_test_suite ()])
 ;;
