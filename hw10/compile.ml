@@ -1058,9 +1058,38 @@ and get_cexpr_envt (expr : tag cexpr) (si : int) (wrapping_tag : tag) : flat_nes
 
 (* IMPLEMENT THE BELOW *)
 
-let interfere (e : StringSet.t aexpr) (live : StringSet.t) : grapht =
-  raise (NotYetImplemented "Generate interference graphs from expressions for racer")
+let rec interfere (e : StringSet.t aexpr) (live : StringSet.t) : grapht =
+  match e with 
+  | ASeq(expr1, expr2, frees) -> empty (*(Graph.union (interfere_cexpr expr1 live) (interfere expr2 live))*)
+  | ALet(name, bind, body, frees) -> (StringSet.fold (fun free acc -> (add_edge acc name free)) frees empty)
+  | ACExpr(body) -> empty(*(interfere_cexpr body live)*)
+  | ALetRec(binds, body, frees) -> 
+    List.fold_left 
+      (fun acc (name, cexpr) -> 
+         begin
+           match cexpr with 
+           | CLambda(args, body, frees) -> (StringSet.fold (fun free acc -> (add_edge acc name free)) frees acc)
+           | _ -> raise (InternalCompilerError "should only have lambdas within let rec")
+         end)
+      empty 
+      binds
+(* is this even necessary? *)
+(*
+and interfere_cexpr (e : StringSet.t cexpr) (live : StringSet.t) : grapht =
+  begin
+    match e with 
+    | CIf(cnd, thn, els, _) -> interfere thn live (* don't need to union. just need to do max? *)
+    | CPrim1(prim, e, _) -> empty
+    | CPrim2(prim, e1, e2, _) -> empty
+    | CApp(func, args, ct, _) -> empty
+    | CImmExpr(e) -> empty
+    | CTuple(exprs, _) ->empty
+    | CGetItem(tuple, pos, _) -> empty
+    | CSetItem(tuple, pos, value, _) -> empty
+    | CLambda(args, body, _) -> empty
+  end
 ;;
+*)
 
 let color_graph (g: grapht) (init_env: arg name_envt) : arg name_envt =
   raise (NotYetImplemented "Implement graph coloring for racer")
