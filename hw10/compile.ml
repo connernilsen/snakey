@@ -872,40 +872,36 @@ let free_vars (e: 'a aexpr) (args : string list) : string list =
 ;;
 
 let free_vars_cache (prog: 'a aprogram): StringSet.t aprogram =
-  let rec help_imm (e : 'a immexpr) (env : StringSet.t) : StringSet.t immexpr * StringSet.t = 
+  let rec help_imm (e : 'a immexpr) : StringSet.t immexpr * StringSet.t = 
     match e with
     | ImmId(name, _) -> 
-      let frees = 
-        if StringSet.mem name env
-        then StringSet.empty
-        else StringSet.singleton name
-      in 
+      let frees = StringSet.singleton name in
       ImmId(name, frees), frees
     | ImmNum(e, _) -> ImmNum(e, StringSet.empty), StringSet.empty
     | ImmBool(e, _) -> ImmBool(e, StringSet.empty), StringSet.empty
     | ImmNil(_) -> ImmNil(StringSet.empty), StringSet.empty
-  and help_cexpr (e : 'a cexpr) (env : StringSet.t) : StringSet.t cexpr * StringSet.t=
+  and help_cexpr (e : 'a cexpr) : StringSet.t cexpr * StringSet.t=
     match e with 
     | CIf(cnd, thn, els, _) -> 
-      let cnd, cnd_frees = help_imm cnd env in 
-      let thn, thn_frees = help_aexpr thn env in 
-      let els, els_frees = help_aexpr els env in 
+      let cnd, cnd_frees = help_imm cnd in 
+      let thn, thn_frees = help_aexpr thn in 
+      let els, els_frees = help_aexpr els in 
       let frees = StringSet.(union cnd_frees thn_frees |> union els_frees) in
       CIf(cnd, thn, els, frees), frees
     | CPrim1(prim, e, _) -> 
-      let e, frees = help_imm e env in 
+      let e, frees = help_imm e in 
       CPrim1(prim, e, frees), frees
     | CPrim2(prim, e1, e2, _) ->
-      let e1, e1_frees = help_imm e1 env in
-      let e2, e2_frees = help_imm e2 env in 
+      let e1, e1_frees = help_imm e1 in
+      let e2, e2_frees = help_imm e2 in 
       let frees = StringSet.union e1_frees e2_frees in
       CPrim2(prim, e1, e2, frees), frees
     | CApp(func, args, ct, _) -> 
-      let func, func_frees = help_imm func env in 
+      let func, func_frees = help_imm func in 
       let args, args_frees = 
         (List.fold_left 
            (fun (args, frees) arg -> 
-              let arg, arg_frees = help_imm arg env in 
+              let arg, arg_frees = help_imm arg in 
               (arg :: args, StringSet.union frees arg_frees))
            ([], StringSet.empty)
            args)
@@ -913,69 +909,72 @@ let free_vars_cache (prog: 'a aprogram): StringSet.t aprogram =
       let frees = StringSet.union func_frees args_frees in
       CApp(func, args, ct, frees), frees
     | CImmExpr(e) -> 
-      let e, frees = help_imm e env in
+      let e, frees = help_imm e in
       CImmExpr(e), frees
     | CTuple(exprs, _) ->
       let exprs, frees =
         List.fold_left 
           (fun (exprs, frees) arg -> 
-             let arg, arg_frees = help_imm arg env in
+             let arg, arg_frees = help_imm arg in
              (arg :: exprs, StringSet.union frees arg_frees))
           ([], StringSet.empty)
           exprs
       in 
       CTuple(exprs, frees), frees
     | CGetItem(tuple, pos, _) -> 
-      let tuple, tuple_frees = help_imm tuple env in
-      let pos, pos_frees = help_imm pos env in
+      let tuple, tuple_frees = help_imm tuple in
+      let pos, pos_frees = help_imm pos in
       let frees = StringSet.union tuple_frees pos_frees in 
       CGetItem(tuple, pos, frees), frees
     | CSetItem(tuple, pos, value, _) ->
-      let tuple, tuple_frees = help_imm tuple env in
-      let pos, pos_frees = help_imm pos env in
-      let value, value_frees = help_imm value env in 
+      let tuple, tuple_frees = help_imm tuple in
+      let pos, pos_frees = help_imm pos in
+      let value, value_frees = help_imm value in 
       let frees = StringSet.(union tuple_frees pos_frees |> union value_frees) in 
       CSetItem(tuple, pos, value, frees), frees
     | CLambda(args, body, _) ->
-      let newenv = StringSet.union (stringset_of_list args) env in 
-      let body, frees = help_aexpr body newenv in 
+      let env = stringset_of_list args in 
+      let body, body_frees = help_aexpr body in 
+      let frees = StringSet.diff body_frees env in
       CLambda(args, body, frees), frees
-  and help_aexpr (e : 'a aexpr) (env : StringSet.t) : StringSet.t aexpr * StringSet.t = 
+  and help_aexpr (e : 'a aexpr) : StringSet.t aexpr * StringSet.t = 
     match e with 
     | ASeq(e1, e2, _) -> 
-      let e1, e1_frees = help_cexpr e1 env in 
-      let e2, e2_frees = help_aexpr e2 env in 
+      let e1, e1_frees = help_cexpr e1 in 
+      let e2, e2_frees = help_aexpr e2 in 
       let frees = StringSet.union e1_frees e2_frees in 
       ASeq(e1, e2, frees), frees
     | ALet(name, bind, body, _) -> 
-      let newenv = StringSet.add name env in 
-      let bind, bind_frees = help_cexpr bind env in 
-      let body, body_frees = help_aexpr body newenv in 
+      let env = StringSet.singleton name in 
+      let bind, bind_frees = help_cexpr bind in 
+      let body, init_body_frees = help_aexpr body in 
+      let body_frees = StringSet.diff init_body_frees env in
       let frees = StringSet.union bind_frees body_frees in 
       ALet(name, bind, body, frees), frees
     | ALetRec(name_binds, body, _) ->
       (* Add all the binds *)
-      let env = List.fold_right (fun (name, _) acc -> StringSet.add name acc) name_binds env in
+      let env = stringset_of_list (List.map (fun (name, _) -> name) name_binds) in 
       let binds, bind_frees =
         List.fold_left
           (fun (binds, frees) (name, bind) ->
-             let bind, bind_frees = help_cexpr bind env in
+             let bind, init_bind_frees = help_cexpr bind in
+             let bind_frees = StringSet.diff init_bind_frees env in
              let frees = StringSet.union frees bind_frees in
              ((name, bind) :: binds, frees))
           ([], StringSet.empty)
           name_binds
       in 
-      let body, body_frees = help_aexpr body env in 
+      let body, init_body_frees = help_aexpr body in 
+      let body_frees = StringSet.diff init_body_frees env in
       let frees = StringSet.union bind_frees body_frees in 
       ALetRec(binds, body, frees), frees
     | ACExpr(e) ->
-      let e, frees = help_cexpr e env in 
+      let e, frees = help_cexpr e in 
       ACExpr(e), frees
   in match prog with 
   | AProgram(body, _) ->
     let env = stringset_of_list (List.map (fun (name, _) -> sprintf "?%s" name) native_fun_bindings) in
-    let new_body, frees = help_aexpr body env in
-    (* TODO: is the diff needed here? *)
+    let new_body, frees = help_aexpr body in
     AProgram(new_body, StringSet.diff frees env)
 ;;
 

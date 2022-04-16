@@ -53,13 +53,13 @@ let builtins_size = 4 (* arity + 0 vars + codeptr + padding *) * (List.length Co
 let test_free_vars_cache = [
   tfvcs "tfvcs_simple_none" 
     "let a = 5, b = 10 in a + b"
-    "(alet a = 5[] in (alet b = 10[] in (a[] + b[])[])[])[]\n[]";
+    "(alet a = 5[] in (alet b = 10[] in (a[a] + b[b])[a, b])[a])[]\n[]";
   tfvcs "tfvcs_simple_some" 
     "let a = 5 in a + b"
-    "(alet a = 5[] in (a[] + b[b])[b])[b]\n[b]";
+    "(alet a = 5[] in (a[a] + b[b])[a, b])[b]\n[b]";
   tfvcs "tfvcs_let_rec" 
     "let rec a = 5 in a + b"
-    "(aletrec a = 5[] in (a[] + b[b])[b])[b]\n[b]";
+    "(aletrec a = 5[] in (a[a] + b[b])[a, b])[b]\n[b]";
   tfvcs "tfvcs_if" 
     "if a: b else: c"
     "(if a[a]: b[b] else: c[c])[a, b, c]\n[a, b, c]";
@@ -68,7 +68,7 @@ let test_free_vars_cache = [
     "print(a[a])[a]\n[a]";
   tfvcs "tfvcs_app" 
     "abcd(efgh(123, r))"
-    "(alet app_3 = (efgh[efgh](r[r], 123[]))[efgh, r] in (abcd[abcd](app_3[]))[abcd])[abcd, efgh, r]\n[abcd, efgh, r]";
+    "(alet app_3 = (efgh[efgh](r[r], 123[]))[efgh, r] in (abcd[abcd](app_3[app_3]))[abcd, app_3])[abcd, efgh, r]\n[abcd, efgh, r]";
   tfvcs "tfvcs_imm" 
     "q"
     "q[q]\n[q]";
@@ -77,40 +77,46 @@ let test_free_vars_cache = [
     "(123[], b[b], a[a])[a, b]\n[a, b]";
   tfvcs "tfvcs_get"
     "(1, 2, 3)[a]"
-    "(alet tup_4 = (3[], 2[], 1[])[] in tup_4[][a[a]][a])[a]\n[a]";
+    "(alet tup_4 = (3[], 2[], 1[])[] in tup_4[tup_4][a[a]][a, tup_4])[a]\n[a]";
   tfvcs "tfvcs_set"
     "(1, 2, 3)[1] := a"
-    "(alet tup_5 = (3[], 2[], 1[])[] in tup_5[][1[]] := a[a] [a])[a]\n[a]";
+    "(alet tup_5 = (3[], 2[], 1[])[] in tup_5[tup_5][1[]] := a[a] [a, tup_5])[a]\n[a]";
   tfvcs "tfvcs_lambda"
     "(lambda(x, y): x + y + z)"
-    "(lam(x, y) (alet binop_4 = (x[] + y[])[] in (binop_4[] + z[z])[z])[z])[z]\n[z]";
+    "(lam(x, y) (alet binop_4 = (x[x] + y[y])[x, y] in (binop_4[binop_4] + z[z])[binop_4, z])[x, y, z])[z]\n[z]";
   tfvcs "tfvcs_ignored"
     "let ignored = 1 in (lambda(x, y): x + y + z + ignored)"
-    ("(alet ignored = 1[] in (lam(x, y) (alet binop_9 = (x[] + y[])[] in " ^
-     "(alet binop_8 = (binop_9[] + z[z])[z] in (binop_8[] + ignored[])[])[z])[z])[z])[z]\n[z]");
+    ("(alet ignored = 1[] in (lam(x, y) (alet binop_9 = (x[x] + y[y])[x, y] in " ^
+     "(alet binop_8 = (binop_9[binop_9] + z[z])[binop_9, z] in (binop_8[binop_8] " ^
+     "+ ignored[ignored])[binop_8, ignored])[binop_9, ignored, z])[ignored, x, y, z])[ignored, z])[z]\n[z]");
   tfvcs "tfvcs_lambda_body"
     "x"
     "x[x]\n[x]";
   tfvcs "tfvcs_lambda_body_2"
     "x + y + z"
-    "(alet binop_3 = (x[x] + y[y])[x, y] in (binop_3[] + z[z])[z])[x, y, z]\n[x, y, z]";
+    "(alet binop_3 = (x[x] + y[y])[x, y] in (binop_3[binop_3] + z[z])[binop_3, z])[x, y, z]\n[x, y, z]";
   tfvcs "lambda_body_with_frees"
     "x + y"
     "(x[x] + y[y])[x, y]\n[x, y]";
   tfvcs "lambda_body_with_frees_2"
     "(lambda (x): x)(5) + x + y"
-    "(alet lam_6 = (lam(x) x[])[] in (alet app_4 = (lam_6[](5[]))[] in (alet binop_3 = (app_4[] + x[x])[x] in (binop_3[] + y[y])[y])[x, y])[x, y])[x, y]\n[x, y]";
+    ("(alet lam_6 = (lam(x) x[x])[] in (alet app_4 = (lam_6[lam_6](5[]))[lam_6] in (alet binop_3 = " ^
+     "(app_4[app_4] + x[x])[app_4, x] in (binop_3[binop_3] + y[y])[binop_3, y])[app_4, x, y])[lam_6, x, y])[x, y]\n[x, y]");
   tfvcs "compile_lambda_recursion_tfvcs"
     "if arg == 0: 0 else: 1 + y(1 - arg)"
-    ("(alet binop_3 = (arg[arg] == 0[])[arg] in (if binop_3[]: 0[] else: " ^
-     "(alet binop_10 = (1[] - arg[arg])[arg] in (alet app_9 = (y[y](binop_10[]))[y] in " ^
-     "(1[] + app_9[])[])[y])[arg, y])[arg, y])[arg, y]\n[arg, y]");
+    ("(alet binop_3 = (arg[arg] == 0[])[arg] in (if binop_3[binop_3]: 0[] else: " ^
+     "(alet binop_10 = (1[] - arg[arg])[arg] in (alet app_9 = (y[y](binop_10[binop_10]))[binop_10, y] in " ^
+     "(1[] + app_9[app_9])[app_9])[binop_10, y])[arg, y])[arg, binop_3, y])[arg, y]\n[arg, y]");
   tfvcs "free_let_rec"
     "let rec x = (lambda: y()), y = (lambda: 6) in x()"
-    "(aletrec y = (lam() 6[])[], x = (lam() (y[]())[])[] in (x[]())[])[]\n[]";
+    "(aletrec y = (lam() 6[])[], x = (lam() (y[y]())[y])[y] in (x[x]())[x])[]\n[]";
   tfvcs "free_let_rec_in_lambda" 
     "(lambda(f): let rec x = (lambda: y()), y = (lambda: 6) in x())"
-    "(lam(f) (aletrec y = (lam() 6[])[], x = (lam() (y[]())[])[] in (x[]())[])[])[]\n[]";
+    "(lam(f) (aletrec y = (lam() 6[])[], x = (lam() (y[y]())[y])[y] in (x[x]())[x])[])[]\n[]";
+  tfvcs "free_let_rec_in_lambda2" 
+    "(lambda(f): let rec x = (lambda: y()), y = (lambda: 6) in x() + f)"
+    ("(lam(f) (aletrec y = (lam() 6[])[], x = (lam() (y[y]())[y])[y] in " ^
+     "(alet app_14 = (x[x]())[x] in (app_14[app_14] + f[f])[app_14, f])[f, x])[f])[]\n[]");
 ]
 
 
@@ -123,6 +129,6 @@ let suite =
 let () =
   run_test_tt_main ("all_tests">:::[
       suite; 
-      old_tests;
+      (* old_tests; *)
       input_file_test_suite ()])
 ;;
