@@ -71,6 +71,8 @@ let label_DONE         = "done"
 let dummy_span = (Lexing.dummy_pos, Lexing.dummy_pos);;
 
 let first_six_args_registers = [RDI; RSI; RDX; RCX; R8; R9]
+(* TODO: add more of these once we clear out R10-R12 *)
+let register_allocation_registers = [R13;R14;RBX]
 let caller_saved_regs : arg list =
   [ Reg RDI
   ; Reg RSI
@@ -1090,8 +1092,26 @@ and interfere_cexpr (e : StringSet.t cexpr) (live : StringSet.t) : grapht =
 ;;
 *)
 
+let find_smallest_degree (g: grapht): string option = 
+  Graph.fold (fun key node smallest -> 
+      match smallest with
+      | Some(n) -> 
+        if (List.length (NeighborSet.elements node)) < (List.length (NeighborSet.elements (Graph.find n g)))
+        then Some key else smallest
+      | None -> (Some key)) g None
+
+let rec find_smallest_degrees (g: grapht) : string list = 
+  match (find_smallest_degree g) with
+  | Some(n) -> n::(find_smallest_degrees (Graph.remove n g))
+  | None -> []
+;;
+
+let rec color_graph_helper (g: grapht) (acc: arg name_envt) (stack: string list) : arg name_envt = 
+  []
+;;
+
 let color_graph (g: grapht) (init_env: arg name_envt) : arg name_envt =
-  raise (NotYetImplemented "Implement graph coloring for racer")
+  color_graph_helper g [] (find_smallest_degrees g)
 ;;
 
 let register_allocation (prog: tag aprogram) : tag aprogram * arg name_envt name_envt =
