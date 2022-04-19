@@ -1106,12 +1106,17 @@ let rec find_smallest_degrees (g: grapht) : string list =
   | None -> []
 ;;
 
-let rec color_graph_helper (g: grapht) (acc: arg name_envt) (stack: string list) : arg name_envt = 
-  []
-;;
+let find_smallest_color (g: grapht) (node: string) (envt: arg name_envt) : arg name_envt =
+  let neighbors_registers = (List.filter_map (find_opt envt) (get_neighbors g node))
+  in let available_registers = (List.filter (fun r -> not (List.exists (fun e -> (compare e (Reg(r)) == 0)) neighbors_registers)) register_allocation_registers)
+  and neighbors_registers_len = (List.length neighbors_registers)
+  and register_allocation_registers_len = (List.length register_allocation_registers)
+  in match available_registers with 
+  | [] -> (node, RegOffset(word_size * (register_allocation_registers_len-1-neighbors_registers_len), RBP))::envt
+  | first::_ -> (node, Reg(first))::envt
 
 let color_graph (g: grapht) (init_env: arg name_envt) : arg name_envt =
-  color_graph_helper g [] (find_smallest_degrees g)
+  List.fold_right (find_smallest_color g) (find_smallest_degrees g) init_env
 ;;
 
 let register_allocation (prog: tag aprogram) : tag aprogram * arg name_envt name_envt =
@@ -1801,4 +1806,22 @@ let compile_to_string ?no_builtins:(no_builtins=false) (alloc_strat : alloc_stra
   |> (add_phase anfed (fun p -> atag (anf p)))
   |> (add_phase locate_bindings (pick_alloc_strategy alloc_strat))
   |> (add_phase result compile_prog)
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
 ;;
