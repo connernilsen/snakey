@@ -65,7 +65,7 @@ let tint name program expected = name>::
                                       | AProgram(body, _) -> 
                                         (string_of_graph (interfere body)) ^ "\n" in 
                                     assert_equal ((string_of_graph expected) ^ "\n") inf 
-                                      ~printer:(fun s->s))
+                                      ~printer:(fun s -> sprintf "%s\nANF: %s" s (string_of_aprogram anfed)))
 
 
 let test_free_vars_cache = [
@@ -208,7 +208,7 @@ let tint_tests = [
            |> add "p" NeighborSet.(singleton "x")
            |> add "if_17" NeighborSet.(singleton "x")
            |> add "y" NeighborSet.(singleton "x")
-           |> add "z" NeighborSet.(singleton "binop_18" |> add "x")
+           |> add "z" NeighborSet.(singleton "x")
            |> add "a" NeighborSet.(singleton "x")
            |> add "x" NeighborSet.(singleton "binop_18" |> add "p" |> add "a" |> add "z" |> add "if_17" |> add "y"));
   tint "tint_seq"
@@ -237,7 +237,7 @@ let tint_tests = [
            |> add "x" NeighborSet.(singleton "c")
            |> add "y" NeighborSet.empty
            |> add "c" NeighborSet.(singleton "x")
-           |> add "z" NeighborSet.(singleton "x"));
+           |> add "z" NeighborSet.empty);
   tint "tint_passover_if_3"
     "let x = 5,
          c = x > 3,
