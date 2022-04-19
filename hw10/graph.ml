@@ -29,6 +29,29 @@ let add_edge (g : grapht) (n1 : string) (n2 : string) : grapht =
   add_directed_edge g' n2 n1
 ;;
 
+let connect_all (g : grapht) (nodes : StringSet.t) : grapht =
+  StringSet.fold
+    (fun (item : string) (acc : grapht) -> 
+       let acc = add_node acc item in
+       StringSet.fold
+         (fun (subitem : string) (acc : grapht) -> 
+            if subitem = item 
+            then acc 
+            else add_edge acc item subitem)
+         nodes
+         acc) nodes g
+;;
+
+let graph_union (g1 : grapht) (g2 : grapht) : grapht =
+  Graph.fold (fun (from : string) (to_ss : neighborst) (acc : grapht) -> 
+      match Graph.find_opt from acc with 
+      | None -> Graph.add from to_ss acc
+      | Some(neighbors) -> 
+        Graph.add from (NeighborSet.union to_ss neighbors) acc)
+    g2
+    g1
+;;
+
 let get_neighbors (g : grapht) (name : string) : string list =
   if Graph.mem name g
   then NeighborSet.fold (fun n ns -> n :: ns) (Graph.find name g) []

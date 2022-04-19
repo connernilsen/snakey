@@ -880,7 +880,7 @@ let free_vars_cache (prog: 'a aprogram): StringSet.t aprogram =
     | ImmNum(e, _) -> ImmNum(e, StringSet.empty), StringSet.empty
     | ImmBool(e, _) -> ImmBool(e, StringSet.empty), StringSet.empty
     | ImmNil(_) -> ImmNil(StringSet.empty), StringSet.empty
-  and help_cexpr (e : 'a cexpr) : StringSet.t cexpr * StringSet.t=
+  and help_cexpr (e : 'a cexpr) : StringSet.t cexpr * StringSet.t =
     match e with 
     | CIf(cnd, thn, els, _) -> 
       let cnd, cnd_frees = help_imm cnd in 
@@ -1057,38 +1057,92 @@ and get_cexpr_envt (expr : tag cexpr) (si : int) (wrapping_tag : tag) : flat_nes
 
 (* IMPLEMENT THE BELOW *)
 
-let rec interfere (e : StringSet.t aexpr) (live : StringSet.t) : grapht =
-  match e with 
-  | ASeq(expr1, expr2, frees) -> empty (*(Graph.union (interfere_cexpr expr1 live) (interfere expr2 live))*)
-  | ALet(name, bind, body, frees) -> (StringSet.fold (fun free acc -> (add_edge acc name free)) frees empty)
-  | ACExpr(body) -> empty(*(interfere_cexpr body live)*)
-  | ALetRec(binds, body, frees) -> 
-    List.fold_left 
-      (fun acc (name, cexpr) -> 
-         begin
-           match cexpr with 
-           | CLambda(args, body, frees) -> (StringSet.fold (fun free acc -> (add_edge acc name free)) frees acc)
-           | _ -> raise (InternalCompilerError "should only have lambdas within let rec")
-         end)
-      empty 
-      binds
-(* is this even necessary? *)
-(*
-and interfere_cexpr (e : StringSet.t cexpr) (live : StringSet.t) : grapht =
-  begin
+let rec interfere (e : StringSet.t aexpr) : grapht =
+  let rec help_aexpr (e : StringSet.t aexpr) (live : StringSet.t) : grapht =
     match e with 
-    | CIf(cnd, thn, els, _) -> interfere thn live (* don't need to union. just need to do max? *)
-    | CPrim1(prim, e, _) -> empty
-    | CPrim2(prim, e1, e2, _) -> empty
-    | CApp(func, args, ct, _) -> empty
-    | CImmExpr(e) -> empty
-    | CTuple(exprs, _) ->empty
-    | CGetItem(tuple, pos, _) -> empty
-    | CSetItem(tuple, pos, value, _) -> empty
-    | CLambda(args, body, _) -> empty
-  end
+    | ASeq(e1, e2, frees) -> 
+      let e1_graph = help_cexpr e1 live in 
+      let e1_verts = get_vertices e1_graph in 
+      let e2_graph = help_aexpr e2 live in
+      let e2_used_lives = StringSet.inter live (stringset_of_list (get_vertices e2_graph)) in 
+      let updated_e1 = StringSet.fold
+          (fun (e2 : string) (acc : grapht) -> 
+             List.fold_left
+               (fun (acc : grapht) (e1 : string) -> add_edge acc e1 e2)
+               acc 
+               e1_verts)
+          e2_used_lives
+          e1_graph
+      in 
+      graph_union e2_graph updated_e1
+    | ALet(name, bind, body, frees) ->
+      let bind_graph = help_cexpr bind live in 
+      let bind_verts = get_vertices bind_graph in 
+      let body_graph = help_aexpr body (StringSet.add name live) in 
+      let body_used_lives = StringSet.inter live (stringset_of_list (get_vertices body_graph)) in
+      let updated_bind = StringSet.fold
+          (fun (e2 : string) (acc : grapht) -> 
+             List.fold_left
+               (fun (acc : grapht) (e1 : string) -> 
+                  if e1 = e2
+                  then acc
+                  else add_edge acc e1 e2)
+               acc 
+               bind_verts)
+          body_used_lives
+          bind_graph
+      in 
+      graph_union body_graph updated_bind
+    | ACExpr(body) -> help_cexpr body live
+    | ALetRec(binds, body, frees) -> 
+      List.fold_left 
+        (fun acc (name, cexpr) -> 
+           begin
+             match cexpr with 
+             | CLambda(args, body, frees) -> (StringSet.fold (fun free acc -> (add_edge acc name free)) frees acc)
+             | _ -> raise (InternalCompilerError "should only have lambdas within let rec")
+           end)
+        empty 
+        binds
+  and help_cexpr (e : StringSet.t cexpr) (live : StringSet.t) : grapht =
+    match e with 
+    | CIf(cnd, thn, els, frees) -> 
+      let interferes = StringSet.inter live frees in 
+      connect_all empty interferes
+    | CPrim1(prim, e, frees) -> 
+      let interferes = StringSet.inter live frees in
+      connect_all empty interferes
+    | CPrim2(prim, e1, e2, frees) -> 
+      let interferes = StringSet.inter live frees in 
+      connect_all empty interferes
+    | CApp(func, args, _, frees) -> 
+      let interferes = StringSet.inter live frees in 
+      connect_all empty interferes
+    | CImmExpr(e) -> 
+      connect_all empty (help_immexpr e)
+    | CTuple(exprs, frees) ->
+      let vertices = List.fold_left 
+          (fun acc arg -> StringSet.union acc (help_immexpr arg)) StringSet.empty exprs in 
+      connect_all empty vertices
+    | CGetItem(tuple, pos, frees) -> 
+      connect_all empty (StringSet.union (help_immexpr tuple) (help_immexpr pos))
+    | CSetItem(tuple, pos, value, frees) -> 
+      let vertices = (List.fold_left 
+                        (fun acc arg -> StringSet.union acc (help_immexpr arg)) 
+                        StringSet.empty 
+                        [tuple; pos; value]) in 
+      connect_all empty vertices
+    | CLambda(args, body, frees) -> 
+      help_aexpr body (stringset_of_list args)
+  and help_immexpr (e : StringSet.t immexpr) : StringSet.t =
+    match e with 
+    | ImmNil(_) -> StringSet.empty
+    | ImmNum(_) -> StringSet.empty
+    | ImmBool(_) -> StringSet.empty
+    | ImmId(name, _) -> StringSet.singleton name
+  in 
+  help_aexpr e StringSet.empty
 ;;
-*)
 
 let color_graph (g: grapht) (init_env: arg name_envt) : arg name_envt =
   raise (NotYetImplemented "Implement graph coloring for racer")
