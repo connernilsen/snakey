@@ -261,6 +261,20 @@ let tint_tests = [
            |> add "y_14" NeighborSet.empty
            |> add "app_17" NeighborSet.empty
            |> add "z_21" NeighborSet.(singleton "x_7"));
+  tint "tint_lambda_2"
+    "let num = 52,
+         x = (lambda(y): y + num),
+         y = (lambda(z): x(z) + 1) in
+         y(8) + x(8)"
+    Graph.(empty
+           |> add "num_4" NeighborSet.(singleton "y_12")
+           |> add "y_12" NeighborSet.(singleton "num_4")
+           |> add "x_7" NeighborSet.(singleton "z_21" |> add "y_14" |> add "app_23")
+           |> add "y_14" NeighborSet.(singleton "x_7")
+           |> add "app_17" NeighborSet.empty
+           |> add "app_23" NeighborSet.(singleton "app_26" |> add "x_7")
+           |> add "app_26" NeighborSet.(singleton "app_23")
+           |> add "z_21" NeighborSet.(singleton "x_7"));
 ]
 
 

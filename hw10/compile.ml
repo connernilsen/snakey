@@ -1097,15 +1097,16 @@ let rec interfere (e : StringSet.t aexpr) : grapht =
       graph_union body_graph updated_bind
     | ACExpr(body) -> help_cexpr body live
     | ALetRec(binds, body, frees) -> 
-      List.fold_left 
-        (fun acc (name, cexpr) -> 
+      (* List.fold_left 
+         (fun acc (name, cexpr) -> 
            begin
              match cexpr with 
              | CLambda(args, body, frees) -> (StringSet.fold (fun free acc -> (add_edge acc name free)) frees acc)
              | _ -> raise (InternalCompilerError "should only have lambdas within let rec")
            end)
-        empty 
-        binds
+         empty 
+         binds *)
+      raise (NotYetImplemented "do this")
   and help_cexpr (e : StringSet.t cexpr) (live : StringSet.t) : grapht =
     match e with 
     | CIf(cnd, thn, els, frees) -> 
