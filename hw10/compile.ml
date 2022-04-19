@@ -1109,8 +1109,13 @@ let rec interfere (e : StringSet.t aexpr) : grapht =
   and help_cexpr (e : StringSet.t cexpr) (live : StringSet.t) : grapht =
     match e with 
     | CIf(cnd, thn, els, frees) -> 
-      let interferes = StringSet.inter live frees in 
-      connect_all empty interferes
+      (* let interferes = StringSet.inter live frees in 
+         connect_all empty interferes *)
+      let thn_graph = help_aexpr thn live in 
+      let els_graph = help_aexpr els live in 
+      let branch_graph = graph_union thn_graph els_graph in 
+      let if_interferes = StringSet.inter live frees in 
+      connect_all branch_graph if_interferes
     | CPrim1(prim, e, frees) -> 
       let interferes = StringSet.inter live frees in
       connect_all empty interferes
@@ -1123,19 +1128,27 @@ let rec interfere (e : StringSet.t aexpr) : grapht =
     | CImmExpr(e) -> 
       connect_all empty (help_immexpr e)
     | CTuple(exprs, frees) ->
-      let vertices = List.fold_left 
-          (fun acc arg -> StringSet.union acc (help_immexpr arg)) StringSet.empty exprs in 
-      connect_all empty vertices
+      let interferes = StringSet.inter live frees in 
+      connect_all empty interferes
+    (* let vertices = List.fold_left 
+        (fun acc arg -> StringSet.union acc (help_immexpr arg)) StringSet.empty exprs in 
+       connect_all empty vertices *)
     | CGetItem(tuple, pos, frees) -> 
-      connect_all empty (StringSet.union (help_immexpr tuple) (help_immexpr pos))
+      let interferes = StringSet.inter live frees in 
+      connect_all empty interferes
+    (* connect_all empty (StringSet.union (help_immexpr tuple) (help_immexpr pos)) *)
     | CSetItem(tuple, pos, value, frees) -> 
-      let vertices = (List.fold_left 
-                        (fun acc arg -> StringSet.union acc (help_immexpr arg)) 
-                        StringSet.empty 
-                        [tuple; pos; value]) in 
-      connect_all empty vertices
+      let interferes = StringSet.inter live frees in 
+      connect_all empty interferes
+    (* let vertices = (List.fold_left 
+                      (fun acc arg -> StringSet.union acc (help_immexpr arg)) 
+                      StringSet.empty 
+                      [tuple; pos; value]) in 
+       connect_all empty vertices *)
     | CLambda(args, body, frees) -> 
-      help_aexpr body (stringset_of_list args)
+      let interferes = StringSet.inter live frees in 
+      connect_all empty interferes
+  (* help_aexpr body (stringset_of_list args) *)
   and help_immexpr (e : StringSet.t immexpr) : StringSet.t =
     match e with 
     | ImmNil(_) -> StringSet.empty
