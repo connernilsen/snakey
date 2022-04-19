@@ -1109,8 +1109,6 @@ let rec interfere (e : StringSet.t aexpr) : grapht =
   and help_cexpr (e : StringSet.t cexpr) (live : StringSet.t) : grapht =
     match e with 
     | CIf(cnd, thn, els, frees) -> 
-      (* let interferes = StringSet.inter live frees in 
-         connect_all empty interferes *)
       let thn_graph = help_aexpr thn live in 
       let els_graph = help_aexpr els live in 
       let branch_graph = graph_union thn_graph els_graph in 
@@ -1130,25 +1128,16 @@ let rec interfere (e : StringSet.t aexpr) : grapht =
     | CTuple(exprs, frees) ->
       let interferes = StringSet.inter live frees in 
       connect_all empty interferes
-    (* let vertices = List.fold_left 
-        (fun acc arg -> StringSet.union acc (help_immexpr arg)) StringSet.empty exprs in 
-       connect_all empty vertices *)
     | CGetItem(tuple, pos, frees) -> 
       let interferes = StringSet.inter live frees in 
       connect_all empty interferes
-    (* connect_all empty (StringSet.union (help_immexpr tuple) (help_immexpr pos)) *)
     | CSetItem(tuple, pos, value, frees) -> 
       let interferes = StringSet.inter live frees in 
       connect_all empty interferes
-    (* let vertices = (List.fold_left 
-                      (fun acc arg -> StringSet.union acc (help_immexpr arg)) 
-                      StringSet.empty 
-                      [tuple; pos; value]) in 
-       connect_all empty vertices *)
     | CLambda(args, body, frees) -> 
+      let body_graph = help_aexpr body (StringSet.union live (stringset_of_list args)) in
       let interferes = StringSet.inter live frees in 
-      connect_all empty interferes
-  (* help_aexpr body (stringset_of_list args) *)
+      connect_all body_graph interferes
   and help_immexpr (e : StringSet.t immexpr) : StringSet.t =
     match e with 
     | ImmNil(_) -> StringSet.empty
@@ -1873,22 +1862,4 @@ let compile_to_string ?no_builtins:(no_builtins=false) (alloc_strat : alloc_stra
   |> (add_phase anfed (fun p -> atag (anf p)))
   |> (add_phase locate_bindings (pick_alloc_strategy alloc_strat))
   |> (add_phase result compile_prog)
-;;
-;;
-;;
-;;
-;;
-;;
-;;
-;;
-;;
-;;
-;;
-;;
-;;
-;;
-;;
-;;
-;;
-;;
 ;;

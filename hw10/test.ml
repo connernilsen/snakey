@@ -59,7 +59,7 @@ let builtins_size = 4 (* arity + 0 vars + codeptr + padding *) * (List.length Co
 let tint name program expected = name>::
                                  (fun _ -> 
                                     let ast = parse_string name program in 
-                                    let anfed = anf (tag ast) in 
+                                    let anfed = anf (rename_and_tag (tag ast)) in 
                                     let fv = free_vars_cache anfed in 
                                     let inf = match fv with 
                                       | AProgram(body, _) -> 
@@ -150,53 +150,53 @@ let tint_tests = [
   tint "tint_basic" 
     "let a = 5, b = 6 in a + b"
     Graph.(empty 
-           |> add "a" (NeighborSet.singleton "b")
-           |> add "b" (NeighborSet.singleton "a"));
+           |> add "a_4" (NeighborSet.singleton "b_7")
+           |> add "b_7" (NeighborSet.singleton "a_4"));
   tint "tint_basic_2"
     "let a = 5, b = 6 in a"
     Graph.(empty 
-           |> add "a" NeighborSet.empty);
+           |> add "a_4" NeighborSet.empty);
   tint "tint_basic_3"
     "let x = 5,
          y = 6,
          z = x + y,
          a = z + y in a"
     Graph.(empty
-           |> add "x" NeighborSet.(singleton "y")
-           |> add "y" NeighborSet.(singleton "x" |> add "z")
-           |> add "z" NeighborSet.(singleton "y")
-           |> add "a" NeighborSet.empty);
+           |> add "x_4" NeighborSet.(singleton "y_7")
+           |> add "y_7" NeighborSet.(singleton "x_4" |> add "z_10")
+           |> add "z_10" NeighborSet.(singleton "y_7")
+           |> add "a_15" NeighborSet.empty);
   tint "tint_nested_let" 
     "let a = 5,
          b = (let c = 6 in a + c),
          d = (let e = 7 in e + b)
          in a"
     Graph.(empty
-           |> add "a" NeighborSet.(singleton "c" |> add "b" |> add "e")
-           |> add "b" NeighborSet.(singleton "a" |> add "e")
-           |> add "c" NeighborSet.(singleton "a")
-           |> add "e" NeighborSet.(singleton "b" |> add "a"));
+           |> add "a_4" NeighborSet.(singleton "c_10" |> add "b_7" |> add "e_19")
+           |> add "b_7" NeighborSet.(singleton "a_4" |> add "e_19")
+           |> add "c_10" NeighborSet.(singleton "a_4")
+           |> add "e_19" NeighborSet.(singleton "b_7" |> add "a_4"));
   tint "tint_nested_binop"
     "(let x = 5,
           y = 6 in
           (x + y))
       * (let a = 3 in a + 1)"
     Graph.(empty 
-           |> add "x" NeighborSet.(singleton "y")
-           |> add "y" NeighborSet.(singleton "x")
-           |> add "a" NeighborSet.(singleton "binop_10")
-           |> add "binop_10" NeighborSet.(singleton "a" |> add "binop_17")
+           |> add "x_5" NeighborSet.(singleton "y_8")
+           |> add "y_8" NeighborSet.(singleton "x_5")
+           |> add "a_15" NeighborSet.(singleton "binop_10")
+           |> add "binop_10" NeighborSet.(singleton "a_15" |> add "binop_17")
            |> add "binop_17" NeighborSet.(singleton "binop_10"));
   tint "tint_nested_ifs"
     "let a = (let x = 5, y = 6 in x + y),
          b = (let z = 3 in z + 1) in
      a * b"
     Graph.(empty
-           |> add "a" NeighborSet.(singleton "b" |> add "z")
-           |> add "b" NeighborSet.(singleton "a")
-           |> add "x" NeighborSet.(singleton "y")
-           |> add "y" NeighborSet.(singleton "x")
-           |> add "z" NeighborSet.(singleton "a"));
+           |> add "a_4" NeighborSet.(singleton "b_16" |> add "z_19")
+           |> add "b_16" NeighborSet.(singleton "a_4")
+           |> add "x_7" NeighborSet.(singleton "y_10")
+           |> add "y_10" NeighborSet.(singleton "x_7")
+           |> add "z_19" NeighborSet.(singleton "a_4"));
   tint "tint_if"
     "let x = 5,
          y = 6,
@@ -204,50 +204,63 @@ let tint_tests = [
          p = (if (z > x): let a = x in a else: 2) + 2 in 
          p + x"
     Graph.(empty
-           |> add "binop_18" NeighborSet.(singleton "x")
-           |> add "p" NeighborSet.(singleton "x")
-           |> add "if_17" NeighborSet.(singleton "x")
-           |> add "y" NeighborSet.(singleton "x")
-           |> add "z" NeighborSet.(singleton "x")
-           |> add "a" NeighborSet.(singleton "x")
-           |> add "x" NeighborSet.(singleton "binop_18" |> add "p" |> add "a" |> add "z" |> add "if_17" |> add "y"));
+           |> add "binop_18" NeighborSet.(singleton "x_4")
+           |> add "p_15" NeighborSet.(singleton "x_4")
+           |> add "if_17" NeighborSet.(singleton "x_4")
+           |> add "y_7" NeighborSet.(singleton "x_4")
+           |> add "z_10" NeighborSet.(singleton "x_4")
+           |> add "a_23" NeighborSet.(singleton "x_4")
+           |> add "x_4" NeighborSet.(singleton "binop_18" |> add "p_15" |> add "a_23" 
+                                     |> add "z_10" |> add "if_17" |> add "y_7"));
   tint "tint_seq"
     "let x = 5 in 
     (let y = 8 in print(y));
     print(x)"
     Graph.(empty
-           |> add "x" NeighborSet.(singleton "y")
-           |> add "y" NeighborSet.(singleton "x"));
+           |> add "x_4" NeighborSet.(singleton "y_11")
+           |> add "y_11" NeighborSet.(singleton "x_4"));
   tint "tint_passover_if"
     "let x = 5,
          c = x > 3,
          y = (if c: let z = 1 in z else: 2) in
          x + y"
     Graph.(empty 
-           |> add "x" NeighborSet.(singleton "y" |> add "z" |> add "c")
-           |> add "y" NeighborSet.(singleton "x")
-           |> add "c" NeighborSet.(singleton "x")
-           |> add "z" NeighborSet.(singleton "x"));
+           |> add "x_4" NeighborSet.(singleton "y_12" |> add "z_17" |> add "c_7")
+           |> add "y_12" NeighborSet.(singleton "x_4")
+           |> add "c_7" NeighborSet.(singleton "x_4")
+           |> add "z_17" NeighborSet.(singleton "x_4"));
   tint "tint_passover_if_2"
     "let x = 5,
          c = x > 3,
          y = (if c: let z = 1 in z else: x) in
          1 + y"
     Graph.(empty 
-           |> add "x" NeighborSet.(singleton "c")
-           |> add "y" NeighborSet.empty
-           |> add "c" NeighborSet.(singleton "x")
-           |> add "z" NeighborSet.empty);
+           |> add "x_4" NeighborSet.(singleton "c_7")
+           |> add "y_12" NeighborSet.empty
+           |> add "c_7" NeighborSet.(singleton "x_4")
+           |> add "z_17" NeighborSet.empty);
   tint "tint_passover_if_3"
     "let x = 5,
          c = x > 3,
          y = (if c: let z = 1 in z else: 2) in
          1 + y"
     Graph.(empty 
-           |> add "x" NeighborSet.empty
-           |> add "y" NeighborSet.empty
-           |> add "c" NeighborSet.empty
-           |> add "z" NeighborSet.empty);
+           |> add "x_4" NeighborSet.empty
+           |> add "y_12" NeighborSet.empty
+           |> add "c_7" NeighborSet.empty
+           |> add "z_17" NeighborSet.empty);
+  tint "tint_lambda"
+    "let num = 52,
+         x = (lambda(y): y + num),
+         y = (lambda(z): x(z) + 1) in
+         y(8)"
+    Graph.(empty
+           |> add "num_4" NeighborSet.(singleton "y_12")
+           |> add "y_12" NeighborSet.(singleton "num_4")
+           |> add "x_7" NeighborSet.(singleton "z_21")
+           |> add "y_14" NeighborSet.empty
+           |> add "app_17" NeighborSet.empty
+           |> add "z_21" NeighborSet.(singleton "x_7"));
 ]
 
 
