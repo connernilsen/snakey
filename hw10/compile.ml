@@ -71,6 +71,8 @@ let label_DONE         = "done"
 let dummy_span = (Lexing.dummy_pos, Lexing.dummy_pos);;
 
 let first_six_args_registers = [RDI; RSI; RDX; RCX; R8; R9]
+(* TODO: add more of these once we clear out R10-R12 *)
+let register_allocation_registers = [R13;R14;RBX]
 let caller_saved_regs : arg list =
   [ Reg RDI
   ; Reg RSI
@@ -1144,8 +1146,31 @@ let rec interfere (e : StringSet.t aexpr) : grapht =
   help_aexpr e StringSet.empty
 ;;
 
+let find_smallest_degree (g: grapht): string option = 
+  Graph.fold (fun key node smallest -> 
+      match smallest with
+      | Some(n) -> 
+        if (List.length (NeighborSet.elements node)) < (List.length (NeighborSet.elements (Graph.find n g)))
+        then Some key else smallest
+      | None -> (Some key)) g None
+
+let rec find_smallest_degrees (g: grapht) : string list = 
+  match (find_smallest_degree g) with
+  | Some(n) -> n::(find_smallest_degrees (Graph.remove n g))
+  | None -> []
+;;
+
+let find_smallest_color (g: grapht) (node: string) (envt: arg name_envt) : arg name_envt =
+  let neighbors_registers = (List.filter_map (find_opt envt) (get_neighbors g node))
+  in let available_registers = (List.filter (fun r -> not (List.exists (fun e -> (compare e (Reg(r)) == 0)) neighbors_registers)) register_allocation_registers)
+  and neighbors_registers_len = (List.length neighbors_registers)
+  and register_allocation_registers_len = (List.length register_allocation_registers)
+  in match available_registers with 
+  | [] -> (node, RegOffset(word_size * (register_allocation_registers_len-1-neighbors_registers_len), RBP))::envt
+  | first::_ -> (node, Reg(first))::envt
+
 let color_graph (g: grapht) (init_env: arg name_envt) : arg name_envt =
-  raise (NotYetImplemented "Implement graph coloring for racer")
+  List.fold_right (find_smallest_color g) (find_smallest_degrees g) init_env
 ;;
 
 let register_allocation (prog: tag aprogram) : tag aprogram * arg name_envt name_envt =
@@ -1835,4 +1860,22 @@ let compile_to_string ?no_builtins:(no_builtins=false) (alloc_strat : alloc_stra
   |> (add_phase anfed (fun p -> atag (anf p)))
   |> (add_phase locate_bindings (pick_alloc_strategy alloc_strat))
   |> (add_phase result compile_prog)
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
+;;
 ;;

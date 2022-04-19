@@ -7,6 +7,8 @@ open Exprs
 open Phases
 open Errors
 open Libtest
+open Assembly
+open Pretty
 open Graph
 
 let t name program input expected = name>::test_run ~args:[] ~std_input:input Naive program name expected;;
@@ -47,6 +49,10 @@ let tfvcs name program expected = name>::
                                      let output = string_of_aprogram_with 1000 (str_list_print) fv in
                                      assert_equal expected output ~printer:(fun s -> s)) 
 ;; 
+
+let tgcolor name graph init_env (expected: arg name_envt) = 
+  name>::(fun _ -> 
+      assert_equal expected (color_graph graph init_env) ~printer:(fun s->string_of_envt s))
 
 let builtins_size = 4 (* arity + 0 vars + codeptr + padding *) * (List.length Compile.native_fun_bindings)
 
@@ -244,10 +250,27 @@ let tint_tests = [
 ]
 
 
+let test_graph_coloring = [
+  tgcolor "color_empty" empty [] [];
+  tgcolor "color_single" (add_node empty "1") [] [("1", Reg(R13))];
+  tgcolor "color_two_larger_first" 
+    (add_edge(add_edge (add_node (add_node (add_node empty "1") "2") "3")"1" "2") "1" "3")
+    [] [("2", Reg(R14));("3", Reg(R14));("1", Reg(R13));];
+  tgcolor "color_five_all_interference" 
+    (add_edge (add_edge (add_edge (add_edge (add_edge(add_edge (add_edge (add_edge (add_edge (add_edge(add_edge (add_edge (add_edge (add_edge (add_edge(add_edge
+                                                                                                                                                          (add_node (add_node (add_node (add_node (add_node empty "1") "2") "3") "4") "5") 
+                                                                                                                                                          "1" "2") "1" "3") "1" "4") "1" "5")"2" "1") "2" "3") "2" "4") "2" "5")"3" "2") "3" "1") "3" "4") "3" "5")"4" "2") "4" "3") "4" "1") "4" "5")
+    [] [("1", RegOffset(-16, RBP));("2", RegOffset(-8, RBP));("3", Reg(RBX)); ("4", Reg(R14));("5", Reg(R13))];
+  tgcolor "color_five_no_interferes" 
+    (add_node (add_node (add_node (add_node (add_node empty "1") "2") "3") "4") "5") 
+    [] [("1", Reg(R13));("2", Reg(R13));("3", Reg(R13)); ("4", Reg(R13));("5", Reg(R13))];
+]
+
 let suite =
   "unit_tests">:::
   test_free_vars_cache
   @ tint_tests
+  @ test_graph_coloring
 
 let () =
   run_test_tt_main ("all_tests">:::[
