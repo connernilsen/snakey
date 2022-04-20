@@ -81,6 +81,7 @@ let caller_saved_regs : arg list =
   ; Reg R8
   ; Reg R9
   ; Reg R10
+  ; Reg R13
   ]
 ;;
 
@@ -1275,7 +1276,21 @@ let generate_cmp_func
 (* sets up a function call (x64) by putting args in the proper registers/stack positions, 
  * calling the given function, and cleaning up the stack after 
 *)
-let setup_call_to_func (num_regs_to_save : int) (args : arg list) (func : arg) (snake_call : bool) : (instruction list) =
+let setup_call_to_func (env : arg name_envt name_envt) (curr_env : string) (args : arg list) (func : arg) (snake_call : bool) : (instruction list) =
+  let rec get_env_caller_save_regs env = 
+    match env with 
+    | [] -> []
+    | (_, reg) :: rest -> 
+      if List.mem reg caller_saved_regs
+      then reg :: (get_env_caller_save_regs rest)
+      else get_env_caller_save_regs rest
+  in
+  let regs_to_save = 
+    match find_opt env curr_env with 
+    | None -> []
+    | Some(env) -> get_env_caller_save_regs env 
+  in 
+  let num_regs_to_save = List.length regs_to_save in
   let func_call_comment = ILineComment(
       if snake_call
       then sprintf "Setup snake call (%d args)" num_regs_to_save
@@ -1298,25 +1313,18 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (func : arg) (
     else Int64.of_int (stack_args * word_size)
   in
   (* Backs up all registers used by the function we're in *)
-  let rec backup_caller_saved_registers (rem_args : int) (registers : reg list) : (instruction list) =
-    if rem_args = 0
-    then []
-    else
-      begin
-        match registers with 
-        | [] -> []
-        | next_reg :: rest_regs -> 
-          IPush(Reg(next_reg)) 
-          :: (backup_caller_saved_registers (rem_args - 1) rest_regs)
-      end in
+  let rec backup_caller_saved_registers (registers : arg list) : (instruction list) =
+    match registers with
+    | [] -> []
+    | first :: rest ->
+      IPush(first) :: backup_caller_saved_registers rest
+  in
   (* Restores all registers used by the function we're in. Reverse of backup_caller_saved_registers *)
-  let rec restore_caller_saved_registers (args_to_skip : int) (registers : reg list) : (instruction list) =
+  let rec restore_caller_saved_registers (registers : arg list) : (instruction list) =
     match registers with 
     | [] -> []
-    | next_reg :: rest_regs -> 
-      if args_to_skip = 0
-      then IPop(Reg(next_reg)) :: (restore_caller_saved_registers 0 rest_regs) 
-      else (restore_caller_saved_registers (args_to_skip - 1) rest_regs)
+    | first :: rest -> 
+      IPop(first) :: restore_caller_saved_registers rest
   in
   (* sets up args by putting them in the first 6 registers needed for a call
    * and placing any remaining values on the stack 
@@ -1373,7 +1381,7 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (func : arg) (
   in
   func_call_comment
   (* push args passed into this function so they don't get overwritten *)
-  :: (backup_caller_saved_registers num_regs_to_save first_six_args_registers)
+  :: (backup_caller_saved_registers regs_to_save)
   (* align the stack if necessary *)
   @ (if should_stack_align 
      then [ILineComment("Stack align"); IPush(stack_filler)] 
@@ -1387,7 +1395,7 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (func : arg) (
   (* pop off values added to the stack up to pushed register values *)
   @ (if Int64.equal cleanup_stack 0L then [] else [IAdd(Reg(RSP), Const(cleanup_stack))])
   (* restore register values for the rest of this function to use *)
-  @ (restore_caller_saved_registers ((List.length first_six_args_registers) - num_regs_to_save) (List.rev first_six_args_registers))
+  @ (restore_caller_saved_registers (List.rev regs_to_save))
 ;;
 
 let count_vars e =
@@ -1415,7 +1423,7 @@ let rec replicate x i =
   if i = 0 then []
   else x :: (replicate x (i - 1))
 
-and reserve size tag num_regs_to_save =
+and reserve size tag env curr_env =
   let ok = sprintf "$memcheck_%d" tag in
   let size = (size * word_size) in
   [
@@ -1425,7 +1433,7 @@ and reserve size tag num_regs_to_save =
     ICmp(Reg(RAX), Reg(heap_reg));
     IJge(Label ok);
   ]
-  @ (setup_call_to_func num_regs_to_save [
+  @ (setup_call_to_func env curr_env [
       (Sized(QWORD_PTR, Reg(heap_reg))); (* alloc_ptr in C *)
       (Sized(QWORD_PTR, Const(Int64.of_int size))); (* bytes_needed in C *)
       (Sized(QWORD_PTR, Reg(RBP))); (* first_frame in C *)
@@ -1480,13 +1488,13 @@ and compile_aexpr (e : tag aexpr) (env : arg name_envt name_envt) (num_args : in
         | CLambda(args, body, tag) -> 
           let newname = sprintf "fun_%d" tag in
           let frees = free_vars body args in
-          (setup_lambda newname args frees tag num_args)
+          (setup_lambda newname args frees tag env current_env)
           @ [IInstrComment(IMov(find (find env current_env) name, Reg(RAX)), sprintf "save (rec) %s" name)]
         | _ -> raise (InternalCompilerError "Tried to compile non lambda in let rec")) binds)
     in 
     let lambda_comps = List.flatten (List.map (fun (name, bind) ->
         IMov(Reg(RAX), find (find env current_env) name)
-        :: (compile_lambda bind env false current_env num_args)) binds)
+        :: (compile_lambda bind env false current_env)) binds)
     in 
     lambda_setups 
     @ lambda_comps
@@ -1567,8 +1575,8 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
           IMov(Reg(scratch_reg), bool_mask);
           IXor(Reg(RAX), Reg(scratch_reg));
         ]
-      | Print -> (setup_call_to_func num_args [e_reg] (Label("?print")) false)
-      | PrintStack -> (setup_call_to_func num_args [e_reg; Reg(RSP); Reg(RBP); Const(Int64.of_int num_args)] (Label("?print_stack")) false)
+      | Print -> (setup_call_to_func env current_env [e_reg] (Label("?print")) false)
+      | PrintStack -> (setup_call_to_func env current_env [e_reg; Reg(RSP); Reg(RBP); Const(Int64.of_int num_args)] (Label("?print_stack")) false)
     end
   | CPrim2(op, l, r, tag) ->
     let e1_reg = (compile_imm l env current_env) in
@@ -1628,19 +1636,18 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
     end
   | CApp(ImmId("?print_heap", _), _, Native, _) -> 
     let arg_regs = [Const(0L); Const(0L); LabelContents("?HEAP"); Reg(R15)] in
-    (setup_call_to_func num_args arg_regs (Label("?print_heap")) false)
+    (setup_call_to_func env current_env arg_regs (Label("?print_heap")) false)
   | CApp(func, args, Native, _) -> 
     let arg_regs = (List.map (fun (a) -> (compile_imm a env current_env)) args) in 
-    (setup_call_to_func num_args arg_regs (Label(get_func_name_imm func)) false)
+    (setup_call_to_func env current_env arg_regs (Label(get_func_name_imm func)) false)
   | CApp(func, args, Snake, _) -> 
-    (setup_call_to_func num_args (List.map (fun e -> compile_imm e env current_env) args) (compile_imm func env current_env) true)
+    (setup_call_to_func env current_env (List.map (fun e -> compile_imm e env current_env) args) (compile_imm func env current_env) true)
   | CApp(func, args, _, _) -> (raise (InternalCompilerError (sprintf "unknown function type for %s" (get_func_name_imm func))))
   | CImmExpr(value) -> [IMov(Reg(RAX), compile_imm value env current_env)]
   | CTuple(vals, tag) ->
     let length = List.length vals in
     let size = (align_stack_by_words (length + 1)) in 
-    (reserve size tag num_args)  
-    (* todo: don't need to zero everything *)
+    (reserve size tag env current_env)  
     @ List.init size (fun (i) -> (IMov(Sized(QWORD_PTR, RegOffset(i * word_size, heap_reg)), stack_filler))) 
     @ (* snake length at [0] *)
     IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (length * 2))) :: 
@@ -1724,7 +1731,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
        IMov(Reg(scratch_reg_2), set);
        IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, scratch_reg, word_size, word_size)), Reg(scratch_reg_2));
        IMov(Reg(RAX), set)])
-  | CLambda(_) -> compile_lambda e env true current_env num_args
+  | CLambda(_) -> compile_lambda e env true current_env
 and compile_imm e env current_env =
   match e with
   | ImmNum(n, _) -> Const(Int64.shift_left n 1)
@@ -1732,9 +1739,9 @@ and compile_imm e env current_env =
   | ImmBool(false, _) -> const_false
   | ImmId(x, _) -> (find (find env current_env) x)
   | ImmNil(_) -> nil
-and setup_lambda name args frees tag num_regs_to_save =
+and setup_lambda name args frees tag env curr_env =
   let size = (align_stack_by_words ((List.length frees) + 3)) in 
-  (reserve size tag num_regs_to_save)
+  (reserve size tag env curr_env)
   (* todo: maybe don't zero out everything if we don't need to *)
   @ List.init size (fun (i) -> (IMov(Sized(QWORD_PTR, RegOffset(i * word_size, heap_reg)), stack_filler))) 
   @ [
@@ -1755,7 +1762,7 @@ and setup_lambda name args frees tag num_regs_to_save =
     ILineComment("Tag lambda");
     IAdd(Reg(RAX), Const(closure_tag));
   ]
-and compile_lambda lam env do_setup current_env num_regs_to_save =
+and compile_lambda lam env do_setup current_env =
   match lam with
   | CLambda(args, body, tag) -> 
     let name = sprintf "fun_%d" tag in
@@ -1764,7 +1771,7 @@ and compile_lambda lam env do_setup current_env num_regs_to_save =
     ILineComment(sprintf "Compile lambda (%d args)" (List.length args))
     :: (fun_prologue @ fun_body @ fun_epilogue)
     @ (if do_setup 
-       then setup_lambda name args frees tag num_regs_to_save
+       then setup_lambda name args frees tag env current_env
        else [])
     @ [
       (* remove tag *)
@@ -1821,7 +1828,7 @@ let add_native_lambdas (p : sourcespan program) =
     Program(new_decls, body, tag)
 
 let compile_error_handler ((err_name : string), (err_code : int64)) : instruction list =
-  ILabel(err_name) :: setup_call_to_func 0 [Const(err_code); Reg(RAX)] (Label("?error")) false
+  ILabel(err_name) :: setup_call_to_func [] "0" [Const(err_code); Reg(RAX)] (Label("?error")) false
 
 let compile_prog (anfed, (env : arg name_envt name_envt)) =
   let prelude =
@@ -1868,7 +1875,7 @@ global ?our_code_starts_here" in
       [
         IMov(Reg scratch_reg, Reg RDI);
       ]
-      @ (setup_call_to_func 0 [Reg(RBP)] (Label "?set_stack_bottom") false)
+      @ (setup_call_to_func [] "0" [Reg(RBP)] (Label "?set_stack_bottom") false)
       @ [
         IMov(Reg RDI, Reg scratch_reg)
       ] in

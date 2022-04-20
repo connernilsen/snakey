@@ -319,11 +319,65 @@ let test_graph_coloring = [
     [] [("1", Reg(R12));("2", Reg(R12));("3", Reg(R12)); ("4", Reg(R12));("5", Reg(R12))];
 ]
 
+let test_runs = [
+  t "mutually_recursive_normal"
+    "def abs_dec(num):
+      if num == 0:
+        0
+      else:
+        if num < 0:
+          num + 1
+        else:
+          num - 1
+    def t1(print_neg, num):
+      if print_neg:
+        t2(print(num * -1))
+      else:
+        t2(print(num))
+    and def t2(val):
+      let dec_num = abs_dec(val) in
+      if dec_num == 0:
+        val > 0 
+      else:
+        let neg = t1(true, dec_num),
+            pos = t1(false, dec_num) in 
+            neg || pos
+    t1(false, 4)"
+    ""
+    "4\n-3\n2\n-1\n1\n-2\n1\n-1\n3\n-2\n1\n-1\n2\n-1\n1\ntrue";
+  tr "mutually_recursive_normal"
+    "def abs_dec(num):
+      if num == 0:
+        0
+      else:
+        if num < 0:
+          num + 1
+        else:
+          num - 1
+    def t1(print_neg, num):
+      if print_neg:
+        t2(print(num * -1))
+      else:
+        t2(print(num))
+    and def t2(val):
+      let dec_num = abs_dec(val) in
+      if dec_num == 0:
+        val > 0 
+      else:
+        let neg = t1(true, dec_num),
+            pos = t1(false, dec_num) in 
+            neg || pos
+    t1(false, 4)"
+    ""
+    "4\n-3\n2\n-1\n1\n-2\n1\n-1\n3\n-2\n1\n-1\n2\n-1\n1\ntrue";
+]
+
 let suite =
   "unit_tests">:::
   test_free_vars_cache
   @ tint_tests
   @ test_graph_coloring
+  @ test_runs
 
 let () =
   run_test_tt_main ("all_tests">:::[

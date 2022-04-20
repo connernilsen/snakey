@@ -209,6 +209,15 @@ let parse_args (argsfile: string) (opts: compile_opts) : string list =
 
 let test_run ?no_builtins:(no_builtins=false) ?args:(args=[]) ?std_input:(std_input="") alloc_strat program_str outfile expected ?cmp:(cmp=(=)) test_ctxt =
   let full_outfile = "output/" ^ outfile in
+  let result =
+    try
+      let program = parse_string outfile program_str in
+      run program full_outfile run_no_vg no_builtins args std_input alloc_strat
+    with err -> Error(Printexc.to_string err) in
+  assert_equal (Ok(expected ^ "\n")) result ~cmp:cmp ~printer:result_printer
+
+let test_run_strats ?no_builtins:(no_builtins=false) ?args:(args=[]) ?std_input:(std_input="") program_str outfile expected ?cmp:(cmp=(=)) test_ctxt =
+  let full_outfile = "output/" ^ outfile in
   let result1 =
     try
       let program = parse_string outfile program_str in

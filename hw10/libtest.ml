@@ -9,13 +9,22 @@ open Phases
 open Exprs
 open ExtLib
 
+let rec take ls i =
+  match ls with
+  | [] -> []
+  | first :: rest ->
+    if i > 0
+    then first :: take rest (i - 1)
+    else []
+;;
+
 let check_name (name : string) : string =
   if String.contains name ' '
   then failwith (sprintf "Test name cannot contain ' ': %s" name)
   else name
 ;;
 
-let t name program expected = name>::test_run Naive program name expected;;
+let t name program expected = name>::test_run_strats program name expected;;
 
 let tcontains name program expected = name>::test_run ~args:[] Naive program name expected ~cmp:(fun check result ->
     match check, result with
@@ -379,11 +388,11 @@ let old_tests =
     "setup_call_to_func_1">::(fun _ -> 
         assert_equal [ICall(Label("label"))] 
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
-               (setup_call_to_func 0 [] (Label("label")) false)) ~printer:to_asm);
+               (setup_call_to_func [] "" [] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_2">::(fun _ ->
         assert_equal [IMov(Reg(RDI), Const(1L)); ICall(Label("label"))]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
-               (setup_call_to_func 0 [Const(1L)] (Label("label")) false)) ~printer:to_asm);
+               (setup_call_to_func [] "" [Const(1L)] (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_3">::(fun _ -> 
         assert_equal [
           IMov(Reg(RDI), Const(1L));
@@ -394,7 +403,7 @@ let old_tests =
           IMov(Reg(R9), Const(6L));
           ICall(Label("label"))]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
-               (setup_call_to_func 0
+               (setup_call_to_func [] ""
                   [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L)] 
                   (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_4">::(fun _ -> 
@@ -410,7 +419,7 @@ let old_tests =
           ICall(Label("label"));
           IAdd(Reg(RSP), Const(16L))]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
-               (setup_call_to_func 0
+               (setup_call_to_func [] ""
                   [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
                   (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_5">::(fun _ -> 
@@ -426,7 +435,7 @@ let old_tests =
           ICall(Label("label"));
           IAdd(Reg(RSP), Const(16L))]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
-               (setup_call_to_func 0
+               (setup_call_to_func [] ""
                   [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L)] 
                   (Label("label")) false)) ~printer:to_asm);
     "setup_call_to_func_6">::(fun _ -> 
@@ -444,7 +453,7 @@ let old_tests =
           ICall(Label("label"));
           IAdd(Reg(RSP), Const(32L))]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
-               (setup_call_to_func 0
+               (setup_call_to_func [] ""
                   [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L); Const(9L)] 
                   (Label("label")) false)) ~printer:to_asm);
     tanf_improved "let_in_prim"
@@ -779,7 +788,7 @@ test(1, 2)"
           (get_func_call_params 
              ["1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9"] [] 0)
           ~printer:arg_envt_printer);
-    "setup_call_to_func_save_regs_one_1">::(fun _ ->
+    (* "setup_call_to_func_save_regs_one_1">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
           IPush(Const(62L));
@@ -789,8 +798,8 @@ test(1, 2)"
           IPop(Reg(RDI));
         ]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
-               (setup_call_to_func 1 [Const(1L)] (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_one_2">::(fun _ ->
+               (setup_call_to_func (take first_six_args_registers 1) [Const(1L)] (Label("label")) false)) ~printer:to_asm);
+       "setup_call_to_func_save_regs_one_2">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
           IPush(Const(62L));
@@ -801,7 +810,7 @@ test(1, 2)"
         ]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
                (setup_call_to_func 1 [Reg(RDI)] (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_one_3">::(fun _ ->
+       "setup_call_to_func_save_regs_one_3">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
           IPush(Const(62L));
@@ -813,7 +822,7 @@ test(1, 2)"
         ]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
                (setup_call_to_func 1 [Const(0L); Const(1L)] (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_one_4">::(fun _ ->
+       "setup_call_to_func_save_regs_one_4">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
           IPush(Const(62L));
@@ -825,7 +834,7 @@ test(1, 2)"
         ]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
                (setup_call_to_func 1 [Const(0L); Reg(RDI)] (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_two_1">::(fun _ ->
+       "setup_call_to_func_save_regs_two_1">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
           IPush(Reg(RSI));
@@ -836,7 +845,7 @@ test(1, 2)"
         ]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
                (setup_call_to_func 2 [Const(1L)] (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_two_2">::(fun _ ->
+       "setup_call_to_func_save_regs_two_2">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
           IPush(Reg(RSI));
@@ -847,7 +856,7 @@ test(1, 2)"
         ]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
                (setup_call_to_func 2 [Reg(RDI)] (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_two_3">::(fun _ ->
+       "setup_call_to_func_save_regs_two_3">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
           IPush(Reg(RSI));
@@ -859,7 +868,7 @@ test(1, 2)"
         ]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
                (setup_call_to_func 2 [Const(0L); Const(1L)] (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_two_4">::(fun _ ->
+       "setup_call_to_func_save_regs_two_4">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
           IPush(Reg(RSI));
@@ -871,7 +880,7 @@ test(1, 2)"
         ]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
                (setup_call_to_func 2 [Reg(RSI); Reg(RDI)] (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_three_1">::(fun _ ->
+       "setup_call_to_func_save_regs_three_1">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
           IPush(Reg(RSI));
@@ -886,7 +895,7 @@ test(1, 2)"
         ]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
                (setup_call_to_func 3 [Const(1L)] (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_three_2">::(fun _ ->
+       "setup_call_to_func_save_regs_three_2">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
           IPush(Reg(RSI));
@@ -901,7 +910,7 @@ test(1, 2)"
         ]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
                (setup_call_to_func 3 [Reg(RDI)] (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_three_3">::(fun _ ->
+       "setup_call_to_func_save_regs_three_3">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
           IPush(Reg(RSI));
@@ -917,7 +926,7 @@ test(1, 2)"
         ]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
                (setup_call_to_func 3 [Const(0L); Const(1L)] (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_three_4">::(fun _ ->
+       "setup_call_to_func_save_regs_three_4">::(fun _ ->
         assert_equal [
           IPush(Reg(RDI));
           IPush(Reg(RSI));
@@ -933,7 +942,7 @@ test(1, 2)"
         ]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
                (setup_call_to_func 3 [Reg(RSI); Reg(RDI)] (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_five_equal">::(fun _ -> 
+       "setup_call_to_func_save_regs_five_equal">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
           IPush(Reg(RSI));
@@ -958,7 +967,7 @@ test(1, 2)"
                (setup_call_to_func 5
                   [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L)] 
                   (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_five_odd">::(fun _ -> 
+       "setup_call_to_func_save_regs_five_odd">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
           IPush(Reg(RSI));
@@ -984,7 +993,7 @@ test(1, 2)"
                (setup_call_to_func 5
                   [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
                   (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_six_equal">::(fun _ -> 
+       "setup_call_to_func_save_regs_six_equal">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
           IPush(Reg(RSI));
@@ -1010,7 +1019,7 @@ test(1, 2)"
                (setup_call_to_func 6
                   [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L)] 
                   (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_six_odd">::(fun _ -> 
+       "setup_call_to_func_save_regs_six_odd">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
           IPush(Reg(RSI));
@@ -1039,7 +1048,7 @@ test(1, 2)"
                (setup_call_to_func 6
                   [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
                   (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_six_even">::(fun _ -> 
+       "setup_call_to_func_save_regs_six_even">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
           IPush(Reg(RSI));
@@ -1068,7 +1077,7 @@ test(1, 2)"
                (setup_call_to_func 6
                   [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L)] 
                   (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_save_regs_six_even">::(fun _ -> 
+       "setup_call_to_func_save_regs_six_even">::(fun _ -> 
         assert_equal [
           IPush(Reg(RDI));
           IPush(Reg(RSI));
@@ -1093,7 +1102,7 @@ test(1, 2)"
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
                (setup_call_to_func 6
                   [Reg(RSI); Reg(RDX); Reg(RCX); Reg(R8); Reg(R9); Reg(RDI)]
-                  (Label("label")) false)) ~printer:to_asm);
+                  (Label("label")) false)) ~printer:to_asm); *)
     tdesugar "desugar_and"
       "true && false"
       "\n(if true: (if false: true else: false) else: false)";
