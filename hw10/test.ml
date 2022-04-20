@@ -65,7 +65,7 @@ let tint name program expected = name>::
                                     let fv = free_vars_cache tagged in 
                                     let inf = match fv with 
                                       | AProgram(body, _) -> 
-                                        (string_of_graph (interfere body)) ^ "\n" in 
+                                        (string_of_graph (interfere body StringSet.empty)) ^ "\n" in 
                                     assert_equal ((string_of_graph expected) ^ "\n") inf 
                                       ~printer:(fun s -> sprintf "%s\nANF: %s" s (string_of_aprogram anfed)))
 

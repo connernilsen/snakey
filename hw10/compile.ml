@@ -1061,7 +1061,7 @@ let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg name_envt n
 
 (* IMPLEMENT THE BELOW *)
 
-let rec interfere (e : (StringSet.t * 'a) aexpr) : grapht =
+let rec interfere (e : (StringSet.t * 'a) aexpr) (start_live : StringSet.t) : grapht =
   let rec help_aexpr (e : (StringSet.t * 'a) aexpr) (live : StringSet.t) : grapht * StringSet.t =
     match e with 
     | ASeq(e1, e2, (frees, _)) -> 
@@ -1118,7 +1118,7 @@ let rec interfere (e : (StringSet.t * 'a) aexpr) : grapht =
                   else add_edge acc e1 e2)
                acc 
                (StringSet.elements binds_used))
-          (StringSet.inter body_used live)
+          (StringSet.inter body_used updated_lives)
           binds_graph
       in 
       let graph = graph_union body_graph updated_bind in
@@ -1165,7 +1165,7 @@ let rec interfere (e : (StringSet.t * 'a) aexpr) : grapht =
     | ImmBool(_) -> None
     | ImmId(name, _) -> Some(name)
   in 
-  let graph, _ = help_aexpr e StringSet.empty in graph
+  let graph, _ = help_aexpr e start_live in graph
 ;;
 
 let find_smallest_degree (g: grapht): string option = 
@@ -1210,17 +1210,19 @@ let register_allocation (prog: tag aprogram) : tag aprogram * arg name_envt name
     | CIf(_, l, r, _) -> 
       (get_aexpr_envt l) @ (get_aexpr_envt r)
     | CLambda(binds, body, (frees, tag)) ->
-      let if_graph = interfere body in
+      let if_graph = interfere body frees in
+      let graph_str = string_of_graph if_graph in
+      let body_alloc = get_aexpr_envt body in
       let input_args = List.map (fun (_, name, loc) -> (name, loc)) (get_func_call_params binds [] tag) in
       (* todo: make sure input_args are not reassigned registers in color_graph *)
-      List.map (fun (name, loc) -> (tag, name, loc)) (color_graph if_graph input_args)
+      (List.map (fun (name, loc) -> (tag, name, loc)) (color_graph if_graph input_args))
+      @ body_alloc
     | _ -> []
   in 
   let fvs = free_vars_cache prog in 
   match fvs with
   | AProgram(body, (_, tag)) ->
-    let global_if = interfere body in
-    let graph_str = string_of_graph global_if in
+    let global_if = interfere body StringSet.empty in
     let global_envt = List.map 
         (fun (name, loc) -> (tag, name, loc)) 
         (color_graph global_if []) in
