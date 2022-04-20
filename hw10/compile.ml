@@ -875,11 +875,15 @@ let free_vars (e: 'a aexpr) (args : string list) : string list =
 ;;
 
 let free_vars_cache (prog: 'a aprogram): (StringSet.t * tag) aprogram =
+  let native_env = stringset_of_list (List.map (fun (name, _) -> sprintf "?%s" name) native_fun_bindings) in
   let rec help_imm (e : 'a immexpr) : (StringSet.t * tag) immexpr * StringSet.t = 
     match e with
     | ImmId(name, tag) -> 
-      let frees = StringSet.singleton name in
-      ImmId(name, (frees, tag)), frees
+      if StringSet.mem name native_env
+      then ImmId(name, (StringSet.empty, tag)), StringSet.empty
+      else
+        let frees = StringSet.singleton name in
+        ImmId(name, (frees, tag)), frees
     | ImmNum(e, tag) -> ImmNum(e, (StringSet.empty, tag)), StringSet.empty
     | ImmBool(e, tag) -> ImmBool(e, (StringSet.empty, tag)), StringSet.empty
     | ImmNil(tag) -> ImmNil(StringSet.empty, tag), StringSet.empty
@@ -976,9 +980,8 @@ let free_vars_cache (prog: 'a aprogram): (StringSet.t * tag) aprogram =
       ACExpr(e), frees
   in match prog with 
   | AProgram(body, tag) ->
-    let env = stringset_of_list (List.map (fun (name, _) -> sprintf "?%s" name) native_fun_bindings) in
     let new_body, frees = help_aexpr body in
-    AProgram(new_body, (StringSet.diff frees env, tag))
+    AProgram(new_body, (StringSet.diff frees native_env, tag))
 ;;
 
 (* IMPLEMENT THIS FROM YOUR PREVIOUS ASSIGNMENT *)
