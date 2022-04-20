@@ -1083,6 +1083,7 @@ let rec interfere (e : (StringSet.t * 'a) aexpr) (start_live : StringSet.t) : gr
     | ALet(name, bind, body, (frees, _)) ->
       let bind_graph, bind_used = help_cexpr bind live in 
       let body_graph, body_used = help_aexpr body (StringSet.add name live) in 
+      let used_lives = StringSet.inter body_used live in
       let updated_bind = StringSet.fold
           (fun (e2 : string) (acc : grapht) -> 
              List.fold_left
@@ -1092,15 +1093,16 @@ let rec interfere (e : (StringSet.t * 'a) aexpr) (start_live : StringSet.t) : gr
                   else add_edge acc e1 e2)
                acc 
                (StringSet.elements bind_used))
-          (StringSet.inter body_used live)
+          used_lives
           bind_graph
       in 
+      let updated_bind = connect_with_rest updated_bind used_lives name in
       let graph = graph_union body_graph updated_bind in
-      (add_node graph name, StringSet.union bind_used body_used)
+      (add_node graph name, StringSet.(union bind_used body_used))
     | ACExpr(body) -> help_cexpr body live
     | ALetRec(binds, body, (frees, _)) -> 
-      let bind_names = List.map (fun (name, _) -> name) binds in
-      let updated_lives = StringSet.union live (stringset_of_list bind_names) in
+      let bind_names = stringset_of_list (List.map (fun (name, _) -> name) binds) in
+      let updated_lives = StringSet.union live bind_names in
       let binds_graph, binds_used = 
         List.fold_left (fun (acc_graph, acc_used) (name, bind) -> 
             let bind_graph, bind_used = help_cexpr bind updated_lives in 
@@ -1122,7 +1124,7 @@ let rec interfere (e : (StringSet.t * 'a) aexpr) (start_live : StringSet.t) : gr
           binds_graph
       in 
       let graph = graph_union body_graph updated_bind in
-      (connect_all graph (stringset_of_list bind_names), StringSet.union binds_used body_used)
+      (connect_all graph bind_names, StringSet.(union binds_used body_used |> union bind_names))
   and help_cexpr (e : (StringSet.t * 'a) cexpr) (live : StringSet.t) : grapht * StringSet.t =
     match e with 
     | CIf(cnd, thn, els, (frees, _)) -> 
@@ -1211,7 +1213,6 @@ let register_allocation (prog: tag aprogram) : tag aprogram * arg name_envt name
       (get_aexpr_envt l) @ (get_aexpr_envt r)
     | CLambda(binds, body, (frees, tag)) ->
       let if_graph = interfere body frees in
-      let graph_str = string_of_graph if_graph in
       let body_alloc = get_aexpr_envt body in
       let input_args = List.map (fun (_, name, loc) -> (name, loc)) (get_func_call_params binds [] tag) in
       (* todo: make sure input_args are not reassigned registers in color_graph *)

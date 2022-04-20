@@ -157,7 +157,8 @@ let tint_tests = [
   tint "tint_basic_2"
     "let a = 5, b = 6 in a"
     Graph.(empty 
-           |> add "a_4" NeighborSet.empty);
+           |> add "a_4" NeighborSet.(singleton "b_7")
+           |> add "b_7" NeighborSet.(singleton "a_4"));
   tint "tint_basic_3"
     "let x = 5,
          y = 6,
@@ -174,9 +175,10 @@ let tint_tests = [
          d = (let e = 7 in e + b)
          in a"
     Graph.(empty
-           |> add "a_4" NeighborSet.(singleton "c_10" |> add "b_7" |> add "e_19")
+           |> add "a_4" NeighborSet.(singleton "c_10" |> add "b_7" |> add "e_19" |> add "d_16")
            |> add "b_7" NeighborSet.(singleton "a_4" |> add "e_19")
            |> add "c_10" NeighborSet.(singleton "a_4")
+           |> add "d_16" NeighborSet.(singleton "a_4")
            |> add "e_19" NeighborSet.(singleton "b_7" |> add "a_4"));
   tint "tint_nested_binop"
     "(let x = 5,

@@ -29,17 +29,22 @@ let add_edge (g : grapht) (n1 : string) (n2 : string) : grapht =
   add_directed_edge g' n2 n1
 ;;
 
+let connect_with_rest (g : grapht) (nodes : StringSet.t) (node : string) : grapht =
+  StringSet.fold
+    (fun (subitem : string) (acc : grapht) -> 
+       if subitem = node 
+       then acc 
+       else add_edge acc node subitem)
+    nodes
+    g
+;;
+
 let connect_all (g : grapht) (nodes : StringSet.t) : grapht =
   StringSet.fold
     (fun (item : string) (acc : grapht) -> 
        let acc = add_node acc item in
-       StringSet.fold
-         (fun (subitem : string) (acc : grapht) -> 
-            if subitem = item 
-            then acc 
-            else add_edge acc item subitem)
-         nodes
-         acc) nodes g
+       connect_with_rest acc nodes item
+    ) nodes g
 ;;
 
 let graph_union (g1 : grapht) (g2 : grapht) : grapht =
@@ -60,6 +65,11 @@ let get_neighbors (g : grapht) (name : string) : string list =
 
 let get_vertices (g : grapht) : string list =
   let keys, _ = List.split (Graph.bindings g) in keys
+;;
+
+let string_of_stringset (s : StringSet.t) : string =
+  let elems = StringSet.elements s in 
+  ExtString.String.join ", " elems
 ;;
 
 let string_of_graph (g: grapht): string =
