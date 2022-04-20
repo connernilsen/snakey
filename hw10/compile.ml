@@ -1260,6 +1260,19 @@ let generate_cmp_func_with
     @ body
   else body
 
+(* Backs up all registers used by the function we're in *)
+let rec backup_saved_registers (registers : arg list) : (instruction list) =
+  match registers with
+  | [] -> []
+  | first :: rest ->
+    IPush(first) :: backup_saved_registers rest
+(* Restores all registers used by the function we're in. Reverse of backup_caller_saved_registers *)
+let rec restore_saved_registers (registers : arg list) : (instruction list) =
+  match registers with 
+  | [] -> []
+  | first :: rest -> 
+    IPop(first) :: restore_saved_registers rest
+
 (* generates the instructions for comparing the args e1_reg and e2_reg and 
   * constructs an auto-generated jump label using the jmp_instr_constructor.
   * jump_instr_constructor should take in a label name and create the appropriate jump instruction
@@ -1311,20 +1324,6 @@ let setup_call_to_func (env : arg name_envt name_envt) (curr_env : string) (args
     then Int64.of_int ((stack_args + 1) * word_size)
     (* otherwise, just pop off pushed args *)
     else Int64.of_int (stack_args * word_size)
-  in
-  (* Backs up all registers used by the function we're in *)
-  let rec backup_caller_saved_registers (registers : arg list) : (instruction list) =
-    match registers with
-    | [] -> []
-    | first :: rest ->
-      IPush(first) :: backup_caller_saved_registers rest
-  in
-  (* Restores all registers used by the function we're in. Reverse of backup_caller_saved_registers *)
-  let rec restore_caller_saved_registers (registers : arg list) : (instruction list) =
-    match registers with 
-    | [] -> []
-    | first :: rest -> 
-      IPop(first) :: restore_caller_saved_registers rest
   in
   (* sets up args by putting them in the first 6 registers needed for a call
    * and placing any remaining values on the stack 
@@ -1381,7 +1380,7 @@ let setup_call_to_func (env : arg name_envt name_envt) (curr_env : string) (args
   in
   func_call_comment
   (* push args passed into this function so they don't get overwritten *)
-  :: (backup_caller_saved_registers regs_to_save)
+  :: (backup_saved_registers regs_to_save)
   (* align the stack if necessary *)
   @ (if should_stack_align 
      then [ILineComment("Stack align"); IPush(stack_filler)] 
@@ -1395,7 +1394,7 @@ let setup_call_to_func (env : arg name_envt name_envt) (curr_env : string) (args
   (* pop off values added to the stack up to pushed register values *)
   @ (if Int64.equal cleanup_stack 0L then [] else [IAdd(Reg(RSP), Const(cleanup_stack))])
   (* restore register values for the rest of this function to use *)
-  @ (restore_caller_saved_registers (List.rev regs_to_save))
+  @ (restore_saved_registers (List.rev regs_to_save))
 ;;
 
 let count_vars e =
@@ -1464,6 +1463,19 @@ and compile_fun (fun_name : string) args body (env: arg name_envt name_envt) cur
     @ (List.mapi (fun (i: int) (f: string) -> IPush(Sized(QWORD_PTR, RegOffset((i + 3) * word_size, RAX)))) frees)
     @ [ILineComment(sprintf "Push %i filler variables" stack_alloc_space)]
     @ List.init stack_alloc_space (fun (i) -> (IPush(stack_filler))) in 
+  let rec get_env_callee_save_regs env = 
+    match env with 
+    | [] -> []
+    | (_, reg) :: rest -> 
+      if List.mem reg callee_saved_regs
+      then reg :: (get_env_callee_save_regs rest)
+      else get_env_callee_save_regs rest
+  in
+  let save_regs = 
+    match find_opt env current_env with
+    | None -> []
+    | Some(env) -> get_env_callee_save_regs env
+  in
   let fun_body = (compile_aexpr body env (List.length args) false current_env) in 
   let fun_epilogue = [
     IMov(Reg(RSP), Reg(RBP));
