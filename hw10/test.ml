@@ -318,18 +318,18 @@ let tint_tests = [
 
 let test_graph_coloring = [
   tgcolor "color_empty" empty [] [];
-  tgcolor "color_single" (add_node empty "1") [] [("1", Reg(R13))];
+  tgcolor "color_single" (add_node empty "1") [] [("1", Reg(R12))];
   tgcolor "color_two_larger_first" 
     (add_edge(add_edge (add_node (add_node (add_node empty "1") "2") "3")"1" "2") "1" "3")
-    [] [("2", Reg(R14));("3", Reg(R14));("1", Reg(R13));];
+    [] [("2", Reg(R13));("3", Reg(R13));("1", Reg(R12));];
   tgcolor "color_five_all_interference" 
     (add_edge (add_edge (add_edge (add_edge (add_edge(add_edge (add_edge (add_edge (add_edge (add_edge(add_edge (add_edge (add_edge (add_edge (add_edge(add_edge
                                                                                                                                                           (add_node (add_node (add_node (add_node (add_node empty "1") "2") "3") "4") "5") 
                                                                                                                                                           "1" "2") "1" "3") "1" "4") "1" "5")"2" "1") "2" "3") "2" "4") "2" "5")"3" "2") "3" "1") "3" "4") "3" "5")"4" "2") "4" "3") "4" "1") "4" "5")
-    [] [("1", RegOffset(-16, RBP));("2", RegOffset(-8, RBP));("3", Reg(RBX)); ("4", Reg(R14));("5", Reg(R13))];
+    [] [("1", RegOffset(-8, RBP));("2", Reg(RBX));("3", Reg(R14)); ("4", Reg(R13));("5", Reg(R12))];
   tgcolor "color_five_no_interferes" 
     (add_node (add_node (add_node (add_node (add_node empty "1") "2") "3") "4") "5") 
-    [] [("1", Reg(R13));("2", Reg(R13));("3", Reg(R13)); ("4", Reg(R13));("5", Reg(R13))];
+    [] [("1", Reg(R12));("2", Reg(R12));("3", Reg(R12)); ("4", Reg(R12));("5", Reg(R12))];
 ]
 
 let suite =

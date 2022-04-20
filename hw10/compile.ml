@@ -72,7 +72,7 @@ let dummy_span = (Lexing.dummy_pos, Lexing.dummy_pos);;
 
 let first_six_args_registers = [RDI; RSI; RDX; RCX; R8; R9]
 (* TODO: add more of these once we clear out R10-R12 *)
-let register_allocation_registers = [R13;R14;RBX]
+let register_allocation_registers = [R12;R13;R14;RBX]
 let caller_saved_regs : arg list =
   [ Reg RDI
   ; Reg RSI
@@ -91,7 +91,8 @@ let callee_saved_regs : arg list =
   ]
 ;;
 let heap_reg = R15
-let scratch_reg = R11
+let scratch_reg = R10
+let scratch_reg_2 = R11
 let stack_filler = Const(62L)
 let nil = HexConst(tuple_tag)
 
@@ -1197,7 +1198,7 @@ let register_allocation (prog: tag aprogram) : tag aprogram * arg name_envt name
 ;;
 (* Jumps to to_label if not a num *)
 let num_tag_check (to_label : string) : instruction list =
-  [IMov(Reg(R10), HexConst(num_tag_mask)); ITest(Reg(RAX), Reg(R10)); IJnz(Label(to_label))]
+  [IMov(Reg(scratch_reg), HexConst(num_tag_mask)); ITest(Reg(RAX), Reg(scratch_reg)); IJnz(Label(to_label))]
 
 (* Jumps to to_label if not type and puts final_rax_value in RAX on exiting.
  * final_rax_value does not have to be the original RAX value, but
@@ -1206,10 +1207,10 @@ let num_tag_check (to_label : string) : instruction list =
  * Note: the value to test should be in RAX before calling
 *)
 let tag_check (final_rax_value : arg) (to_label : string) (tag_mask : int64) (tag : int64) : instruction list = [
-  IMov(Reg(R10), HexConst(tag_mask)); 
-  IAnd(Reg(RAX), Reg(R10)); 
-  IMov(Reg(R10), HexConst(tag));
-  ICmp(Reg(RAX), Reg(R10));
+  IMov(Reg(scratch_reg), HexConst(tag_mask)); 
+  IAnd(Reg(RAX), Reg(scratch_reg)); 
+  IMov(Reg(scratch_reg), HexConst(tag));
+  ICmp(Reg(RAX), Reg(scratch_reg));
   IMov(Reg(RAX), final_rax_value); 
   IJnz(Label(to_label));
 ]
@@ -1229,7 +1230,7 @@ let generate_cmp_func_with
     (tag_checks : bool)
   : (instruction list) =
   let label_done = (sprintf "%s%n%s_cmp" label_DONE tag tag_suffix) in
-  let body = ([IMov(Reg(R10), e2_reg); ICmp(Reg(RAX), Reg(R10));]
+  let body = ([IMov(Reg(scratch_reg), e2_reg); ICmp(Reg(RAX), Reg(scratch_reg));]
               @ if_true
               @ [(jmp_instr_constructor label_done);]
               @ if_false @ 
@@ -1347,9 +1348,9 @@ let setup_call_to_func (num_regs_to_save : int) (args : arg list) (func : arg) (
         (* remove tag *)
         ISub(Reg(RAX), Const(5L));
         (* check arity *)
-        IMov(Reg(R10), RegOffset(0, RAX));
-        ISar(Reg(R10), Const(1L));
-        ICmp(Reg(R10), Const(Int64.of_int (List.length args)));
+        IMov(Reg(scratch_reg), RegOffset(0, RAX));
+        ISar(Reg(scratch_reg), Const(1L));
+        ICmp(Reg(scratch_reg), Const(Int64.of_int (List.length args)));
         IJne(Label(label_ARITY))
       ]
     else [ILineComment("Skip call type check for native func")] 
@@ -1486,7 +1487,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
     IMov(Reg(RAX), cond_value) ::
     (tag_check cond_value label_NOT_BOOL bool_tag_mask bool_tag)
     @ [
-      IMov(Reg(R10), bool_mask); ITest(Reg(RAX), Reg(R10));
+      IMov(Reg(scratch_reg), bool_mask); ITest(Reg(RAX), Reg(scratch_reg));
       IJz(Label(if_f));
       ILabel(if_t);
     ] @ thn @ [
@@ -1547,8 +1548,8 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
         IMov(Reg(RAX), e_reg) ::
         (tag_check e_reg label_NOT_BOOL bool_tag_mask bool_tag)
         @ [ 
-          IMov(Reg(R10), bool_mask);
-          IXor(Reg(RAX), Reg(R10));
+          IMov(Reg(scratch_reg), bool_mask);
+          IXor(Reg(RAX), Reg(scratch_reg));
         ]
       | Print -> (setup_call_to_func num_args [e_reg] (Label("?print")) false)
       | PrintStack -> (setup_call_to_func num_args [e_reg; Reg(RSP); Reg(RBP); Const(Int64.of_int num_args)] (Label("?print_stack")) false)
@@ -1557,7 +1558,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
     let e1_reg = (compile_imm l env current_env) in
     let e2_reg = (compile_imm r env current_env) in
     (* generates the instructions for performing a Prim2 arith operation on args e1_reg and e2_reg.
-     * the body should perform operations using RAX and R10, where e1_reg and e2_reg 
+     * the body should perform operations using RAX and scratch_reg, where e1_reg and e2_reg 
      * will be moved to respectively.
      * after the arith operation completes, the result is checked for overflow.
     *)
@@ -1567,7 +1568,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
         (body : instruction list) : instruction list =
       IMov(Reg(RAX), e2_reg) :: 
       (num_tag_check label_ARITH_NOT_NUM) @ [IMov(Reg(RAX), e1_reg)]
-      @ (num_tag_check label_ARITH_NOT_NUM) @ [IMov(Reg(R10), e2_reg)]
+      @ (num_tag_check label_ARITH_NOT_NUM) @ [IMov(Reg(scratch_reg), e2_reg)]
       @ body
       @ [IJo(Label(label_OVERFLOW))]
     in
@@ -1575,12 +1576,12 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
       | And -> raise (InternalCompilerError "And should be desugared")
       | Or -> raise (InternalCompilerError "Or should be desugared")
       | Plus -> 
-        (generate_arith_func e1_reg e2_reg [IAdd(Reg(RAX), Reg(R10))])
+        (generate_arith_func e1_reg e2_reg [IAdd(Reg(RAX), Reg(scratch_reg))])
       | Minus -> 
-        (generate_arith_func e1_reg e2_reg [ISub(Reg(RAX), Reg(R10))])
+        (generate_arith_func e1_reg e2_reg [ISub(Reg(RAX), Reg(scratch_reg))])
       | Times -> 
         (generate_arith_func e1_reg e2_reg 
-           [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), Reg(R10))])
+           [ISar(Reg(RAX), Const(1L)); IMul(Reg(RAX), Reg(scratch_reg))])
       | Greater -> 
         (generate_cmp_func e1_reg e2_reg (fun l -> IJg(Label(l))) tag)
       | GreaterEq -> 
@@ -1591,8 +1592,8 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
         (generate_cmp_func e1_reg e2_reg (fun l -> IJle(Label(l))) tag)
       | Eq ->
         let label_done = (sprintf "%s%n_eq" label_DONE tag) in
-        [IMov(Reg(RAX), e1_reg); IMov(Reg(R10), e2_reg); 
-         ICmp(Reg(RAX), Reg(R10)); IMov(Reg(RAX), const_true);
+        [IMov(Reg(RAX), e1_reg); IMov(Reg(scratch_reg), e2_reg); 
+         ICmp(Reg(RAX), Reg(scratch_reg)); IMov(Reg(RAX), const_true);
          IJe(Label(label_done)); IMov(Reg(RAX), const_false);
          ILabel(label_done)]
       | CheckSize ->
@@ -1601,12 +1602,12 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
         IMov(Reg(RAX), e1_reg) :: (tag_check e1_reg label_DESTRUCTURE_INVALID_LEN tuple_tag_mask tuple_tag)
         @ [
           (* ensure tuple isnt nil *)
-          IMov(Reg(R11), nil);
-          ICmp(Reg(R11), Reg(RAX));
+          IMov(Reg(scratch_reg), nil);
+          ICmp(Reg(scratch_reg), Reg(RAX));
           IJe(Label(label_NIL_DEREF));
 
-          IMov(Reg(R11), Sized(QWORD_PTR, e1_reg)); ISub(Reg(R11), Const(1L)); IMov(Reg(R11), RegOffset(0, R11));
-          ICmp(Reg(R11), Sized(QWORD_PTR, e2_reg)); IJne(Label(label_DESTRUCTURE_INVALID_LEN));
+          IMov(Reg(scratch_reg), Sized(QWORD_PTR, e1_reg)); ISub(Reg(scratch_reg), Const(1L)); IMov(Reg(scratch_reg), RegOffset(0, scratch_reg));
+          ICmp(Reg(scratch_reg), Sized(QWORD_PTR, e2_reg)); IJne(Label(label_DESTRUCTURE_INVALID_LEN));
           IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
     end
   | CApp(ImmId("?print_heap", _), _, Native, _) -> 
@@ -1630,8 +1631,8 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
     (* items at [1:length + 1] *)
     List.flatten (List.mapi (fun idx v -> 
         [
-          IMov(Reg(R11), compile_imm v env current_env);
-          IMov(Sized(QWORD_PTR, RegOffset((idx + 1) * word_size, heap_reg)), Reg(R11));
+          IMov(Reg(scratch_reg), compile_imm v env current_env);
+          IMov(Sized(QWORD_PTR, RegOffset((idx + 1) * word_size, heap_reg)), Reg(scratch_reg));
         ]) vals)
     (* filler at [length + 1:16 byte alignment]?*)
     @ [
@@ -1651,28 +1652,28 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
     (IMov(Reg(RAX), tuple) :: (tag_check tuple label_NOT_TUPLE tuple_tag_mask tuple_tag)
      (* Check index is num *)
      @ [ (* ensure tuple isn't nil *)
-       IMov(Reg(R11), nil);
-       ICmp(Reg(RAX), Reg(R11));
+       IMov(Reg(scratch_reg), nil);
+       ICmp(Reg(RAX), Reg(scratch_reg));
        IJe(Label(label_NIL_DEREF));
        IMov(Reg(RAX), idx) 
      ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM)
      @ [ (* convert to machine num *)
        IMov(Reg(RAX), tuple);
-       IMov(Reg(R11), idx);
-       ISar(Reg(R11), Const(1L));
+       IMov(Reg(scratch_reg), idx);
+       ISar(Reg(scratch_reg), Const(1L));
        (* check bounds *)
        ISub(Reg(RAX), Const(tuple_tag));
        IMov(Reg(RAX), RegOffset(0, RAX));
        IShr(Reg(RAX), Const(1L));
-       ICmp(Reg(R11), Reg(RAX));
+       ICmp(Reg(scratch_reg), Reg(RAX));
        IMov(Reg(RAX), idx);
        IJge(Label(label_GET_HIGH_INDEX));
-       ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
+       ICmp(Reg(scratch_reg), Sized(QWORD_PTR, Const(0L)));
        IJl(Label(label_GET_LOW_INDEX));
        IMov(Reg(RAX), tuple);
        ISub(Reg(RAX), Const(tuple_tag));
        (* get value *)
-       IMov(Reg(RAX), RegOffsetReg(RAX, R11, word_size, word_size))])
+       IMov(Reg(RAX), RegOffsetReg(RAX, scratch_reg, word_size, word_size))])
   | CSetItem(tuple, idx, set, _) -> 
     let tuple = compile_imm tuple env current_env in
     let idx = compile_imm idx env current_env in
@@ -1682,30 +1683,30 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
      (* Check index is num *)
      @ [ 
        ILineComment("ensure tuple isn't nil");
-       IMov(Reg(R11), nil);
-       ICmp(Reg(RAX), Reg(R11));
+       IMov(Reg(scratch_reg), nil);
+       ICmp(Reg(RAX), Reg(scratch_reg));
        IJe(Label(label_NIL_DEREF));
        IMov(Reg(RAX), idx) 
      ] @ (num_tag_check label_TUPLE_ACCESS_NOT_NUM)
      @ [ 
        ILineComment("convert to machine num");
        IMov(Reg(RAX), tuple);
-       IMov(Reg(R11), idx);
-       ISar(Reg(R11), Const(1L));
+       IMov(Reg(scratch_reg), idx);
+       ISar(Reg(scratch_reg), Const(1L));
        ILineComment("check bounds");
        ISub(Reg(RAX), Const(tuple_tag));
        IMov(Reg(RAX), RegOffset(0, RAX));
        IShr(Reg(RAX), Const(1L));
-       ICmp(Reg(R11), Reg(RAX));
+       ICmp(Reg(scratch_reg), Reg(RAX));
        IMov(Reg(RAX), idx);
        IJge(Label(label_GET_HIGH_INDEX));
-       ICmp(Reg(R11), Sized(QWORD_PTR, Const(0L)));
+       ICmp(Reg(scratch_reg), Sized(QWORD_PTR, Const(0L)));
        IJl(Label(label_GET_LOW_INDEX));
        IMov(Reg(RAX), tuple);
        ISub(Reg(RAX), Const(tuple_tag));
        ILineComment("get and set value");
-       IMov(Reg(R12), set);
-       IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, R11, word_size, word_size)), Reg(R12));
+       IMov(Reg(scratch_reg_2), set);
+       IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, scratch_reg, word_size, word_size)), Reg(scratch_reg_2));
        IMov(Reg(RAX), set)])
   | CLambda(_) -> compile_lambda e env true current_env num_args
 and compile_imm e env current_env =
@@ -1757,8 +1758,8 @@ and compile_lambda lam env do_setup current_env num_regs_to_save =
     (* store free variables at [3:] *)
     @ List.flatten (List.mapi (fun idx (id: string) -> 
         [
-          IMov(Reg(R11), (find (find env current_env) id));
-          IMov(Sized(QWORD_PTR, RegOffset((idx + 3) * word_size, RAX)), Reg(R11));
+          IMov(Reg(scratch_reg), (find (find env current_env) id));
+          IMov(Sized(QWORD_PTR, RegOffset((idx + 3) * word_size, RAX)), Reg(scratch_reg));
         ]) frees)
     @ [
       ILineComment("Tag lambda");
@@ -1849,11 +1850,11 @@ global ?our_code_starts_here" in
       ] in
     let set_stack_bottom =
       [
-        IMov(Reg R12, Reg RDI);
+        IMov(Reg scratch_reg, Reg RDI);
       ]
       @ (setup_call_to_func 0 [Reg(RBP)] (Label "?set_stack_bottom") false)
       @ [
-        IMov(Reg RDI, Reg R12)
+        IMov(Reg RDI, Reg scratch_reg)
       ] in
     let main = (prologue @ set_stack_bottom @ heap_start @ comp_main @ epilogue) in
     sprintf "%s%s%s\n" prelude (to_asm main) (to_asm suffix)
