@@ -42,8 +42,9 @@ let tfvcs name program expected = name>::
                                   (fun _ -> 
                                      let ast = parse_string name program in 
                                      let anfed = anf (tag ast) in 
-                                     let fv = free_vars_cache anfed in 
-                                     let str_list_print strs = 
+                                     let tagged = atag anfed in
+                                     let fv: (Compile.StringSet.t * Exprs.tag) Exprs.aprogram = free_vars_cache tagged in 
+                                     let str_list_print (strs, _) = 
                                        let strs = NeighborSet.elements strs in
                                        "[" ^ (ExtString.String.join ", " strs) ^ "]" in 
                                      let output = string_of_aprogram_with 1000 (str_list_print) fv in
@@ -60,7 +61,8 @@ let tint name program expected = name>::
                                  (fun _ -> 
                                     let ast = parse_string name program in 
                                     let anfed = anf (rename_and_tag (tag ast)) in 
-                                    let fv = free_vars_cache anfed in 
+                                    let tagged = atag anfed in
+                                    let fv = free_vars_cache tagged in 
                                     let inf = match fv with 
                                       | AProgram(body, _) -> 
                                         (string_of_graph (interfere body)) ^ "\n" in 
@@ -255,26 +257,20 @@ let tint_tests = [
          y = (lambda(z): x(z) + 1) in
          y(8)"
     Graph.(empty
-           |> add "num_4" NeighborSet.(singleton "y_12")
-           |> add "y_12" NeighborSet.(singleton "num_4")
-           |> add "x_7" NeighborSet.(singleton "z_21")
-           |> add "y_14" NeighborSet.empty
-           |> add "app_17" NeighborSet.empty
-           |> add "z_21" NeighborSet.(singleton "x_7"));
+           |> add "num_4" NeighborSet.empty
+           |> add "x_7" NeighborSet.empty
+           |> add "y_14" NeighborSet.empty);
   tint "tint_lambda_2"
     "let num = 52,
          x = (lambda(y): y + num),
          y = (lambda(z): x(z) + 1) in
          y(8) + x(8)"
     Graph.(empty
-           |> add "num_4" NeighborSet.(singleton "y_12")
-           |> add "y_12" NeighborSet.(singleton "num_4")
-           |> add "x_7" NeighborSet.(singleton "z_21" |> add "y_14" |> add "app_23")
+           |> add "num_4" NeighborSet.empty
+           |> add "x_7" NeighborSet.(singleton "y_14" |> add "app_23")
            |> add "y_14" NeighborSet.(singleton "x_7")
-           |> add "app_17" NeighborSet.empty
            |> add "app_23" NeighborSet.(singleton "app_26" |> add "x_7")
-           |> add "app_26" NeighborSet.(singleton "app_23")
-           |> add "z_21" NeighborSet.(singleton "x_7"));
+           |> add "app_26" NeighborSet.(singleton "app_23"));
   tint "tint_nested_lambda"
     "let num = 5,
          x = (lambda(x): (lambda(y): x + y + num)),
@@ -282,19 +278,13 @@ let tint_tests = [
          z = print(y(num)) in
          y(num) + z"
     Graph.(empty
-           |> add "num_4" NeighborSet.(singleton "x_7" |> add "x_16" 
-                                       |> add "y_15" |> add "y_18" |> add "z_23"
-                                       |> add "binop_11" |> add "app_25" 
-                                       |> add "z_23")
+           |> add "num_4" NeighborSet.(singleton "x_7" |> add "y_18" 
+                                       |> add "z_23" |> add "app_25")
            |> add "x_7" NeighborSet.(singleton "num_4")
-           |> add "x_16" NeighborSet.(singleton "y_15" |> add "num_4")
-           |> add "y_15" NeighborSet.(singleton "x_16" |> add "num_4")
-           |> add "binop_11" NeighborSet.(singleton "num_4")
            |> add "y_18" NeighborSet.(singleton "num_4" |> add "app_25" |> add "z_23")
            |> add "app_25" NeighborSet.(singleton "num_4" |> add "y_18")
            |> add "z_23" NeighborSet.(singleton "app_29" |> add "y_18" |> add "num_4")
-           |> add "app_29" NeighborSet.(singleton "z_23")
-          );
+           |> add "app_29" NeighborSet.(singleton "z_23"));
   tint "tint_let_rec_basic"
     "let z = true in 
        let rec x = 
@@ -306,13 +296,8 @@ let tint_tests = [
               x(y_new)) in 
        x(10)"
     Graph.(empty
-           |> add "z_4" NeighborSet.(singleton "x_8" |> add "y_28" |> add "binop_11")
-           |> add "x_8" NeighborSet.(singleton "z_4" |> add "y_28" 
-                                     |> add "binop_11" |> add "y_new_21")
-           |> add "y_28" NeighborSet.(singleton "x_8" |> add "z_4" |> add "binop_11")
-           |> add "binop_11" NeighborSet.(singleton "z_4" |> add "x_8" |> add "y_28")
-           |> add "z_new_16" NeighborSet.empty
-           |> add "y_new_21" NeighborSet.(singleton "x_8"));
+           |> add "x_8" NeighborSet.(singleton "z_4")
+           |> add "z_4" NeighborSet.(singleton "x_8"));
 ]
 
 

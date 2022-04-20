@@ -874,32 +874,32 @@ let free_vars (e: 'a aexpr) (args : string list) : string list =
   StringSet.(diff (help_aexpr e arg_set) arg_set |> elements)
 ;;
 
-let free_vars_cache (prog: 'a aprogram): StringSet.t aprogram =
-  let rec help_imm (e : 'a immexpr) : StringSet.t immexpr * StringSet.t = 
+let free_vars_cache (prog: 'a aprogram): (StringSet.t * tag) aprogram =
+  let rec help_imm (e : 'a immexpr) : (StringSet.t * tag) immexpr * StringSet.t = 
     match e with
-    | ImmId(name, _) -> 
+    | ImmId(name, tag) -> 
       let frees = StringSet.singleton name in
-      ImmId(name, frees), frees
-    | ImmNum(e, _) -> ImmNum(e, StringSet.empty), StringSet.empty
-    | ImmBool(e, _) -> ImmBool(e, StringSet.empty), StringSet.empty
-    | ImmNil(_) -> ImmNil(StringSet.empty), StringSet.empty
-  and help_cexpr (e : 'a cexpr) : StringSet.t cexpr * StringSet.t =
+      ImmId(name, (frees, tag)), frees
+    | ImmNum(e, tag) -> ImmNum(e, (StringSet.empty, tag)), StringSet.empty
+    | ImmBool(e, tag) -> ImmBool(e, (StringSet.empty, tag)), StringSet.empty
+    | ImmNil(tag) -> ImmNil(StringSet.empty, tag), StringSet.empty
+  and help_cexpr (e : 'a cexpr) : (StringSet.t * tag) cexpr * StringSet.t =
     match e with 
-    | CIf(cnd, thn, els, _) -> 
+    | CIf(cnd, thn, els, tag) -> 
       let cnd, cnd_frees = help_imm cnd in 
       let thn, thn_frees = help_aexpr thn in 
       let els, els_frees = help_aexpr els in 
       let frees = StringSet.(union cnd_frees thn_frees |> union els_frees) in
-      CIf(cnd, thn, els, frees), frees
-    | CPrim1(prim, e, _) -> 
+      CIf(cnd, thn, els, (frees, tag)), frees
+    | CPrim1(prim, e, tag) -> 
       let e, frees = help_imm e in 
-      CPrim1(prim, e, frees), frees
-    | CPrim2(prim, e1, e2, _) ->
+      CPrim1(prim, e, (frees, tag)), frees
+    | CPrim2(prim, e1, e2, tag) ->
       let e1, e1_frees = help_imm e1 in
       let e2, e2_frees = help_imm e2 in 
       let frees = StringSet.union e1_frees e2_frees in
-      CPrim2(prim, e1, e2, frees), frees
-    | CApp(func, args, ct, _) -> 
+      CPrim2(prim, e1, e2, (frees, tag)), frees
+    | CApp(func, args, ct, tag) -> 
       let func, func_frees = help_imm func in 
       let args, args_frees = 
         (List.fold_left 
@@ -910,11 +910,11 @@ let free_vars_cache (prog: 'a aprogram): StringSet.t aprogram =
            args)
       in
       let frees = StringSet.union func_frees args_frees in
-      CApp(func, args, ct, frees), frees
+      CApp(func, args, ct, (frees, tag)), frees
     | CImmExpr(e) -> 
       let e, frees = help_imm e in
       CImmExpr(e), frees
-    | CTuple(exprs, _) ->
+    | CTuple(exprs, tag) ->
       let exprs, frees =
         List.fold_left 
           (fun (exprs, frees) arg -> 
@@ -923,38 +923,38 @@ let free_vars_cache (prog: 'a aprogram): StringSet.t aprogram =
           ([], StringSet.empty)
           exprs
       in 
-      CTuple(exprs, frees), frees
-    | CGetItem(tuple, pos, _) -> 
+      CTuple(exprs, (frees, tag)), frees
+    | CGetItem(tuple, pos, tag) -> 
       let tuple, tuple_frees = help_imm tuple in
       let pos, pos_frees = help_imm pos in
       let frees = StringSet.union tuple_frees pos_frees in 
-      CGetItem(tuple, pos, frees), frees
-    | CSetItem(tuple, pos, value, _) ->
+      CGetItem(tuple, pos, (frees, tag)), frees
+    | CSetItem(tuple, pos, value, tag) ->
       let tuple, tuple_frees = help_imm tuple in
       let pos, pos_frees = help_imm pos in
       let value, value_frees = help_imm value in 
       let frees = StringSet.(union tuple_frees pos_frees |> union value_frees) in 
-      CSetItem(tuple, pos, value, frees), frees
-    | CLambda(args, body, _) ->
+      CSetItem(tuple, pos, value, (frees, tag)), frees
+    | CLambda(args, body, tag) ->
       let env = stringset_of_list args in 
       let body, body_frees = help_aexpr body in 
       let frees = StringSet.diff body_frees env in
-      CLambda(args, body, frees), frees
-  and help_aexpr (e : 'a aexpr) : StringSet.t aexpr * StringSet.t = 
+      CLambda(args, body, (frees, tag)), frees
+  and help_aexpr (e : 'a aexpr) : (StringSet.t * tag) aexpr * StringSet.t = 
     match e with 
-    | ASeq(e1, e2, _) -> 
+    | ASeq(e1, e2, tag) -> 
       let e1, e1_frees = help_cexpr e1 in 
       let e2, e2_frees = help_aexpr e2 in 
       let frees = StringSet.union e1_frees e2_frees in 
-      ASeq(e1, e2, frees), frees
-    | ALet(name, bind, body, _) -> 
+      ASeq(e1, e2, (frees, tag)), frees
+    | ALet(name, bind, body, tag) -> 
       let env = StringSet.singleton name in 
       let bind, bind_frees = help_cexpr bind in 
       let body, init_body_frees = help_aexpr body in 
       let body_frees = StringSet.diff init_body_frees env in
       let frees = StringSet.union bind_frees body_frees in 
-      ALet(name, bind, body, frees), frees
-    | ALetRec(name_binds, body, _) ->
+      ALet(name, bind, body, (frees, tag)), frees
+    | ALetRec(name_binds, body, tag) ->
       (* Add all the binds *)
       let env = stringset_of_list (List.map (fun (name, _) -> name) name_binds) in 
       let binds, bind_frees =
@@ -970,15 +970,15 @@ let free_vars_cache (prog: 'a aprogram): StringSet.t aprogram =
       let body, init_body_frees = help_aexpr body in 
       let body_frees = StringSet.diff init_body_frees env in
       let frees = StringSet.union bind_frees body_frees in 
-      ALetRec(binds, body, frees), frees
+      ALetRec(binds, body, (frees, tag)), frees
     | ACExpr(e) ->
       let e, frees = help_cexpr e in 
       ACExpr(e), frees
   in match prog with 
-  | AProgram(body, _) ->
+  | AProgram(body, tag) ->
     let env = stringset_of_list (List.map (fun (name, _) -> sprintf "?%s" name) native_fun_bindings) in
     let new_body, frees = help_aexpr body in
-    AProgram(new_body, StringSet.diff frees env)
+    AProgram(new_body, (StringSet.diff frees env, tag))
 ;;
 
 (* IMPLEMENT THIS FROM YOUR PREVIOUS ASSIGNMENT *)
@@ -1012,19 +1012,45 @@ let get_func_call_params (params : string list) (closure_args : string list) (wr
   (pair_regs params first_six_args_registers) @ (pair_stack closure_args 1 ~-1)
 ;;
 
+let rec add_to_assoc_list 
+    (key : string) 
+    (name : string) 
+    (value : arg) 
+    (ls : arg name_envt name_envt) : arg name_envt name_envt =
+  match ls with
+  | [] -> [(key, [(name, value)])]
+  | (found, others) :: rest -> 
+    if found = key 
+    then (found, (name, value) :: others) :: rest
+    else (found, others) :: add_to_assoc_list key name value rest
+;;
+
 (* ASSUMES that the program has been alpha-renamed and all names are unique *)
-let rec naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg name_envt name_envt =
-  let rec add_to_assoc_list 
-      (key : string) 
-      (name : string) 
-      (value : arg) 
-      (ls : arg name_envt name_envt) : arg name_envt name_envt =
-    match ls with
-    | [] -> [(key, [(name, value)])]
-    | (found, others) :: rest -> 
-      if found = key 
-      then (found, (name, value) :: others) :: rest
-      else (found, others) :: add_to_assoc_list key name value rest
+let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg name_envt name_envt =
+  let rec get_aexpr_envt (expr : tag aexpr) (si : int) (wrapping_tag : tag) :  flat_nested_envt =
+    match expr with 
+    | ASeq(expr1, expr2, _) -> (merge_envs (get_cexpr_envt expr1 si wrapping_tag) (get_aexpr_envt expr2 si wrapping_tag))
+    | ALet(name, bind, body, _) ->
+      (wrapping_tag, name, RegOffset(~-si * word_size, RBP))
+      :: (get_cexpr_envt bind (si + 1) wrapping_tag)
+      @ (get_aexpr_envt body (si + 1) wrapping_tag)
+    | ACExpr(body) ->
+      (get_cexpr_envt body si wrapping_tag)
+    | ALetRec(binds, body, _) -> 
+      let num_binds = List.length binds in
+      List.mapi (fun i (name, bind) -> (wrapping_tag, name, RegOffset(~-(si + i) * word_size, RBP))) binds
+      @ List.flatten (List.map (fun (_, bind) -> get_cexpr_envt bind (si + num_binds) wrapping_tag) binds)
+      @ (get_aexpr_envt body (si + num_binds) wrapping_tag)
+  and get_cexpr_envt (expr : tag cexpr) (si : int) (wrapping_tag : tag) : flat_nested_envt =
+    match expr with 
+    | CIf(_, l, r, _) -> 
+      (get_aexpr_envt l si wrapping_tag)
+      @ (get_aexpr_envt r si wrapping_tag)
+    | CLambda(binds, body, tag) ->
+      let frees = free_vars body binds in
+      (get_func_call_params binds frees tag)
+      @ get_aexpr_envt body (1 + List.length frees) tag
+    | CPrim1(_) | CPrim2(_) | CApp(_) | CImmExpr(_) | CTuple(_) | CGetItem(_) | CSetItem(_) -> []
   in
   match prog with 
   | AProgram(expr, tag) ->
@@ -1032,38 +1058,13 @@ let rec naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg name_en
        (fun acc (t, name, value) -> add_to_assoc_list (string_of_int t) name value acc) 
        [] 
        (get_aexpr_envt expr 1 tag))
-and get_aexpr_envt (expr : tag aexpr) (si : int) (wrapping_tag : tag) :  flat_nested_envt =
-  match expr with 
-  (* TODO: confirm this is correct *)
-  | ASeq(expr1, expr2, _) -> (merge_envs (get_cexpr_envt expr1 si wrapping_tag) (get_aexpr_envt expr2 si wrapping_tag))
-  | ALet(name, bind, body, _) ->
-    (wrapping_tag, name, RegOffset(~-si * word_size, RBP))
-    :: (get_cexpr_envt bind (si + 1) wrapping_tag)
-    @ (get_aexpr_envt body (si + 1) wrapping_tag)
-  | ACExpr(body) ->
-    (get_cexpr_envt body si wrapping_tag)
-  | ALetRec(binds, body, _) -> 
-    let num_binds = List.length binds in
-    List.mapi (fun i (name, bind) -> (wrapping_tag, name, RegOffset(~-(si + i) * word_size, RBP))) binds
-    @ List.flatten (List.map (fun (_, bind) -> get_cexpr_envt bind (si + num_binds) wrapping_tag) binds)
-    @ (get_aexpr_envt body (si + num_binds) wrapping_tag)
-and get_cexpr_envt (expr : tag cexpr) (si : int) (wrapping_tag : tag) : flat_nested_envt =
-  match expr with 
-  | CIf(_, l, r, _) -> 
-    (get_aexpr_envt l si wrapping_tag)
-    @ (get_aexpr_envt r si wrapping_tag)
-  | CLambda(binds, body, tag) ->
-    let frees = free_vars body binds in
-    (get_func_call_params binds frees tag)
-    @ get_aexpr_envt body (1 + List.length frees) tag
-  | CPrim1(_) | CPrim2(_) | CApp(_) | CImmExpr(_) | CTuple(_) | CGetItem(_) | CSetItem(_) -> []
 
 (* IMPLEMENT THE BELOW *)
 
-let rec interfere (e : StringSet.t aexpr) : grapht =
-  let rec help_aexpr (e : StringSet.t aexpr) (live : StringSet.t) : grapht * StringSet.t =
+let rec interfere (e : (StringSet.t * 'a) aexpr) : grapht =
+  let rec help_aexpr (e : (StringSet.t * 'a) aexpr) (live : StringSet.t) : grapht * StringSet.t =
     match e with 
-    | ASeq(e1, e2, frees) -> 
+    | ASeq(e1, e2, (frees, _)) -> 
       let e1_graph, e1_used = help_cexpr e1 live in 
       let e2_graph, e2_used = help_aexpr e2 live in
       let updated_e1 = StringSet.fold
@@ -1079,7 +1080,7 @@ let rec interfere (e : StringSet.t aexpr) : grapht =
           e1_graph
       in 
       (graph_union e2_graph updated_e1, StringSet.union e1_used e2_used)
-    | ALet(name, bind, body, frees) ->
+    | ALet(name, bind, body, (frees, _)) ->
       let bind_graph, bind_used = help_cexpr bind live in 
       let body_graph, body_used = help_aexpr body (StringSet.add name live) in 
       let updated_bind = StringSet.fold
@@ -1096,7 +1097,7 @@ let rec interfere (e : StringSet.t aexpr) : grapht =
       in 
       (graph_union body_graph updated_bind, StringSet.union bind_used body_used)
     | ACExpr(body) -> help_cexpr body live
-    | ALetRec(binds, body, frees) -> 
+    | ALetRec(binds, body, (frees, _)) -> 
       let bind_names = List.map (fun (name, _) -> name) binds in
       let updated_lives = StringSet.union live (stringset_of_list bind_names) in
       let binds_graph, binds_used = 
@@ -1120,22 +1121,22 @@ let rec interfere (e : StringSet.t aexpr) : grapht =
           binds_graph
       in 
       (graph_union body_graph updated_bind, StringSet.union binds_used body_used)
-  and help_cexpr (e : StringSet.t cexpr) (live : StringSet.t) : grapht * StringSet.t =
+  and help_cexpr (e : (StringSet.t * 'a) cexpr) (live : StringSet.t) : grapht * StringSet.t =
     match e with 
-    | CIf(cnd, thn, els, frees) -> 
+    | CIf(cnd, thn, els, (frees, _)) -> 
       let thn_graph, thn_used = help_aexpr thn live in 
       let els_graph, els_used = help_aexpr els live in 
       let branch_graph = graph_union thn_graph els_graph in 
       let used = StringSet.union thn_used els_used in 
       let if_interferes = StringSet.inter live frees in 
       (connect_all branch_graph if_interferes, StringSet.union used if_interferes)
-    | CPrim1(prim, e, frees) -> 
+    | CPrim1(prim, e, (frees, _)) -> 
       let interferes = StringSet.inter live frees in
       (connect_all empty interferes, frees)
-    | CPrim2(prim, e1, e2, frees) -> 
+    | CPrim2(prim, e1, e2, (frees, _)) -> 
       let interferes = StringSet.inter live frees in 
       (connect_all empty interferes, frees)
-    | CApp(func, args, _, frees) -> 
+    | CApp(func, args, _, (frees, _)) -> 
       let interferes = StringSet.inter live frees in 
       (connect_all empty interferes, frees)
     | CImmExpr(e) -> 
@@ -1143,20 +1144,19 @@ let rec interfere (e : StringSet.t aexpr) : grapht =
         | None -> (empty, StringSet.empty)
         | Some(name) -> (add_node empty name, StringSet.singleton name)
       end
-    | CTuple(exprs, frees) ->
+    | CTuple(exprs, (frees, _)) ->
       let interferes = StringSet.inter live frees in 
       (connect_all empty interferes, frees)
-    | CGetItem(tuple, pos, frees) -> 
+    | CGetItem(tuple, pos, (frees, _)) -> 
       let interferes = StringSet.inter live frees in 
       (connect_all empty interferes, frees)
-    | CSetItem(tuple, pos, value, frees) -> 
+    | CSetItem(tuple, pos, value, (frees, _)) -> 
       let interferes = StringSet.inter live frees in 
       (connect_all empty interferes, frees)
-    | CLambda(args, body, frees) -> 
-      let body_graph, _ = help_aexpr body (StringSet.union live (stringset_of_list args)) in
+    | CLambda(args, body, (frees, _)) -> 
       let interferes = StringSet.inter live frees in 
-      (connect_all body_graph interferes, frees)
-  and help_immexpr (e : StringSet.t immexpr) : string option =
+      (connect_all empty interferes, frees)
+  and help_immexpr (e : (StringSet.t * 'a) immexpr) : string option =
     match e with 
     | ImmNil(_) -> None
     | ImmNum(_) -> None
@@ -1194,8 +1194,39 @@ let color_graph (g: grapht) (init_env: arg name_envt) : arg name_envt =
 ;;
 
 let register_allocation (prog: tag aprogram) : tag aprogram * arg name_envt name_envt =
-  raise (NotYetImplemented "Implement register allocation for racer")
+  let rec get_aexpr_envt (expr : (StringSet.t * tag) aexpr) : flat_nested_envt = 
+    match expr with
+    | ASeq(e1, e2, _) -> (get_cexpr_envt e1) @ (get_aexpr_envt e2)
+    | ALet(_, bind, body, _) -> 
+      (get_cexpr_envt bind) @ (get_aexpr_envt body)
+    | ALetRec(binds, body, _) -> 
+      List.flatten (List.map (fun (_, bind) -> get_cexpr_envt bind) binds)
+      @ get_aexpr_envt body
+    | ACExpr(body) -> get_cexpr_envt body
+  and get_cexpr_envt (expr : (StringSet.t * tag) cexpr) : flat_nested_envt = 
+    match expr with
+    | CIf(_, l, r, _) -> 
+      (get_aexpr_envt l) @ (get_aexpr_envt r)
+    | CLambda(binds, body, (frees, tag)) ->
+      let if_graph = interfere body in
+      let input_args = List.map (fun (_, name, loc) -> (name, loc)) (get_func_call_params binds [] tag) in
+      (* todo: make sure input_args are not reassigned registers in color_graph *)
+      List.map (fun (name, loc) -> (tag, name, loc)) (color_graph if_graph input_args)
+    | _ -> []
+  in 
+  let fvs = free_vars_cache prog in 
+  match fvs with
+  | AProgram(body, (_, tag)) ->
+    let global_if = interfere body in
+    let global_envt = List.map 
+        (fun (name, loc) -> (tag, name, loc)) 
+        (color_graph global_if []) in
+    (prog, List.fold_left 
+       (fun acc (t, name, value) -> add_to_assoc_list (string_of_int t) name value acc)
+       []
+       (global_envt @ (get_aexpr_envt body)))
 ;;
+
 (* Jumps to to_label if not a num *)
 let num_tag_check (to_label : string) : instruction list =
   [IMov(Reg(scratch_reg), HexConst(num_tag_mask)); ITest(Reg(RAX), Reg(scratch_reg)); IJnz(Label(to_label))]
