@@ -275,6 +275,26 @@ let tint_tests = [
            |> add "app_23" NeighborSet.(singleton "app_26" |> add "x_7")
            |> add "app_26" NeighborSet.(singleton "app_23")
            |> add "z_21" NeighborSet.(singleton "x_7"));
+  tint "nested_lambda"
+    "let num = 5,
+         x = (lambda(x): (lambda(y): x + y + num)),
+         y = x(num),
+         z = print(y(num)) in
+         y(num) + z"
+    Graph.(empty
+           |> add "num_4" NeighborSet.(singleton "x_7" |> add "x_16" 
+                                       |> add "y_15" |> add "y_18" |> add "z_23"
+                                       |> add "binop_11" |> add "app_25" 
+                                       |> add "z_23")
+           |> add "x_7" NeighborSet.(singleton "num_4")
+           |> add "x_16" NeighborSet.(singleton "y_15" |> add "num_4")
+           |> add "y_15" NeighborSet.(singleton "x_16" |> add "num_4")
+           |> add "binop_11" NeighborSet.(singleton "num_4")
+           |> add "y_18" NeighborSet.(singleton "num_4" |> add "app_25" |> add "z_23")
+           |> add "app_25" NeighborSet.(singleton "num_4" |> add "y_18")
+           |> add "z_23" NeighborSet.(singleton "app_29" |> add "y_18" |> add "num_4")
+           |> add "app_29" NeighborSet.(singleton "z_23")
+          );
 ]
 
 
