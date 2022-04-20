@@ -326,6 +326,6 @@ let suite =
 let () =
   run_test_tt_main ("all_tests">:::[
       suite; 
-      (* old_tests; *)
+      old_tests;
       input_file_test_suite ()])
 ;;

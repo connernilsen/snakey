@@ -1095,7 +1095,8 @@ let rec interfere (e : (StringSet.t * 'a) aexpr) : grapht =
           (StringSet.inter body_used live)
           bind_graph
       in 
-      (graph_union body_graph updated_bind, StringSet.union bind_used body_used)
+      let graph = graph_union body_graph updated_bind in
+      (add_node graph name, StringSet.union bind_used body_used)
     | ACExpr(body) -> help_cexpr body live
     | ALetRec(binds, body, (frees, _)) -> 
       let bind_names = List.map (fun (name, _) -> name) binds in
@@ -1120,7 +1121,8 @@ let rec interfere (e : (StringSet.t * 'a) aexpr) : grapht =
           (StringSet.inter body_used live)
           binds_graph
       in 
-      (graph_union body_graph updated_bind, StringSet.union binds_used body_used)
+      let graph = graph_union body_graph updated_bind in
+      (connect_all graph (stringset_of_list bind_names), StringSet.union binds_used body_used)
   and help_cexpr (e : (StringSet.t * 'a) cexpr) (live : StringSet.t) : grapht * StringSet.t =
     match e with 
     | CIf(cnd, thn, els, (frees, _)) -> 
@@ -1218,6 +1220,7 @@ let register_allocation (prog: tag aprogram) : tag aprogram * arg name_envt name
   match fvs with
   | AProgram(body, (_, tag)) ->
     let global_if = interfere body in
+    let graph_str = string_of_graph global_if in
     let global_envt = List.map 
         (fun (name, loc) -> (tag, name, loc)) 
         (color_graph global_if []) in
