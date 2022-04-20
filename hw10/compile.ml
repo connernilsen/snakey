@@ -1096,16 +1096,29 @@ let rec interfere (e : StringSet.t aexpr) : grapht =
       (graph_union body_graph updated_bind, StringSet.union bind_used body_used)
     | ACExpr(body) -> help_cexpr body live
     | ALetRec(binds, body, frees) -> 
-      (* List.fold_left 
-         (fun acc (name, cexpr) -> 
-           begin
-             match cexpr with 
-             | CLambda(args, body, frees) -> (StringSet.fold (fun free acc -> (add_edge acc name free)) frees acc)
-             | _ -> raise (InternalCompilerError "should only have lambdas within let rec")
-           end)
-         empty 
-         binds *)
-      raise (NotYetImplemented "do this")
+      let bind_names = List.map (fun (name, _) -> name) binds in
+      let updated_lives = StringSet.union live (stringset_of_list bind_names) in
+      let binds_graph, binds_used = 
+        List.fold_left (fun (acc_graph, acc_used) (name, bind) -> 
+            let bind_graph, bind_used = help_cexpr bind updated_lives in 
+            (graph_union acc_graph bind_graph, StringSet.union bind_used acc_used))
+          (empty, StringSet.empty)
+          binds
+      in 
+      let body_graph, body_used = help_aexpr body updated_lives in 
+      let updated_bind = StringSet.fold
+          (fun (e2 : string) (acc : grapht) -> 
+             List.fold_left
+               (fun (acc : grapht) (e1 : string) -> 
+                  if e1 = e2
+                  then acc
+                  else add_edge acc e1 e2)
+               acc 
+               (StringSet.elements binds_used))
+          (StringSet.inter body_used live)
+          binds_graph
+      in 
+      (graph_union body_graph updated_bind, StringSet.union binds_used body_used)
   and help_cexpr (e : StringSet.t cexpr) (live : StringSet.t) : grapht * StringSet.t =
     match e with 
     | CIf(cnd, thn, els, frees) -> 
