@@ -1101,10 +1101,15 @@ let rec interfere (e : (StringSet.t * 'a) aexpr) (start_live : StringSet.t) : gr
       (connect_with_rest (graph_union bind_graph body_graph) (extract_frees body) name)
     | ACExpr(body) -> help_cexpr body live
     | ALetRec(binds, body, (frees, _)) -> 
-      let new_live = List.fold_right (fun (bind, _) acc -> (StringSet.add bind acc)) binds StringSet.empty in
-      let binds_graph = List.fold_right (fun (name, expr) acc -> (graph_union acc (add_node (help_cexpr expr new_live) name))) binds empty in
+      let bind_names = List.fold_right (fun (bind, _) acc -> (StringSet.add bind acc)) binds StringSet.empty in
+      let new_live = StringSet.union bind_names live in
+      let binds_graph = List.fold_right 
+          (fun (name, expr) acc -> (graph_union acc (help_cexpr expr new_live)))
+          binds 
+          (connect_all empty bind_names) in
       let body_graph = help_aexpr body new_live in
-      let free_vars = List.fold_right (fun (bind, expr) acc -> StringSet.union acc (extract_frees_cexpr expr)) binds StringSet.empty in 
+      (* let free_vars = List.fold_right (fun (bind, expr) acc -> StringSet.union acc (extract_frees_cexpr expr)) binds StringSet.empty in  *)
+      let free_vars = extract_frees body in
       let result = List.fold_right (fun (bind, _) acc -> (connect_with_rest acc free_vars bind)) binds (graph_union binds_graph body_graph) in 
       result
   and help_cexpr (e : (StringSet.t * 'a) cexpr) (live : StringSet.t) : grapht =
@@ -1769,17 +1774,18 @@ and compile_imm e env current_env =
   | ImmId(x, _) -> (find (find env current_env) x)
   | ImmNil(_) -> nil
 and setup_lambda name args frees tag env curr_env =
+  (* sets up lambda by reserving space and copying the arity, ptr, and num of closure args *)
   let size = (align_stack_by_words ((List.length frees) + 3)) in 
   (reserve size tag env curr_env)
   (* todo: maybe don't zero out everything if we don't need to *)
   @ List.init size (fun (i) -> (IMov(Sized(QWORD_PTR, RegOffset(i * word_size, heap_reg)), stack_filler))) 
   @ [
     ILineComment("Setup lambda");
-    (* store arity in first slot as a machine number since it's never accessed in our language *)
+    (* store arity in first slot as a snake number *)
     IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int ((List.length args) * 2)));
     (* store the function address in the second slot *)
     IMov(Sized(QWORD_PTR, RegOffset(word_size, heap_reg)), Label(name));
-    (* store the # of free variables in the 3rd slot as a machine # since it's never accessed in our language *)
+    (* store the # of free variables in the 3rd slot as a snake # *)
     IMov(Sized(QWORD_PTR, RegOffset(word_size * 2, heap_reg)), Const(Int64.of_int ((List.length frees) * 2)));
     ILineComment("Save lambda");
     (* Move result to result place *)
@@ -1792,6 +1798,9 @@ and setup_lambda name args frees tag env curr_env =
     IAdd(Reg(RAX), Const(closure_tag));
   ]
 and compile_lambda lam env do_setup current_env =
+  (* sets up a lambda by filling in the closure environment.
+     if do_setup is false, then the lambda pointer should be available
+     in RAX. *)
   match lam with
   | CLambda(args, body, tag) -> 
     let name = sprintf "fun_%d" tag in

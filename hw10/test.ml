@@ -336,69 +336,26 @@ let test_graph_coloring = [
     [("f_4", Reg(R12));];
 ]
 
-let test_runs = [
-  t "mutually_recursive_normal"
-    "def abs_dec(num):
-      if num == 0:
-        0
-      else:
-        if num < 0:
-          num + 1
-        else:
-          num - 1
-    def t1(print_neg, num):
-      if print_neg:
-        t2(print(num * -1))
-      else:
-        t2(print(num))
-    and def t2(val):
-      let dec_num = abs_dec(val) in
-      if dec_num == 0:
-        val > 0 
-      else:
-        let neg = t1(true, dec_num),
-            pos = t1(false, dec_num) in 
-            neg || pos
-    t1(false, 4)"
-    ""
-    "4\n-3\n2\n-1\n1\n-2\n1\n-1\n3\n-2\n1\n-1\n2\n-1\n1\ntrue";
-  tr "mutually_recursive_normal"
-    "def abs_dec(num):
-      if num == 0:
-        0
-      else:
-        if num < 0:
-          num + 1
-        else:
-          num - 1
-    def t1(print_neg, num):
-      if print_neg:
-        t2(print(num * -1))
-      else:
-        t2(print(num))
-    and def t2(val):
-      let dec_num = abs_dec(val) in
-      if dec_num == 0:
-        val > 0 
-      else:
-        let neg = t1(true, dec_num),
-            pos = t1(false, dec_num) in 
-            neg || pos
-    t1(false, 4)"
-    ""
-    "4\n-3\n2\n-1\n1\n-2\n1\n-1\n3\n-2\n1\n-1\n2\n-1\n1\ntrue";
+let misc_tests = [
+  tr "equal_basic" "equal(0, 0)" "" "true";
+  tr "equal_basic_2" "equal(0, 1)" "" "false";
+  tr "equal_basic_3" "let x = 0 in equal(x, 0)" "" "true";
+  tint "tint_let_rec_deep"
+    "let rec print1 = (lambda (x): 5) in let rec input1 = (lambda: 5) in 5" Graph.(empty);
+  tint "tint_let_rec_repeat"
+    "let rec print1 = (lambda (x): 5), input1 = (lambda: 5) in 5" Graph.(empty);
 ]
 
 let suite =
   "unit_tests">:::
-  test_free_vars_cache
-  @ tint_tests
-  @ test_graph_coloring
-  @ test_runs
+  (* test_free_vars_cache
+     @ tint_tests
+     @ test_graph_coloring *)
+  misc_tests
 
 let () =
   run_test_tt_main ("all_tests">:::[
-      suite; 
-      (* old_tests; *)
+      (* suite;  *)
+      old_tests;
       input_file_test_suite ()])
 ;;
