@@ -1063,71 +1063,49 @@ let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg name_envt n
        (get_aexpr_envt expr 1 tag))
 
 (* IMPLEMENT THE BELOW *)
+let rec extract_frees (e : (StringSet.t * 'a) aexpr) = 
+  match e with 
+  | ASeq(_, _, (frees, _)) -> frees
+  | ALet(_, _, _, (frees, _)) -> frees
+  | ACExpr(body) -> extract_frees_cexpr body
+  | ALetRec(_, _, (frees, _)) -> frees
+and extract_frees_cexpr (e : (StringSet.t * 'a) cexpr) = 
+  match e with 
+  | CIf(cnd, thn, els, (frees, _)) -> frees
+  | CPrim1(prim, e, (frees, _)) -> frees
+  | CPrim2(prim, e1, e2, (frees, _)) -> frees
+  | CApp(func, args, _, (frees, _)) -> frees
+  | CImmExpr(e) -> extract_frees_immexpr e
+  | CTuple(exprs, (frees, _)) ->frees
+  | CGetItem(tuple, pos, (frees, _)) -> frees
+  | CSetItem(tuple, pos, value, (frees, _)) -> frees
+  | CLambda(args, body, (frees, _)) -> frees
+and extract_frees_immexpr (e : (StringSet.t * 'a) immexpr) = 
+  match e with 
+  | ImmNil((frees, _)) -> frees
+  | ImmNum(_, (frees, _)) -> frees
+  | ImmBool(_, (frees, _)) -> frees
+  | ImmId(_, (frees, _)) -> frees
 
 let rec interfere (e : (StringSet.t * 'a) aexpr) (start_live : StringSet.t) : grapht =
   let rec help_aexpr (e : (StringSet.t * 'a) aexpr) (live : StringSet.t) : grapht * StringSet.t =
     match e with 
     | ASeq(e1, e2, (frees, _)) -> 
-      let e1_graph, e1_used = help_cexpr e1 live in 
-      let e2_graph, e2_used = help_aexpr e2 live in
-      let updated_e1 = StringSet.fold
-          (fun (e2 : string) (acc : grapht) -> 
-             List.fold_left
-               (fun (acc : grapht) (e1 : string) ->
-                  if e1 = e2
-                  then acc
-                  else add_edge acc e1 e2)
-               acc 
-               (StringSet.elements (StringSet.inter e1_used frees)))
-          (StringSet.inter e2_used frees)
-          e1_graph
-      in 
-      (graph_union e2_graph updated_e1, StringSet.union e1_used e2_used)
+      let e1_graph, _ = help_cexpr e1 live in 
+      let e2_graph, _ = help_aexpr e2 live in
+      (graph_union e1_graph e2_graph, live)
     | ALet(name, bind, body, (frees, _)) ->
-      let bind_graph, bind_used = help_cexpr bind live in 
-      let body_graph, body_used = help_aexpr body (StringSet.add name live) in 
-      let used_lives = StringSet.inter body_used live in
-      let updated_bind = StringSet.fold
-          (fun (e2 : string) (acc : grapht) -> 
-             List.fold_left
-               (fun (acc : grapht) (e1 : string) -> 
-                  if e1 = e2
-                  then acc
-                  else add_edge acc e1 e2)
-               acc 
-               (StringSet.elements bind_used))
-          used_lives
-          bind_graph
-      in 
-      let updated_bind = connect_with_rest updated_bind used_lives name in
-      let graph = graph_union body_graph updated_bind in
-      (add_node graph name, StringSet.(union bind_used body_used))
+      let bind_graph, _ = help_cexpr bind live in 
+      let body_graph, _ = help_aexpr body (StringSet.add name live) in
+      ((connect_with_rest (graph_union bind_graph body_graph) (extract_frees body) name), live)
     | ACExpr(body) -> help_cexpr body live
     | ALetRec(binds, body, (frees, _)) -> 
-      let bind_names = stringset_of_list (List.map (fun (name, _) -> name) binds) in
-      let updated_lives = StringSet.union live bind_names in
-      let binds_graph, binds_used = 
-        List.fold_left (fun (acc_graph, acc_used) (name, bind) -> 
-            let bind_graph, bind_used = help_cexpr bind updated_lives in 
-            (graph_union acc_graph bind_graph, StringSet.union bind_used acc_used))
-          (empty, StringSet.empty)
-          binds
-      in 
-      let body_graph, body_used = help_aexpr body updated_lives in 
-      let updated_bind = StringSet.fold
-          (fun (e2 : string) (acc : grapht) -> 
-             List.fold_left
-               (fun (acc : grapht) (e1 : string) -> 
-                  if e1 = e2
-                  then acc
-                  else add_edge acc e1 e2)
-               acc 
-               (StringSet.elements binds_used))
-          (StringSet.inter body_used updated_lives)
-          binds_graph
-      in 
-      let graph = graph_union body_graph updated_bind in
-      (connect_all graph bind_names, StringSet.(union binds_used body_used |> union bind_names))
+      let new_live = List.fold_right (fun (bind, _) acc -> (StringSet.add bind acc)) binds StringSet.empty in
+      let binds_graph = List.fold_right (fun (_, expr) acc -> (graph_union acc (fst (help_cexpr expr new_live)))) binds empty in
+      let body_graph, _ = help_aexpr body new_live in
+      let free_vars = List.fold_right (fun (bind, expr) acc -> StringSet.union acc (extract_frees_cexpr expr)) binds StringSet.empty in 
+      let result = List.fold_right (fun (bind, _) acc -> (connect_with_rest acc free_vars bind)) binds (graph_union binds_graph body_graph) in 
+      (result, frees)
   and help_cexpr (e : (StringSet.t * 'a) cexpr) (live : StringSet.t) : grapht * StringSet.t =
     match e with 
     | CIf(cnd, thn, els, (frees, _)) -> 
