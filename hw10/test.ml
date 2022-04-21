@@ -54,6 +54,15 @@ let tfvcs name program expected = name>::
 let tgcolor name graph init_env (expected: arg name_envt) = 
   name>::(fun _ -> 
       assert_equal expected (color_graph graph init_env) ~printer:(fun s->string_of_envt s))
+let tgcolorint name program (expected: arg name_envt) = 
+  name>::(fun _ -> 
+      assert_equal expected (color_graph (let ast = parse_string name program in 
+                                          let anfed = anf (rename_and_tag (tag ast)) in 
+                                          let tagged = atag anfed in
+                                          let fv = free_vars_cache tagged in 
+                                          match fv with 
+                                          | AProgram(body, _) -> 
+                                            (interfere body StringSet.empty)) []) ~printer:(fun s->string_of_envt s))
 
 let builtins_size = 4 (* arity + 0 vars + codeptr + padding *) * (List.length Compile.native_fun_bindings)
 
@@ -317,6 +326,8 @@ let test_graph_coloring = [
   tgcolor "color_five_no_interferes" 
     (add_node (add_node (add_node (add_node (add_node empty "1") "2") "3") "4") "5") 
     [] [("1", Reg(R12));("2", Reg(R12));("3", Reg(R12)); ("4", Reg(R12));("5", Reg(R12))];
+  tgcolorint "color_overflow" "let rec f = (lambda(a): if (a == 0): true else: f(a - 1)) in f(-1)"
+    [("f_4", Reg(R12));];
 ]
 
 let test_runs = [
@@ -381,7 +392,7 @@ let suite =
 
 let () =
   run_test_tt_main ("all_tests">:::[
-      (* suite;  *)
-      old_tests;
+      suite; 
+      (* old_tests; *)
       input_file_test_suite ()])
 ;;
