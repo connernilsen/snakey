@@ -221,13 +221,13 @@ let test_run_strats ?no_builtins:(no_builtins=false) ?args:(args=[]) ?std_input:
   let result1 =
     try
       let program = parse_string outfile program_str in
-      run program full_outfile run_no_vg no_builtins args std_input Naive
+      run program (full_outfile ^ "_stack") run_no_vg no_builtins args std_input Naive
     with err -> Error(Printexc.to_string err) in
   assert_equal (Ok(expected ^ "\n")) result1 ~cmp:cmp ~printer:result_printer;
   let result2 =
     try
       let program = parse_string outfile program_str in
-      run program full_outfile run_no_vg no_builtins args std_input Register
+      run program (full_outfile ^ "_register") run_no_vg no_builtins args std_input Register
     with err -> Error(Printexc.to_string err) in
   assert_equal (Ok(expected ^ "\n")) result2 ~cmp:cmp ~printer:result_printer
 

@@ -24,7 +24,7 @@ let check_name (name : string) : string =
   else name
 ;;
 
-let t name program expected = name>::test_run Register program name expected;;
+let t name program expected = name>::test_run_strats program name expected;;
 
 let tcontains name program expected = name>::test_run ~args:[] Naive program name expected ~cmp:(fun check result ->
     match check, result with

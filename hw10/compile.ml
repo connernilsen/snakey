@@ -1426,7 +1426,6 @@ let rec replicate x i =
 
 and reserve size tag env curr_env =
   let ok = sprintf "$memcheck_%d" tag in
-  let save_callee_saved_regs = get_env_callee_save_regs (find env curr_env) in
   let size = (size * word_size) in
   [
     IInstrComment(IMov(Reg(RAX), LabelContents("?HEAP_END")),
@@ -1436,14 +1435,14 @@ and reserve size tag env curr_env =
     IJge(Label ok);
   ]
   (* Save callee saved regisers so that we can ensure values stored are copied *)
-  @ backup_saved_registers save_callee_saved_regs
+  @ backup_saved_registers callee_saved_regs
   @ (setup_call_to_func env curr_env [
       (Sized(QWORD_PTR, Reg(heap_reg))); (* alloc_ptr in C *)
       (Sized(QWORD_PTR, Const(Int64.of_int size))); (* bytes_needed in C *)
       (Sized(QWORD_PTR, Reg(RBP))); (* first_frame in C *)
       (Sized(QWORD_PTR, Reg(RSP))); (* stack_top in C *)
     ] (Label "?try_gc") false)
-  @ restore_saved_registers save_callee_saved_regs
+  @ restore_saved_registers callee_saved_regs
   @ [
     IInstrComment(IMov(Reg(heap_reg), Reg(RAX)), "assume gc success if returning here, so RAX holds the new heap_reg value");
     ILabel(ok);
