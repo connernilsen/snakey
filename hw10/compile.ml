@@ -1263,19 +1263,27 @@ let generate_cmp_func_with
 
 (* Backs up all registers used by the function we're in *)
 let rec backup_saved_registers (registers : arg list) : (instruction list) =
-  match registers with
-  | [] -> []
-  | first :: rest ->
-    IPush(first) :: backup_saved_registers rest
+  let rec help registers = 
+    match registers with
+    | [] -> []
+    | first :: rest ->
+      IPush(first) :: help rest
+  in 
+  if ((List.length registers) mod 2) = 0
+  then help registers
+  else (help registers) @ [IPush(stack_filler)]
 (* Restores all registers used by the function we're in. Reverse of backup_caller_saved_registers *)
 let rec restore_saved_registers (registers : arg list) : (instruction list) =
-  let help registers = 
+  let rec help registers = 
     match registers with 
     | [] -> []
     | first :: rest -> 
-      IPop(first) :: restore_saved_registers rest
+      IPop(first) :: help rest
   in
-  help (List.rev registers)
+  let registers = List.rev registers in
+  if ((List.length registers) mod 2) = 0
+  then help registers
+  else IPop(Reg(scratch_reg)) :: (help registers) 
 
 (* generates the instructions for comparing the args e1_reg and e2_reg and 
   * constructs an auto-generated jump label using the jmp_instr_constructor.
@@ -1325,14 +1333,6 @@ let setup_call_to_func (env : arg name_envt name_envt) (curr_env : string) (args
   (* whether an extra stack align var should be used 
    * (are there an odd number of stack args and registers being pushed? ) *)
   let should_stack_align = ((stack_args + num_regs_to_save) mod 2) != 0 in
-  (* how many args should be popped off the stack before possible register 
-   * restoration? *)
-  let cleanup_stack = if should_stack_align 
-  (* if stack alignment was needed, then pop off pushed args + the extra align value *)
-    then Int64.of_int ((stack_args + 1) * word_size)
-    (* otherwise, just pop off pushed args *)
-    else Int64.of_int (stack_args * word_size)
-  in
   (* sets up args by putting them in the first 6 registers needed for a call
    * and placing any remaining values on the stack 
   *)
@@ -1389,18 +1389,12 @@ let setup_call_to_func (env : arg name_envt name_envt) (curr_env : string) (args
   func_call_comment
   (* push args passed into this function so they don't get overwritten *)
   :: (backup_saved_registers regs_to_save)
-  (* align the stack if necessary *)
-  @ (if should_stack_align 
-     then [ILineComment("Stack align"); IPush(stack_filler)] 
-     else [ILineComment("No stack align")])
   @ check_call_type
   @ [ILineComment("Setup args")]
   (* put the args for the next function in registers/on the stack *)
   @ (setup_args args first_six_args_registers) 
   (* call *)
   @ [call; ILineComment("Cleanup stack and restore caller saved registers")]
-  (* pop off values added to the stack up to pushed register values *)
-  @ (if Int64.equal cleanup_stack 0L then [] else [IAdd(Reg(RSP), Const(cleanup_stack))])
   (* restore register values for the rest of this function to use *)
   @ (restore_saved_registers regs_to_save)
 ;;
@@ -1464,7 +1458,7 @@ and get_env_callee_save_regs env =
       then help rest (reg :: acc)
       else help rest acc
   in 
-  help env []
+  help env [] 
 
 (* IMPLEMENT THIS FROM YOUR PREVIOUS ASSIGNMENT *)
 (* Additionally, you are provided an initial environment of values that you may want to
@@ -1478,8 +1472,8 @@ and compile_fun (fun_name : string) args body (env: arg name_envt name_envt) cur
   in
   (* get max allocation needed as an even value, possibly rounded up *)
   let frees = free_vars body args in 
-  let parity_offset = (List.length frees) mod 2 in
-  let stack_alloc_space = (align_stack_by_words ((deepest_stack body env current_env) + parity_offset)) in
+  let save_regs_offset = (List.length save_regs) mod 2 in
+  let stack_alloc_space = (align_stack_by_words ((deepest_stack body env current_env) + save_regs_offset)) in
   (* let stack_alloc_space = (((deepest_stack body env current_env) + 1 + parity_offset) / 2 ) * 2 in *)
   let fun_prologue = [
     IJmp(Label(sprintf "%s_end" fun_name));
@@ -1488,22 +1482,25 @@ and compile_fun (fun_name : string) args body (env: arg name_envt name_envt) cur
     IMov(Reg(RBP), Reg(RSP));
     (* TODO: change to maybe when implementing tail recursion *)
   ]
+    @ [ILineComment(sprintf "Push %i filler variables" stack_alloc_space)]
+    @ List.init stack_alloc_space (fun (i) -> (IPush(stack_filler)))
+    @ [ILineComment(sprintf "Push %i callee save registers" (List.length save_regs))]
     @ List.map (fun (reg) -> (IPush(reg))) save_regs
+    @ [ILineComment(sprintf "Move %i free variables into fillers" (List.length frees))]
     @ List.flatten (List.mapi (fun (i: int) (f: string) -> 
         [IMov(Reg(scratch_reg), RegOffset((i + 3) * word_size, RAX));
          IMov(find (find env current_env) f, Reg(scratch_reg))]) frees)
-    @ [ILineComment(sprintf "Push %i filler variables" stack_alloc_space)]
-    @ List.init stack_alloc_space (fun (i) -> (IPush(stack_filler)))
   in
   let fun_body = (compile_aexpr body env (List.length args) false current_env) in 
   let fun_epilogue = 
-    List.rev_map (fun (reg) -> (IPop(reg))) save_regs @ 
-    [
+    List.rev_map (fun (reg) -> (IPop(reg))) save_regs 
+    @ [
       IMov(Reg(RSP), Reg(RBP));
       IPop(Reg(RBP));
       IRet;
       ILabel(sprintf "%s_end" fun_name);
-    ] in (fun_prologue, fun_body, fun_epilogue)
+    ]
+  in (fun_prologue, fun_body, fun_epilogue)
 and compile_aexpr (e : tag aexpr) (env : arg name_envt name_envt) (num_args : int) (is_tail : bool) current_env : instruction list =
   match e with
   | ALet(id, bind, body, _) ->
