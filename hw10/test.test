@@ -1,0 +1,1 @@
+let x = 5, y = (lambda(y): (lambda(z): x + y + z)) in y(4)(3)

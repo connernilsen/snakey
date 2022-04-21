@@ -941,7 +941,7 @@ let free_vars_cache (prog: 'a aprogram) : (StringSet.t * tag) aprogram =
       let frees = StringSet.(union tuple_frees pos_frees |> union value_frees) in 
       CSetItem(tuple, pos, value, (frees, tag)), frees
     | CLambda(args, body, tag) ->
-      let body, body_frees = help_aexpr body env in 
+      let body, body_frees = help_aexpr body (StringSet.union env (stringset_of_list args)) in 
       let frees = StringSet.inter body_frees env in
       CLambda(args, body, (frees, tag)), frees
   and help_aexpr (e : 'a aexpr) (env : StringSet.t) : (StringSet.t * tag) aexpr * StringSet.t = 
