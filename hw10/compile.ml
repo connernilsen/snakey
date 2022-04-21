@@ -952,27 +952,22 @@ let free_vars_cache (prog: 'a aprogram): (StringSet.t * tag) aprogram =
       let frees = StringSet.union e1_frees e2_frees in 
       ASeq(e1, e2, (frees, tag)), frees
     | ALet(name, bind, body, tag) -> 
-      let env = StringSet.singleton name in 
       let bind, bind_frees = help_cexpr bind in 
-      let body, init_body_frees = help_aexpr body in 
-      let body_frees = StringSet.diff init_body_frees env in
-      let frees = StringSet.union bind_frees body_frees in 
+      let body, body_frees = help_aexpr body in 
+      let frees = StringSet.(union bind_frees body_frees |> add name) in 
       ALet(name, bind, body, (frees, tag)), frees
     | ALetRec(name_binds, body, tag) ->
       (* Add all the binds *)
-      let env = stringset_of_list (List.map (fun (name, _) -> name) name_binds) in 
       let binds, bind_frees =
         List.fold_left
           (fun (binds, frees) (name, bind) ->
-             let bind, init_bind_frees = help_cexpr bind in
-             let bind_frees = StringSet.diff init_bind_frees env in
-             let frees = StringSet.union frees bind_frees in
+             let bind, bind_frees = help_cexpr bind in
+             let frees = StringSet.(union frees bind_frees |> add name) in
              ((name, bind) :: binds, frees))
           ([], StringSet.empty)
           name_binds
       in 
-      let body, init_body_frees = help_aexpr body in 
-      let body_frees = StringSet.diff init_body_frees env in
+      let body, body_frees = help_aexpr body in 
       let frees = StringSet.union bind_frees body_frees in 
       ALetRec(binds, body, (frees, tag)), frees
     | ACExpr(e) ->
@@ -1088,59 +1083,62 @@ and extract_frees_immexpr (e : (StringSet.t * 'a) immexpr) =
   | ImmId(_, (frees, _)) -> frees
 
 let rec interfere (e : (StringSet.t * 'a) aexpr) (start_live : StringSet.t) : grapht =
-  let rec help_aexpr (e : (StringSet.t * 'a) aexpr) (live : StringSet.t) : grapht * StringSet.t =
+  let rec help_aexpr (e : (StringSet.t * 'a) aexpr) (live : StringSet.t) : grapht =
     match e with 
     | ASeq(e1, e2, (frees, _)) -> 
-      let e1_graph, _ = help_cexpr e1 live in 
-      let e2_graph, _ = help_aexpr e2 live in
-      (graph_union e1_graph e2_graph, live)
+      let e1_graph = help_cexpr e1 live in 
+      let e2_graph = help_aexpr e2 live in
+      (* let e2_live_used = StringSet.inter (extract_frees e2) live in
+         cross_prod (graph_union e1_graph e2_graph) e2_live_used (extract_frees_cexpr e1) *)
+      graph_union e1_graph e2_graph
     | ALet(name, bind, body, (frees, _)) ->
-      let bind_graph, _ = help_cexpr bind live in 
-      let body_graph, _ = help_aexpr body (StringSet.add name live) in
-      ((connect_with_rest (graph_union bind_graph body_graph) (extract_frees body) name), live)
+      let bind_graph = help_cexpr bind live in 
+      let body_graph = add_node (help_aexpr body (StringSet.add name live)) name in
+      (* let body_live_used = StringSet.inter (extract_frees body) live in *)
+      (* let bind_graph_2 = cross_prod empty body_live_used (extract_frees_cexpr bind) in *)
+      (connect_with_rest (graph_union bind_graph body_graph) (extract_frees body) name)
     | ACExpr(body) -> help_cexpr body live
     | ALetRec(binds, body, (frees, _)) -> 
       let new_live = List.fold_right (fun (bind, _) acc -> (StringSet.add bind acc)) binds StringSet.empty in
-      let binds_graph = List.fold_right (fun (_, expr) acc -> (graph_union acc (fst (help_cexpr expr new_live)))) binds empty in
-      let body_graph, _ = help_aexpr body new_live in
+      let binds_graph = List.fold_right (fun (name, expr) acc -> (graph_union acc (add_node (help_cexpr expr new_live) name))) binds empty in
+      let body_graph = help_aexpr body new_live in
       let free_vars = List.fold_right (fun (bind, expr) acc -> StringSet.union acc (extract_frees_cexpr expr)) binds StringSet.empty in 
       let result = List.fold_right (fun (bind, _) acc -> (connect_with_rest acc free_vars bind)) binds (graph_union binds_graph body_graph) in 
-      (result, frees)
-  and help_cexpr (e : (StringSet.t * 'a) cexpr) (live : StringSet.t) : grapht * StringSet.t =
+      result
+  and help_cexpr (e : (StringSet.t * 'a) cexpr) (live : StringSet.t) : grapht =
     match e with 
     | CIf(cnd, thn, els, (frees, _)) -> 
-      let thn_graph, thn_used = help_aexpr thn live in 
-      let els_graph, els_used = help_aexpr els live in 
+      let thn_graph = help_aexpr thn live in 
+      let els_graph = help_aexpr els live in 
       let branch_graph = graph_union thn_graph els_graph in 
-      let used = StringSet.union thn_used els_used in 
       let if_interferes = StringSet.inter live frees in 
-      (connect_all branch_graph if_interferes, StringSet.union used if_interferes)
+      connect_all branch_graph if_interferes
     | CPrim1(prim, e, (frees, _)) -> 
       let interferes = StringSet.inter live frees in
-      (connect_all empty interferes, frees)
+      connect_all empty interferes
     | CPrim2(prim, e1, e2, (frees, _)) -> 
       let interferes = StringSet.inter live frees in 
-      (connect_all empty interferes, frees)
+      connect_all empty interferes
     | CApp(func, args, _, (frees, _)) -> 
       let interferes = StringSet.inter live frees in 
-      (connect_all empty interferes, frees)
+      connect_all empty interferes
     | CImmExpr(e) -> 
       begin match help_immexpr e with
-        | None -> (empty, StringSet.empty)
-        | Some(name) -> (add_node empty name, StringSet.singleton name)
+        | None -> empty
+        | Some(name) -> add_node empty name
       end
     | CTuple(exprs, (frees, _)) ->
       let interferes = StringSet.inter live frees in 
-      (connect_all empty interferes, frees)
+      connect_all empty interferes
     | CGetItem(tuple, pos, (frees, _)) -> 
       let interferes = StringSet.inter live frees in 
-      (connect_all empty interferes, frees)
+      connect_all empty interferes
     | CSetItem(tuple, pos, value, (frees, _)) -> 
       let interferes = StringSet.inter live frees in 
-      (connect_all empty interferes, frees)
+      connect_all empty interferes
     | CLambda(args, body, (frees, _)) -> 
       let interferes = StringSet.inter live frees in 
-      (connect_all empty interferes, frees)
+      connect_all empty interferes
   and help_immexpr (e : (StringSet.t * 'a) immexpr) : string option =
     match e with 
     | ImmNil(_) -> None
@@ -1148,7 +1146,7 @@ let rec interfere (e : (StringSet.t * 'a) aexpr) (start_live : StringSet.t) : gr
     | ImmBool(_) -> None
     | ImmId(name, _) -> Some(name)
   in 
-  let graph, _ = help_aexpr e start_live in graph
+  help_aexpr e start_live
 ;;
 
 let find_smallest_degree (g: grapht): string option = 
