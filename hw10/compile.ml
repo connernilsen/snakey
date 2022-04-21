@@ -875,7 +875,7 @@ let free_vars (e: 'a aexpr) (args : string list) : string list =
   StringSet.(diff (help_aexpr e arg_set) arg_set |> elements)
 ;;
 
-let free_vars_cache (prog: 'a aprogram): (StringSet.t * tag) aprogram =
+let free_vars_cache (prog: 'a aprogram) : (StringSet.t * tag) aprogram =
   let native_env = stringset_of_list (List.map (fun (name, _) -> sprintf "?%s" name) native_fun_bindings) in
   let rec help_imm (e : 'a immexpr) : (StringSet.t * tag) immexpr * StringSet.t = 
     match e with
@@ -888,12 +888,12 @@ let free_vars_cache (prog: 'a aprogram): (StringSet.t * tag) aprogram =
     | ImmNum(e, tag) -> ImmNum(e, (StringSet.empty, tag)), StringSet.empty
     | ImmBool(e, tag) -> ImmBool(e, (StringSet.empty, tag)), StringSet.empty
     | ImmNil(tag) -> ImmNil(StringSet.empty, tag), StringSet.empty
-  and help_cexpr (e : 'a cexpr) : (StringSet.t * tag) cexpr * StringSet.t =
+  and help_cexpr (e : 'a cexpr) (env : StringSet.t) : (StringSet.t * tag) cexpr * StringSet.t =
     match e with 
     | CIf(cnd, thn, els, tag) -> 
       let cnd, cnd_frees = help_imm cnd in 
-      let thn, thn_frees = help_aexpr thn in 
-      let els, els_frees = help_aexpr els in 
+      let thn, thn_frees = help_aexpr thn env in 
+      let els, els_frees = help_aexpr els env in 
       let frees = StringSet.(union cnd_frees thn_frees |> union els_frees) in
       CIf(cnd, thn, els, (frees, tag)), frees
     | CPrim1(prim, e, tag) -> 
@@ -941,42 +941,43 @@ let free_vars_cache (prog: 'a aprogram): (StringSet.t * tag) aprogram =
       let frees = StringSet.(union tuple_frees pos_frees |> union value_frees) in 
       CSetItem(tuple, pos, value, (frees, tag)), frees
     | CLambda(args, body, tag) ->
-      let env = stringset_of_list args in 
-      let body, body_frees = help_aexpr body in 
-      let frees = StringSet.diff body_frees env in
+      let body, body_frees = help_aexpr body env in 
+      let frees = StringSet.inter body_frees env in
       CLambda(args, body, (frees, tag)), frees
-  and help_aexpr (e : 'a aexpr) : (StringSet.t * tag) aexpr * StringSet.t = 
+  and help_aexpr (e : 'a aexpr) (env : StringSet.t) : (StringSet.t * tag) aexpr * StringSet.t = 
     match e with 
     | ASeq(e1, e2, tag) -> 
-      let e1, e1_frees = help_cexpr e1 in 
-      let e2, e2_frees = help_aexpr e2 in 
+      let e1, e1_frees = help_cexpr e1 env in 
+      let e2, e2_frees = help_aexpr e2 env in 
       let frees = StringSet.union e1_frees e2_frees in 
       ASeq(e1, e2, (frees, tag)), frees
     | ALet(name, bind, body, tag) -> 
-      let bind, bind_frees = help_cexpr bind in 
-      let body, body_frees = help_aexpr body in 
+      let bind, bind_frees = help_cexpr bind env in 
+      let body, body_frees = help_aexpr body (StringSet.add name env) in 
       let frees = StringSet.(union bind_frees body_frees |> add name) in 
       ALet(name, bind, body, (frees, tag)), frees
     | ALetRec(name_binds, body, tag) ->
+      let names = stringset_of_list (List.map (fun (name, _) -> name) name_binds) in
+      let newenv = StringSet.union env names in
       (* Add all the binds *)
       let binds, bind_frees =
         List.fold_left
           (fun (binds, frees) (name, bind) ->
-             let bind, bind_frees = help_cexpr bind in
+             let bind, bind_frees = help_cexpr bind newenv in
              let frees = StringSet.(union frees bind_frees |> add name) in
              ((name, bind) :: binds, frees))
           ([], StringSet.empty)
           name_binds
       in 
-      let body, body_frees = help_aexpr body in 
+      let body, body_frees = help_aexpr body newenv in 
       let frees = StringSet.union bind_frees body_frees in 
       ALetRec(binds, body, (frees, tag)), frees
     | ACExpr(e) ->
-      let e, frees = help_cexpr e in 
+      let e, frees = help_cexpr e env in 
       ACExpr(e), frees
   in match prog with 
   | AProgram(body, tag) ->
-    let new_body, frees = help_aexpr body in
+    let new_body, frees = help_aexpr body StringSet.empty in
     AProgram(new_body, (StringSet.diff frees native_env, tag))
 ;;
 
