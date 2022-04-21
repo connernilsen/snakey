@@ -1140,7 +1140,7 @@ let rec interfere (e : (StringSet.t * 'a) aexpr) (start_live : StringSet.t) : gr
       connect_all empty interferes
     | CLambda(args, body, (frees, _)) -> 
       let interferes = StringSet.inter live frees in 
-      connect_all empty interferes
+      connect_all (connect_all empty interferes) frees
   and help_immexpr (e : (StringSet.t * 'a) immexpr) : string option =
     match e with 
     | ImmNil(_) -> None

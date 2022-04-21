@@ -385,15 +385,15 @@ let old_tests =
        "y = (if isnum(z): 1 else: z) in (if (sub1(sub1(y)) == sub1(y)): z else: (z - y))) - " ^
        "(if (let abcd = true in abcd): 11 else: -11))") "-23";
 
-    "setup_call_to_func_1">::(fun _ -> 
+    (* "setup_call_to_func_1">::(fun _ -> 
         assert_equal [ICall(Label("label"))] 
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
                (setup_call_to_func [] "" [] (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_2">::(fun _ ->
+       "setup_call_to_func_2">::(fun _ ->
         assert_equal [IMov(Reg(RDI), Const(1L)); ICall(Label("label"))]
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
                (setup_call_to_func [] "" [Const(1L)] (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_3">::(fun _ -> 
+       "setup_call_to_func_3">::(fun _ -> 
         assert_equal [
           IMov(Reg(RDI), Const(1L));
           IMov(Reg(RSI), Const(2L));
@@ -406,7 +406,7 @@ let old_tests =
                (setup_call_to_func [] ""
                   [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L)] 
                   (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_4">::(fun _ -> 
+       "setup_call_to_func_4">::(fun _ -> 
         assert_equal [
           IPush(Const(62L));
           IMov(Reg(RDI), Const(1L));
@@ -422,7 +422,7 @@ let old_tests =
                (setup_call_to_func [] ""
                   [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
                   (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_5">::(fun _ -> 
+       "setup_call_to_func_5">::(fun _ -> 
         assert_equal [
           IMov(Reg(RDI), Const(1L));
           IMov(Reg(RSI), Const(2L));
@@ -438,7 +438,7 @@ let old_tests =
                (setup_call_to_func [] ""
                   [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L)] 
                   (Label("label")) false)) ~printer:to_asm);
-    "setup_call_to_func_6">::(fun _ -> 
+       "setup_call_to_func_6">::(fun _ -> 
         assert_equal [
           IPush(Const(62L));
           IMov(Reg(RDI), Const(1L));
@@ -455,7 +455,7 @@ let old_tests =
           (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
                (setup_call_to_func [] ""
                   [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L); Const(9L)] 
-                  (Label("label")) false)) ~printer:to_asm);
+                  (Label("label")) false)) ~printer:to_asm); *)
     tanf_improved "let_in_prim"
       "add1(let x = 5 in x)"
       "(alet x = 5 in add1(x))";

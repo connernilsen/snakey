@@ -309,6 +309,12 @@ let tint_tests = [
     Graph.(empty
            |> add "x_8" NeighborSet.(singleton "z_4")
            |> add "z_4" NeighborSet.(singleton "x_8"));
+  tint "tint_compile_frees_2"
+    "let x = 5, y = (lambda(y): (lambda(z): x + y + z)) in y(4)(3)"
+    Graph.(empty
+           |> add "x_4" NeighborSet.(singleton "y_8" |> add "y_22" |> add "z_69")
+           |> add "y_8" NeighborSet.(singleton "x_4")
+           |> add "z_69" NeighborSet.(singleton "x_4" |> add "y_22"));
 ]
 
 
@@ -392,7 +398,7 @@ let suite =
 
 let () =
   run_test_tt_main ("all_tests">:::[
-      suite; 
-      (* old_tests; *)
+      (* suite;  *)
+      old_tests;
       input_file_test_suite ()])
 ;;
