@@ -1172,7 +1172,7 @@ let rec find_smallest_degrees (g: grapht) : string list =
 
 let find_smallest_color (g: grapht) (node: string) (envt: arg name_envt) : arg name_envt =
   let neighbors_registers = (List.filter_map (find_opt envt) (get_neighbors g node))
-  in let available_registers = (List.filter (fun r -> not (List.exists (fun e -> (compare e (Reg(r)) == 0)) neighbors_registers)) register_allocation_registers)
+  in let available_registers = (List.filter (fun r -> not (List.exists (fun e -> (compare e (Reg(r)) = 0)) neighbors_registers)) register_allocation_registers)
   and neighbors_registers_len = (List.length neighbors_registers)
   and register_allocation_registers_len = (List.length register_allocation_registers)
   in match available_registers with 
@@ -1198,10 +1198,9 @@ let register_allocation (prog: tag aprogram) : tag aprogram * arg name_envt name
     | CIf(_, l, r, _) -> 
       (get_aexpr_envt l) @ (get_aexpr_envt r)
     | CLambda(binds, body, (frees, tag)) ->
-      let if_graph = interfere body frees in
+      let if_graph = connect_all (interfere body frees) frees in
       let body_alloc = get_aexpr_envt body in
       let input_args = List.map (fun (_, name, loc) -> (name, loc)) (get_func_call_params binds [] tag) in
-      (* todo: make sure input_args are not reassigned registers in color_graph *)
       (List.map (fun (name, loc) -> (tag, name, loc)) (color_graph if_graph input_args))
       @ body_alloc
     | _ -> []

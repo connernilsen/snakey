@@ -78,7 +78,6 @@ let tint name program expected = name>::
                                     assert_equal ((string_of_graph expected) ^ "\n") inf 
                                       ~printer:(fun s -> sprintf "%s\nANF: %s" s (string_of_aprogram anfed)))
 
-
 let test_free_vars_cache = [
   tfvcs "tfvcs_simple_none" 
     "let a = 5, b = 10 in a + b"
@@ -337,13 +336,11 @@ let test_graph_coloring = [
 ]
 
 let misc_tests = [
-  tr "equal_basic" "equal(0, 0)" "" "true";
-  tr "equal_basic_2" "equal(0, 1)" "" "false";
-  tr "equal_basic_3" "let x = 0 in equal(x, 0)" "" "true";
-  tint "tint_let_rec_deep"
-    "let rec print1 = (lambda (x): 5) in let rec input1 = (lambda: 5) in 5" Graph.(empty);
-  tint "tint_let_rec_repeat"
-    "let rec print1 = (lambda (x): 5), input1 = (lambda: 5) in 5" Graph.(empty);
+  tgc "tuple_of_function_in_closure_with_gc" (6 + 4 + 2 + builtins_size)
+    "let f = ((lambda: 5),) in 
+        (lambda(x): print((x, )))(4);
+        print((6, 7, 8));
+        f[0]()" "" "4\n(6, 7, 8)\n5";
 ]
 
 let suite =
@@ -355,7 +352,7 @@ let suite =
 
 let () =
   run_test_tt_main ("all_tests">:::[
-      (* suite;  *)
-      old_tests;
+      suite; 
+      (* old_tests; *)
       input_file_test_suite ()])
 ;;
