@@ -1,0 +1,501 @@
+section .text
+extern ?error
+extern ?input
+extern ?print
+extern ?print_stack
+extern ?equal
+extern ?try_gc
+extern ?print_heap
+extern ?HEAP
+extern ?HEAP_END
+extern ?set_stack_bottom
+global ?our_code_starts_here
+  jmp near ?our_code_starts_here_end
+align 16
+?our_code_starts_here:
+  push RBP
+  mov RBP, RSP
+  ;; Push 4 filler variables
+  push 62
+  push 62
+  push 62
+  push 62
+  mov R10, RDI
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, RBP
+  call ?set_stack_bottom
+  ;; Cleanup stack and restore caller saved registers
+  mov RDI, R10
+  ;; heap start
+  mov QWORD R15, RDI ; Load heap_reg with our argument, the heap pointer
+  add QWORD R15, 15 ; Align it to the nearest multiple of 16
+  mov R10, 0xfffffffffffffff0
+  and QWORD R15, R10 ; by adding no more than 15 to it
+  mov RAX, [?HEAP_END] ; Reserving 4 words
+  sub RAX, 32
+  cmp RAX, R15
+  jge near $memcheck_34
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, QWORD R15
+  mov RSI, QWORD 32
+  mov RDX, QWORD RBP
+  mov RCX, QWORD RSP
+  call ?try_gc
+  ;; Cleanup stack and restore caller saved registers
+  mov R15, RAX ; assume gc success if returning here, so RAX holds the new heap_reg value
+align 16
+$memcheck_34:
+  mov QWORD [R15+0], 62
+  mov QWORD [R15+8], 62
+  mov QWORD [R15+16], 62
+  mov QWORD [R15+24], 62
+  ;; Setup lambda
+  mov QWORD [R15+0], 0
+  mov QWORD [R15+8], fun_34
+  mov QWORD [R15+16], 0
+  ;; Save lambda
+  mov RAX, R15
+  add R15, 32
+  ;; Tag lambda
+  add RAX, 5
+  mov [RBP-8], RAX ; save (rec) print_heap_4
+  mov RAX, [RBP-8]
+  ;; Compile lambda (0 args)
+  jmp near fun_34_end
+align 16
+fun_34:
+  push RBP
+  mov RBP, RSP
+  ;; Push 0 filler variables
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, 0
+  mov RSI, 0
+  mov RDX, [?HEAP]
+  mov RCX, R15
+  call ?print_heap
+  ;; Cleanup stack and restore caller saved registers
+  mov RSP, RBP
+  pop RBP
+  ret
+align 16
+fun_34_end:
+  sub RAX, 5
+  ;; Move free vars into lambda
+  ;; Tag lambda
+  add RAX, 5
+  ;; Lambda done
+  mov RAX, [?HEAP_END] ; Reserving 4 words
+  sub RAX, 32
+  cmp RAX, R15
+  jge near $memcheck_29
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, QWORD R15
+  mov RSI, QWORD 32
+  mov RDX, QWORD RBP
+  mov RCX, QWORD RSP
+  call ?try_gc
+  ;; Cleanup stack and restore caller saved registers
+  mov R15, RAX ; assume gc success if returning here, so RAX holds the new heap_reg value
+align 16
+$memcheck_29:
+  mov QWORD [R15+0], 62
+  mov QWORD [R15+8], 62
+  mov QWORD [R15+16], 62
+  mov QWORD [R15+24], 62
+  ;; Setup lambda
+  mov QWORD [R15+0], 4
+  mov QWORD [R15+8], fun_29
+  mov QWORD [R15+16], 0
+  ;; Save lambda
+  mov RAX, R15
+  add R15, 32
+  ;; Tag lambda
+  add RAX, 5
+  mov [RBP-16], RAX ; save (rec) equal_10
+  mov RAX, [RBP-16]
+  ;; Compile lambda (2 args)
+  jmp near fun_29_end
+align 16
+fun_29:
+  push RBP
+  mov RBP, RSP
+  ;; Push 0 filler variables
+  ;; Setup native call (2 args)
+  push RDI
+  push RSI
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, [RSP+8]
+  mov RSI, [RSP+0]
+  call ?equal
+  ;; Cleanup stack and restore caller saved registers
+  pop RSI
+  pop RDI
+  mov RSP, RBP
+  pop RBP
+  ret
+align 16
+fun_29_end:
+  sub RAX, 5
+  ;; Move free vars into lambda
+  ;; Tag lambda
+  add RAX, 5
+  ;; Lambda done
+  mov RAX, [?HEAP_END] ; Reserving 4 words
+  sub RAX, 32
+  cmp RAX, R15
+  jge near $memcheck_26
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, QWORD R15
+  mov RSI, QWORD 32
+  mov RDX, QWORD RBP
+  mov RCX, QWORD RSP
+  call ?try_gc
+  ;; Cleanup stack and restore caller saved registers
+  mov R15, RAX ; assume gc success if returning here, so RAX holds the new heap_reg value
+align 16
+$memcheck_26:
+  mov QWORD [R15+0], 62
+  mov QWORD [R15+8], 62
+  mov QWORD [R15+16], 62
+  mov QWORD [R15+24], 62
+  ;; Setup lambda
+  mov QWORD [R15+0], 0
+  mov QWORD [R15+8], fun_26
+  mov QWORD [R15+16], 0
+  ;; Save lambda
+  mov RAX, R15
+  add R15, 32
+  ;; Tag lambda
+  add RAX, 5
+  mov [RBP-24], RAX ; save (rec) input_20
+  mov RAX, [RBP-24]
+  ;; Compile lambda (0 args)
+  jmp near fun_26_end
+align 16
+fun_26:
+  push RBP
+  mov RBP, RSP
+  ;; Push 0 filler variables
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  call ?input
+  ;; Cleanup stack and restore caller saved registers
+  mov RSP, RBP
+  pop RBP
+  ret
+align 16
+fun_26_end:
+  sub RAX, 5
+  ;; Move free vars into lambda
+  ;; Tag lambda
+  add RAX, 5
+  ;; Lambda done
+  mov RAX, [?HEAP_END] ; Reserving 4 words
+  sub RAX, 32
+  cmp RAX, R15
+  jge near $memcheck_8
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, QWORD R15
+  mov RSI, QWORD 32
+  mov RDX, QWORD RBP
+  mov RCX, QWORD RSP
+  call ?try_gc
+  ;; Cleanup stack and restore caller saved registers
+  mov R15, RAX ; assume gc success if returning here, so RAX holds the new heap_reg value
+align 16
+$memcheck_8:
+  mov QWORD [R15+0], 62
+  mov QWORD [R15+8], 62
+  mov QWORD [R15+16], 62
+  mov QWORD [R15+24], 62
+  ;; Setup lambda
+  mov QWORD [R15+0], 2
+  mov QWORD [R15+8], fun_8
+  mov QWORD [R15+16], 2
+  ;; Save lambda
+  mov RAX, R15
+  add R15, 32
+  ;; Tag lambda
+  add RAX, 5
+  mov [RBP-32], RAX ; save (rec) print_dec_26
+  mov RAX, [RBP-32]
+  ;; Compile lambda (1 args)
+  jmp near fun_8_end
+align 16
+fun_8:
+  push RBP
+  mov RBP, RSP
+  mov R10, [RAX+24]
+  mov [RBP-8], R10
+  ;; Push 6 filler variables
+  push 62
+  push 62
+  push 62
+  push 62
+  push 62
+  push 62
+  mov RAX, 0
+  mov R10, 0x1
+  test RAX, R10
+  jnz near error_comp_not_num
+  mov RAX, RDI
+  mov R10, 0x1
+  test RAX, R10
+  jnz near error_comp_not_num
+  mov R10, 0
+  cmp RAX, R10
+  mov RAX, 0xffffffffffffffff
+  jle near done23_cmp
+  mov RAX, 0x7fffffffffffffff
+align 16
+done23_cmp:
+  mov [RBP-16], RAX ; save binop_29
+  mov RAX, [RBP-16]
+  mov R10, 0x7
+  and RAX, R10
+  mov R10, 0x7
+  cmp RAX, R10
+  mov RAX, [RBP-16]
+  jnz near error_not_bool
+  mov R10, 0x8000000000000000
+  test RAX, R10
+  jz near if_false_10
+align 16
+if_true_10:
+  ;; Setup native call (1 args)
+  push RDI
+  ;; Stack align
+  push 62
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, 0
+  call ?print
+  ;; Cleanup stack and restore caller saved registers
+  add RSP, 8
+  pop RDI
+  jmp near done_10
+align 16
+if_false_10:
+  ;; Setup native call (1 args)
+  push RDI
+  ;; Stack align
+  push 62
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, [RSP+8]
+  call ?print
+  ;; Cleanup stack and restore caller saved registers
+  add RSP, 8
+  pop RDI
+  mov [RBP-24], RAX ; save unary_36
+  mov RAX, [RBP-24]
+  mov R10, 0x1
+  test RAX, R10
+  jnz near error_arith_not_num
+  add RAX, QWORD -2
+  jo near error_overflow
+  mov [RBP-32], RAX ; save unary_35
+  ;; Setup snake call (1 args)
+  push RDI
+  ;; Stack align
+  push 62
+  mov RAX, [RBP-8]
+  mov R10, 0x7
+  and RAX, R10
+  mov R10, 0x5
+  cmp RAX, R10
+  mov RAX, [RBP-8]
+  jnz near error_should_be_fun
+  ;; Check call type for lambda
+  sub RAX, 5
+  mov R10, [RAX+0]
+  sar R10, 1
+  cmp R10, 1
+  jne near error_arity
+  ;; Setup args
+  mov RDI, [RBP-32]
+  call [RAX+8]
+  ;; Cleanup stack and restore caller saved registers
+  add RSP, 8
+  pop RDI
+align 16
+done_10:
+  mov RSP, RBP
+  pop RBP
+  ret
+align 16
+fun_8_end:
+  sub RAX, 5
+  ;; Move free vars into lambda
+  mov R10, [RBP-32]
+  mov QWORD [RAX+24], R10
+  ;; Tag lambda
+  add RAX, 5
+  ;; Lambda done
+  ;; Setup snake call (0 args)
+  ;; No stack align
+  mov RAX, [RBP-32]
+  mov R10, 0x7
+  and RAX, R10
+  mov R10, 0x5
+  cmp RAX, R10
+  mov RAX, [RBP-32]
+  jnz near error_should_be_fun
+  ;; Check call type for lambda
+  sub RAX, 5
+  mov R10, [RAX+0]
+  sar R10, 1
+  cmp R10, 1
+  jne near error_arity
+  ;; Setup args
+  mov RDI, 14
+  call [RAX+8]
+  ;; Cleanup stack and restore caller saved registers
+  mov RSP, RBP
+  pop RBP
+  ret
+align 16
+?our_code_starts_here_end:
+align 16
+error_comp_not_num:
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, 1
+  mov RSI, RAX
+  call ?error
+  ;; Cleanup stack and restore caller saved registers
+align 16
+error_arith_not_num:
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, 2
+  mov RSI, RAX
+  call ?error
+  ;; Cleanup stack and restore caller saved registers
+align 16
+error_not_bool:
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, 3
+  mov RSI, RAX
+  call ?error
+  ;; Cleanup stack and restore caller saved registers
+align 16
+error_not_tuple:
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, 6
+  mov RSI, RAX
+  call ?error
+  ;; Cleanup stack and restore caller saved registers
+align 16
+error_get_low_index:
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, 7
+  mov RSI, RAX
+  call ?error
+  ;; Cleanup stack and restore caller saved registers
+align 16
+error_get_high_index:
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, 8
+  mov RSI, RAX
+  call ?error
+  ;; Cleanup stack and restore caller saved registers
+align 16
+error_tuple_access_not_num:
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, 16
+  mov RSI, RAX
+  call ?error
+  ;; Cleanup stack and restore caller saved registers
+align 16
+error_overflow:
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, 5
+  mov RSI, RAX
+  call ?error
+  ;; Cleanup stack and restore caller saved registers
+align 16
+error_nil_deref:
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, 9
+  mov RSI, RAX
+  call ?error
+  ;; Cleanup stack and restore caller saved registers
+align 16
+destructure_invalid_len:
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, 4
+  mov RSI, RAX
+  call ?error
+  ;; Cleanup stack and restore caller saved registers
+align 16
+error_should_be_fun:
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, 14
+  mov RSI, RAX
+  call ?error
+  ;; Cleanup stack and restore caller saved registers
+align 16
+error_arity:
+  ;; Setup native call (0 args)
+  ;; No stack align
+  ;; Skip call type check for native func
+  ;; Setup args
+  mov RDI, 15
+  mov RSI, RAX
+  call ?error
+  ;; Cleanup stack and restore caller saved registers
+

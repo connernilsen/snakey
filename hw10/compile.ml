@@ -1268,10 +1268,13 @@ let rec backup_saved_registers (registers : arg list) : (instruction list) =
     IPush(first) :: backup_saved_registers rest
 (* Restores all registers used by the function we're in. Reverse of backup_caller_saved_registers *)
 let rec restore_saved_registers (registers : arg list) : (instruction list) =
-  match registers with 
-  | [] -> []
-  | first :: rest -> 
-    IPop(first) :: restore_saved_registers rest
+  let help registers = 
+    match registers with 
+    | [] -> []
+    | first :: rest -> 
+      IPop(first) :: restore_saved_registers rest
+  in
+  help (List.rev registers)
 
 (* generates the instructions for comparing the args e1_reg and e2_reg and 
   * constructs an auto-generated jump label using the jmp_instr_constructor.
@@ -1286,18 +1289,22 @@ let generate_cmp_func
   generate_cmp_func_with e1_reg e2_reg jmp_instr_constructor [IMov(Reg(RAX), const_true)] [IMov(Reg(RAX), const_false)] tag "" true
 ;;
 
+let rec get_env_caller_save_regs env = 
+  let rec help env acc =
+    match env with 
+    | [] -> acc
+    | (_, reg) :: rest -> 
+      if List.mem reg caller_saved_regs && (not (List.mem reg acc))
+      then help rest (reg :: acc)
+      else help rest acc
+  in 
+  help env []
+;;
+
 (* sets up a function call (x64) by putting args in the proper registers/stack positions, 
  * calling the given function, and cleaning up the stack after 
 *)
 let setup_call_to_func (env : arg name_envt name_envt) (curr_env : string) (args : arg list) (func : arg) (snake_call : bool) : (instruction list) =
-  let rec get_env_caller_save_regs env = 
-    match env with 
-    | [] -> []
-    | (_, reg) :: rest -> 
-      if List.mem reg caller_saved_regs
-      then reg :: (get_env_caller_save_regs rest)
-      else get_env_caller_save_regs rest
-  in
   let regs_to_save = 
     match find_opt env curr_env with 
     | None -> []
@@ -1330,7 +1337,7 @@ let setup_call_to_func (env : arg name_envt name_envt) (curr_env : string) (args
   *)
   let rec setup_args (args : arg list) (registers : reg list) : (instruction list) =
     (* assoc list of args to their position in the call regs list *)
-    let reg_assoc_list = List.mapi (fun pos value -> (value, pos + 1)) first_six_args_registers in
+    let reg_assoc_list = List.mapi (fun pos value -> (value, pos + 1)) regs_to_save in
     (* put the next argument in the appropriate register or onto the stack.
      * reverses the args list before pushing on the stack so they're in the right order *)
     let use_reg (next_arg : arg) (rest_args : arg list) : instruction list =
@@ -1345,7 +1352,7 @@ let setup_call_to_func (env : arg name_envt name_envt) (curr_env : string) (args
      * the stack offset of the arg pushed previously.
      * if the register isn't one of first_six_args_registers, then just use the register *)
     let swap_reg (register : reg) (rest_args : arg list) : instruction list =
-      match List.assoc_opt register reg_assoc_list with 
+      match List.assoc_opt (Reg(register)) reg_assoc_list with 
       | Some(idx) -> 
         (* skip the extra stack align spot if applicable *)
         let align_off = if should_stack_align then 1 else 0 in
@@ -1394,7 +1401,7 @@ let setup_call_to_func (env : arg name_envt name_envt) (curr_env : string) (args
   (* pop off values added to the stack up to pushed register values *)
   @ (if Int64.equal cleanup_stack 0L then [] else [IAdd(Reg(RSP), Const(cleanup_stack))])
   (* restore register values for the rest of this function to use *)
-  @ (restore_saved_registers (List.rev regs_to_save))
+  @ (restore_saved_registers regs_to_save)
 ;;
 
 let count_vars e =
@@ -1424,6 +1431,7 @@ let rec replicate x i =
 
 and reserve size tag env curr_env =
   let ok = sprintf "$memcheck_%d" tag in
+  let save_callee_saved_regs = get_env_callee_save_regs (find env curr_env) in
   let size = (size * word_size) in
   [
     IInstrComment(IMov(Reg(RAX), LabelContents("?HEAP_END")),
@@ -1432,30 +1440,36 @@ and reserve size tag env curr_env =
     ICmp(Reg(RAX), Reg(heap_reg));
     IJge(Label ok);
   ]
+  (* Save callee saved regisers so that we can ensure values stored are copied *)
+  @ backup_saved_registers save_callee_saved_regs
   @ (setup_call_to_func env curr_env [
       (Sized(QWORD_PTR, Reg(heap_reg))); (* alloc_ptr in C *)
       (Sized(QWORD_PTR, Const(Int64.of_int size))); (* bytes_needed in C *)
       (Sized(QWORD_PTR, Reg(RBP))); (* first_frame in C *)
       (Sized(QWORD_PTR, Reg(RSP))); (* stack_top in C *)
     ] (Label "?try_gc") false)
+  @ restore_saved_registers save_callee_saved_regs
   @ [
     IInstrComment(IMov(Reg(heap_reg), Reg(RAX)), "assume gc success if returning here, so RAX holds the new heap_reg value");
     ILabel(ok);
   ]
+
+and get_env_callee_save_regs env = 
+  let rec help env acc =
+    match env with 
+    | [] -> acc
+    | (_, reg) :: rest -> 
+      if List.mem reg callee_saved_regs && (not (List.mem reg acc))
+      then help rest (reg :: acc)
+      else help rest acc
+  in 
+  help env []
 
 (* IMPLEMENT THIS FROM YOUR PREVIOUS ASSIGNMENT *)
 (* Additionally, you are provided an initial environment of values that you may want to
    assume should take up the first few stack slots.  See the compiliation of Programs
    below for one way to use this ability... *)
 and compile_fun (fun_name : string) args body (env: arg name_envt name_envt) current_env : (instruction list * instruction list * instruction list) =
-  let rec get_env_callee_save_regs env = 
-    match env with 
-    | [] -> []
-    | (_, reg) :: rest -> 
-      if List.mem reg callee_saved_regs
-      then reg :: (get_env_callee_save_regs rest)
-      else get_env_callee_save_regs rest
-  in
   let save_regs = 
     match find_opt env current_env with
     | None -> []
@@ -1473,10 +1487,13 @@ and compile_fun (fun_name : string) args body (env: arg name_envt name_envt) cur
     IMov(Reg(RBP), Reg(RSP));
     (* TODO: change to maybe when implementing tail recursion *)
   ]
-    @ (List.mapi (fun (i: int) (f: string) -> IPush(Sized(QWORD_PTR, RegOffset((i + 3) * word_size, RAX)))) frees)
+    @ List.map (fun (reg) -> (IPush(reg))) save_regs
+    @ List.flatten (List.mapi (fun (i: int) (f: string) -> 
+        [IMov(Reg(scratch_reg), RegOffset((i + 3) * word_size, RAX));
+         IMov(find (find env current_env) f, Reg(scratch_reg))]) frees)
     @ [ILineComment(sprintf "Push %i filler variables" stack_alloc_space)]
     @ List.init stack_alloc_space (fun (i) -> (IPush(stack_filler)))
-    @ List.map (fun (reg) -> (IPush(reg))) save_regs in 
+  in
   let fun_body = (compile_aexpr body env (List.length args) false current_env) in 
   let fun_epilogue = 
     List.rev_map (fun (reg) -> (IPop(reg))) save_regs @ 

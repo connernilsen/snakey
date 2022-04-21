@@ -24,7 +24,7 @@ let check_name (name : string) : string =
   else name
 ;;
 
-let t name program expected = name>::test_run_strats program name expected;;
+let t name program expected = name>::test_run Register program name expected;;
 
 let tcontains name program expected = name>::test_run ~args:[] Naive program name expected ~cmp:(fun check result ->
     match check, result with
@@ -610,6 +610,14 @@ test(1, 2)"
         print_dec(sub1(print(x)))
     print_dec(7)"
       "7\n6\n5\n4\n3\n2\n1\n0\n0";
+    t "recursion-2"
+      "def print_dec(x):
+      if x <= 0:
+        0
+      else:
+        print_dec(sub1(x))
+    print_dec(7)"
+      "0";
     t "if_print_stmts"
       "if print(true): print(true) else: print(false)"
       "true\ntrue\ntrue";
