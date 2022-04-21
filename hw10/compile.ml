@@ -1448,6 +1448,19 @@ and reserve size tag env curr_env =
    assume should take up the first few stack slots.  See the compiliation of Programs
    below for one way to use this ability... *)
 and compile_fun (fun_name : string) args body (env: arg name_envt name_envt) current_env : (instruction list * instruction list * instruction list) =
+  let rec get_env_callee_save_regs env = 
+    match env with 
+    | [] -> []
+    | (_, reg) :: rest -> 
+      if List.mem reg callee_saved_regs
+      then reg :: (get_env_callee_save_regs rest)
+      else get_env_callee_save_regs rest
+  in
+  let save_regs = 
+    match find_opt env current_env with
+    | None -> []
+    | Some(env) -> get_env_callee_save_regs env
+  in
   (* get max allocation needed as an even value, possibly rounded up *)
   let frees = free_vars body args in 
   let parity_offset = (List.length frees) mod 2 in
@@ -1462,27 +1475,17 @@ and compile_fun (fun_name : string) args body (env: arg name_envt name_envt) cur
   ]
     @ (List.mapi (fun (i: int) (f: string) -> IPush(Sized(QWORD_PTR, RegOffset((i + 3) * word_size, RAX)))) frees)
     @ [ILineComment(sprintf "Push %i filler variables" stack_alloc_space)]
-    @ List.init stack_alloc_space (fun (i) -> (IPush(stack_filler))) in 
-  let rec get_env_callee_save_regs env = 
-    match env with 
-    | [] -> []
-    | (_, reg) :: rest -> 
-      if List.mem reg callee_saved_regs
-      then reg :: (get_env_callee_save_regs rest)
-      else get_env_callee_save_regs rest
-  in
-  let save_regs = 
-    match find_opt env current_env with
-    | None -> []
-    | Some(env) -> get_env_callee_save_regs env
-  in
+    @ List.init stack_alloc_space (fun (i) -> (IPush(stack_filler)))
+    @ List.map (fun (reg) -> (IPush(reg))) save_regs in 
   let fun_body = (compile_aexpr body env (List.length args) false current_env) in 
-  let fun_epilogue = [
-    IMov(Reg(RSP), Reg(RBP));
-    IPop(Reg(RBP));
-    IRet;
-    ILabel(sprintf "%s_end" fun_name);
-  ] in (fun_prologue, fun_body, fun_epilogue)
+  let fun_epilogue = 
+    List.rev_map (fun (reg) -> (IPop(reg))) save_regs @ 
+    [
+      IMov(Reg(RSP), Reg(RBP));
+      IPop(Reg(RBP));
+      IRet;
+      ILabel(sprintf "%s_end" fun_name);
+    ] in (fun_prologue, fun_body, fun_epilogue)
 and compile_aexpr (e : tag aexpr) (env : arg name_envt name_envt) (num_args : int) (is_tail : bool) current_env : instruction list =
   match e with
   | ALet(id, bind, body, _) ->
