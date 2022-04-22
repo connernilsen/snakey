@@ -1681,11 +1681,11 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
     tgc "tuple_of_function_in_closure" (6 + 4 + builtins_size)
       "let f = ((lambda: 5),) in (lambda: f[0]())()" "" "5";
 
-    tgc "tuple_of_function_in_closure_with_gc" (6 + 4 + 2 + builtins_size)
+    tgc "tuple_of_function_in_closure_with_gc" (6 + 4 + 4 + builtins_size)
       "let f = ((lambda: 5),) in 
-        (lambda(x): print((x, )))(4);
-        print((6, 7, 8));
-        f[0]()" "" "4\n(6, 7, 8)\n5";
+      (lambda(x): print((x, )))(4);
+      print((6, 7, 8));
+      f[0]()"  "" "(4, )\n(6, 7, 8)\n5";
     tgcerr "oomgc1" (7 + builtins_size) "(1, (3, 4))" "" "Out of memory";
     tgc "oomgc2" (8 + builtins_size) "(1, (3, 4))" "" "(1, (3, 4))";
     tvgc "oomgc3" (8 + builtins_size) "(1, (3, 4))" "" "(1, (3, 4))";
