@@ -1428,8 +1428,17 @@ let rec replicate x i =
   if i = 0 then []
   else x :: (replicate x (i - 1))
 
-and reserve size tag env curr_env =
+and reserve size tag (env : arg name_envt name_envt) curr_env =
   let ok = sprintf "$memcheck_%d" tag in
+  let callee_saved_regs = 
+    if List.exists (fun (_, sub_ls) ->
+        List.exists (fun (_, reg) -> 
+            List.exists (fun callee_reg -> reg = callee_reg)
+              callee_saved_regs)
+          sub_ls) env
+    then callee_saved_regs
+    else []
+  in 
   let size = (size * word_size) in
   [
     IInstrComment(IMov(Reg(RAX), LabelContents("?HEAP_END")),
