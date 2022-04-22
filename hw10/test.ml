@@ -209,7 +209,7 @@ let tint_tests = [
     Graph.(empty
            |> add "binop_18" NeighborSet.(singleton "x_4" |> add "z_10" |> add "y_7" |> add "p_15" |> add "if_17" |> add "a_23")
            |> add "p_15" NeighborSet.(singleton "x_4" |> add "z_10" |> add "y_7" |> add "if_17" |> add "binop_18")
-           |> add "if_17" NeighborSet.(singleton "x_4" |> add "z_10" |> add "y_7" |> add "p_15" |> add "binop_18" |> add "a_23")
+           |> add "if_17" NeighborSet.(singleton "x_4" |> add "z_10" |> add "y_7" |> add "p_15" |> add "binop_18")
            |> add "y_7" NeighborSet.(singleton "x_4" |> add "z_10" |> add "binop_18" |> add "p_15" |> add "if_17" |> add "a_23")
            |> add "z_10" NeighborSet.(singleton "x_4" |> add "binop_18" |> add "y_7" |> add "p_15" |> add "if_17" |> add "a_23")
            |> add "a_23" NeighborSet.(singleton "z_10" |> add "y_7" |> add "binop_18" |> add "x_4")
@@ -248,19 +248,19 @@ let tint_tests = [
          y = (if c: let z = 1 in z else: 2) in
          1 + y"
     Graph.(empty 
-           |> add "x_4" NeighborSet.empty
-           |> add "y_12" NeighborSet.empty
-           |> add "c_7" NeighborSet.empty
-           |> add "z_17" NeighborSet.empty);
+           |> add "x_4" NeighborSet.(singleton "y_12" |> add "z_17" |> add "c_7")
+           |> add "y_12" NeighborSet.(singleton "c_7" |> add "x_4")
+           |> add "c_7" NeighborSet.(singleton "y_12" |> add "z_17" |> add "x_4")
+           |> add "z_17" NeighborSet.(singleton "c_7" |> add "x_4"));
   tint "tint_lambda"
     "let num = 52,
          x = (lambda(y): y + num),
          y = (lambda(z): x(z) + 1) in
          y(8)"
     Graph.(empty
-           |> add "num_4" NeighborSet.empty
-           |> add "x_7" NeighborSet.empty
-           |> add "y_14" NeighborSet.empty);
+           |> add "num_4" NeighborSet.(singleton "y_14" |> add "x_7")
+           |> add "x_7" NeighborSet.(singleton "y_14" |> add "num_4")
+           |> add "y_14" NeighborSet.(singleton "x_7" |> add "num_4"));
   tint "tint_lambda_2"
     "let num = 52,
          x = (lambda(y): y + num),
