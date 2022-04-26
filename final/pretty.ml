@@ -22,6 +22,10 @@ let string_of_op1 op =
   | IsNum -> "isnum"
   | IsBool -> "isbool"
   | IsTuple -> "istuple"
+  | IsStr -> "isstr"
+  | ToStr -> "tostr"
+  | ToBool -> "tobool"
+  | ToNum -> "tonum"
 
 let name_of_op1 op =
   match op with
@@ -33,6 +37,10 @@ let name_of_op1 op =
   | IsNum -> "IsNum"
   | IsBool -> "IsBool"
   | IsTuple -> "IsTuple"
+  | IsStr -> "IsStr"
+  | ToStr -> "ToStr"
+  | ToBool -> "ToBool"
+  | ToNum -> "ToNum"
 
 let string_of_op2 op =
   match op with
@@ -93,6 +101,7 @@ and string_of_expr_with (depth : int) (print_a : 'a -> string) (e : 'a expr) : s
     | EBool(b, a) -> (string_of_bool b) ^ (print_a a)
     | ENil a -> "nil " ^ (print_a a)
     | EId(x, a) -> x ^ (print_a a)
+    | EStr(s, a) -> s ^ (print_a a)
     | EPrim1(op, e, a) ->
       sprintf "%s(%s)%s" (string_of_op1 op) (string_of_expr e) (print_a a)
     | EPrim2(op, left, right, a) ->
@@ -166,6 +175,7 @@ and string_of_cexpr_with (depth : int) (print_a : 'a -> string) (c : 'a cexpr) :
   if depth <= 0 then "..." else
     match c with
     | CTuple(imms, a) -> sprintf "(%s)%s" (ExtString.String.join ", " (List.map string_of_immexpr imms)) (print_a a)
+    | CStr(s, a) -> sprintf "%s%s" s (print_a a)
     | CGetItem(e, idx, a) -> sprintf "%s[%s]%s" (string_of_immexpr e) (string_of_immexpr idx) (print_a a)
     | CSetItem(e, idx, newval, a) -> sprintf "%s[%s] := %s %s" (string_of_immexpr e) (string_of_immexpr idx) (string_of_immexpr newval) (print_a a)
     | CPrim1(op, e, a) ->
@@ -260,6 +270,10 @@ let rec format_expr (fmt : Format.formatter) (print_a : 'a -> string) (e : 'a ex
     open_label fmt "ETuple" (print_a a);
     print_list fmt (fun fmt -> format_expr fmt print_a) es print_comma_sep;
     close_paren fmt
+  | EStr(s, a) ->
+    open_label fmt "EStr" (print_a a);
+    print_string s;
+    close_paren fmt;
   | EGetItem(e, idx, a) ->
     open_label fmt "EGetItem" (print_a a);
     help e; print_comma_sep fmt; help idx;
