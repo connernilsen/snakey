@@ -136,6 +136,7 @@ let rec map_tag_E (f : 'a -> 'b) (e : 'a expr) =
   | ENumber(n, a) -> ENumber(n, f a)
   | EBool(b, a) -> EBool(b, f a)
   | ENil a -> ENil(f a)
+  | EStr(s, a) -> EStr(s, f a)
   | EPrim1(op, e, a) ->
     let tag_prim = f a in
     EPrim1(op, map_tag_E f e, tag_prim)
@@ -237,6 +238,7 @@ and untagE e =
   | ENumber(n, _) -> ENumber(n, ())
   | EBool(b, _) -> EBool(b, ())
   | ENil _ -> ENil ()
+  | EStr (s, _) -> EStr(s, ())
   | EPrim1(op, e, _) ->
     EPrim1(op, untagE e, ())
   | EPrim2(op, e1, e2, _) ->
