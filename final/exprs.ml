@@ -303,6 +303,8 @@ let atag (p : 'a aprogram) : tag aprogram =
     | CTuple(es, _) ->
       let tup_tag = tag() in
       CTuple(List.map helpI es, tup_tag)
+    | CStr(s, _) -> let str_tag = tag() in 
+      CStr(s, str_tag)
     | CGetItem(e, idx, _) ->
       let get_tag = tag() in
       CGetItem(helpI e, helpI idx, get_tag)
