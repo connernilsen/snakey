@@ -78,8 +78,8 @@ rule token = parse
   | "end" { END }
   | "rec" { REC }
   | "shadow" { SHADOW }
-  | '"' ([^ '\n']* as val) '"' { STR val }
-  | "\"\"\"" (_* as val) "\"\"\"" { STR val }
+  | '"' ([^ '\n']* as str) '"' { STR str }
+  | "\"\"\"" (_* as str) "\"\"\"" { STR str }
   | ident as x { if x = "_" then UNDERSCORE else ID x }
   | eof { EOF }
   | _ as c { failwith (sprintf "Unrecognized character: %c" c) }
