@@ -71,7 +71,6 @@ let label_DONE         = "done"
 let dummy_span = (Lexing.dummy_pos, Lexing.dummy_pos);;
 
 let first_six_args_registers = [RDI; RSI; RDX; RCX; R8; R9]
-(* TODO: add more of these once we clear out R10-R12 *)
 let register_allocation_registers = [R12;R13;R14;RBX]
 let caller_saved_regs : arg list =
   [ Reg RDI
@@ -211,7 +210,6 @@ let rec deepest_stack e (env: arg name_envt name_envt) current_env =
     | ImmBool _ -> 0
     | ImmId(name, _) -> name_to_offset name
   and name_to_offset name =
-    (* TODO: i don't like this but it'll work for now *)
     try (match find (find env current_env) name with
         | RegOffset(bytes, RBP) -> bytes / (-1 * word_size) (* negative because stack direction *)
         | _ -> 0) 
@@ -713,8 +711,7 @@ let anf (p : tag program) : unit aprogram =
       let (idx_imm, idx_setup) = helpI idx in
       let (new_imm, new_setup) = helpI newval in
       (CSetItem(tup_imm, idx_imm, new_imm, ()), tup_setup @ idx_setup @ new_setup)
-
-
+    | EStr(s, _) -> raise (NotYetImplemented "maybe do this?")
     | _ -> let (imm, setup) = helpI e in (CImmExpr imm, setup)
 
   and helpI (e : tag expr) : (unit immexpr * unit anf_bind list) =
@@ -1489,13 +1486,11 @@ and compile_fun (fun_name : string) args body (env: arg name_envt name_envt) cur
   let frees = free_vars body args in 
   let save_regs_offset = (List.length save_regs) mod 2 in
   let stack_alloc_space = (align_stack_by_words ((deepest_stack body env current_env) + save_regs_offset)) in
-  (* let stack_alloc_space = (((deepest_stack body env current_env) + 1 + parity_offset) / 2 ) * 2 in *)
   let fun_prologue = [
     IJmp(Label(sprintf "%s_end" fun_name));
     ILabel(fun_name);
     IPush(Reg(RBP));
     IMov(Reg(RBP), Reg(RSP));
-    (* TODO: change to maybe when implementing tail recursion *)
   ]
     @ [ILineComment(sprintf "Push %i filler variables" stack_alloc_space)]
     @ List.init stack_alloc_space (fun (i) -> (IPush(stack_filler)))
@@ -1793,7 +1788,6 @@ and setup_lambda name args frees tag env curr_env =
   (* sets up lambda by reserving space and copying the arity, ptr, and num of closure args *)
   let size = (align_stack_by_words ((List.length frees) + 3)) in 
   (reserve size tag env curr_env)
-  (* todo: maybe don't zero out everything if we don't need to *)
   @ List.init size (fun (i) -> (IMov(Sized(QWORD_PTR, RegOffset(i * word_size, heap_reg)), stack_filler))) 
   @ [
     ILineComment("Setup lambda");
