@@ -18,8 +18,13 @@ type prim1 =
   | IsBool
   | IsNum
   | IsTuple
+  | IsStr
   | Not
   | PrintStack
+  (* TODO: deal with this *)
+  | ToStr
+  | ToBool
+  | ToNum
 
 type prim2 =
   | Plus
@@ -55,11 +60,11 @@ and 'a expr =
   | ENumber of int64 * 'a
   | EBool of bool * 'a
   | ENil of 'a
+  | EStr of string * 'a
   | EId of string * 'a
   | EApp of 'a expr * 'a expr list * call_type * 'a
   | ELambda of 'a bind list * 'a expr * 'a
   | ELetRec of 'a binding list * 'a expr * 'a
-  | EStr of string * 'a
 
 type 'a decl =
   | DFun of string * 'a bind list * 'a expr * 'a
@@ -82,7 +87,6 @@ and 'a cexpr = (* compound expressions *)
   | CGetItem of 'a immexpr * 'a immexpr * 'a
   | CSetItem of 'a immexpr * 'a immexpr * 'a immexpr * 'a
   | CLambda of string list * 'a aexpr * 'a
-  | CStr of string * 'a
 and 'a aexpr = (* anf expressions *)
   | ASeq of 'a cexpr * 'a aexpr * 'a
   | ALet of string * 'a cexpr * 'a aexpr * 'a
@@ -114,11 +118,11 @@ let get_tag_E e = match e with
   | EId(_, t) -> t
   | EApp(_, _, _, t) -> t
   | ETuple(_, t) -> t
+  | EStr(_, t) -> t
   | EGetItem(_, _, t) -> t
   | ESetItem(_, _, _, t) -> t
   | ESeq(_, _, t) -> t
   | ELambda(_, _, t) -> t
-  | EStr(_, t) -> t
 ;;
 
 let get_tag_D d = match d with
@@ -136,6 +140,7 @@ let rec map_tag_E (f : 'a -> 'b) (e : 'a expr) =
   | ENumber(n, a) -> ENumber(n, f a)
   | EBool(b, a) -> EBool(b, f a)
   | ENil a -> ENil(f a)
+  | EStr(s, a) -> EStr(s, f a)
   | EPrim1(op, e, a) ->
     let tag_prim = f a in
     EPrim1(op, map_tag_E f e, tag_prim)
@@ -176,7 +181,6 @@ let rec map_tag_E (f : 'a -> 'b) (e : 'a expr) =
   | ELambda(binds, body, a) ->
     let tag_lam = f a in
     ELambda(List.map (map_tag_B f) binds, map_tag_E f body, tag_lam)
-  | EStr(str, a) -> EStr(str, f a)
 and map_tag_B (f : 'a -> 'b) b =
   match b with
   | BBlank tag -> BBlank(f tag)
@@ -238,6 +242,7 @@ and untagE e =
   | ENumber(n, _) -> ENumber(n, ())
   | EBool(b, _) -> EBool(b, ())
   | ENil _ -> ENil ()
+  | EStr (s, _) -> EStr(s, ())
   | EPrim1(op, e, _) ->
     EPrim1(op, untagE e, ())
   | EPrim2(op, e1, e2, _) ->
@@ -252,7 +257,6 @@ and untagE e =
     ELetRec(List.map (fun (b, e, _) -> (untagB b, untagE e, ())) binds, untagE body, ())
   | ELambda(binds, body, _) ->
     ELambda(List.map untagB binds, untagE body, ())
-  | EStr(str, _) -> EStr(str, ())
 and untagB b =
   match b with
   | BBlank _ -> BBlank ()
@@ -308,7 +312,6 @@ let atag (p : 'a aprogram) : tag aprogram =
     | CLambda(args, body, _) ->
       let lam_tag = tag() in
       CLambda(args, helpA body, lam_tag)
-    | CStr(str, _) -> CStr(str, tag())
   and helpI (i : 'a immexpr) : tag immexpr =
     match i with
     | ImmNil(_) -> ImmNil(tag())

@@ -37,6 +37,8 @@ rule token = parse
   | blank { token lexbuf }
   | '\n' { new_line lexbuf; token lexbuf }
   | signed_int as x { NUM (Int64.of_string x) }
+  | '"' ([^ '\n']* as str) '"' { STR str }
+  | "\"\"\"" (_* as str) "\"\"\"" { STR str }
   | "def" { DEF }
   | "and" { ANDDEF }
   | "print" { PRINT }
@@ -47,6 +49,7 @@ rule token = parse
   | "istuple" { ISTUPLE }
   | "isbool" { ISBOOL }
   | "isnum" { ISNUM }
+  | "isstr" { ISSTR }
   | "add1" { ADD1 }
   | "sub1" { SUB1 }
   | "lambda" { LAMBDA }
@@ -78,8 +81,6 @@ rule token = parse
   | "end" { END }
   | "rec" { REC }
   | "shadow" { SHADOW }
-  | '"' ([^ '\n']* as str) '"' { STR str }
-  | "\"\"\"" (_* as str) "\"\"\"" { STR str }
   | ident as x { if x = "_" then UNDERSCORE else ID x }
   | eof { EOF }
   | _ as c { failwith (sprintf "Unrecognized character: %c" c) }
