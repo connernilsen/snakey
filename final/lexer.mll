@@ -37,8 +37,6 @@ rule token = parse
   | blank { token lexbuf }
   | '\n' { new_line lexbuf; token lexbuf }
   | signed_int as x { NUM (Int64.of_string x) }
-  | ":=" { COLONEQ }
-  | ":" { COLON }
   | "def" { DEF }
   | "and" { ANDDEF }
   | "print" { PRINT }
@@ -80,6 +78,8 @@ rule token = parse
   | "end" { END }
   | "rec" { REC }
   | "shadow" { SHADOW }
+  | '"' ([^ '\n']* as str) '"' { STR str }
+  | "\"\"\"" (_* as str) "\"\"\"" { STR str }
   | ident as x { if x = "_" then UNDERSCORE else ID x }
   | eof { EOF }
   | _ as c { failwith (sprintf "Unrecognized character: %c" c) }
