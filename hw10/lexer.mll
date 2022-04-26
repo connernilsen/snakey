@@ -37,6 +37,8 @@ rule token = parse
   | blank { token lexbuf }
   | '\n' { new_line lexbuf; token lexbuf }
   | signed_int as x { NUM (Int64.of_string x) }
+  | '"' ([^ '\n']* as str) '"' { STR str }
+  | "\"\"\"" (_* as str) "\"\"\"" { STR str }
   | ":=" { COLONEQ }
   | ":" { COLON }
   | "def" { DEF }
@@ -49,6 +51,7 @@ rule token = parse
   | "istuple" { ISTUPLE }
   | "isbool" { ISBOOL }
   | "isnum" { ISNUM }
+  | "isstr" { ISSTR }
   | "add1" { ADD1 }
   | "sub1" { SUB1 }
   | "lambda" { LAMBDA }
