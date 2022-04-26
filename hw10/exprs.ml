@@ -21,6 +21,10 @@ type prim1 =
   | IsStr
   | Not
   | PrintStack
+  (* TODO: deal with this *)
+  | ToStr
+  | ToBool
+  | ToNum
 
 type prim2 =
   | Plus
