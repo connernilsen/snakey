@@ -21,7 +21,6 @@ type prim1 =
   | IsStr
   | Not
   | PrintStack
-  (* TODO: deal with this *)
   | ToStr
   | ToBool
   | ToNum
@@ -87,6 +86,7 @@ and 'a cexpr = (* compound expressions *)
   | CGetItem of 'a immexpr * 'a immexpr * 'a
   | CSetItem of 'a immexpr * 'a immexpr * 'a immexpr * 'a
   | CLambda of string list * 'a aexpr * 'a
+  | CStr of string * 'a
 and 'a aexpr = (* anf expressions *)
   | ASeq of 'a cexpr * 'a aexpr * 'a
   | ALet of string * 'a cexpr * 'a aexpr * 'a

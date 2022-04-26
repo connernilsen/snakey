@@ -203,6 +203,7 @@ let rec deepest_stack e (env: arg name_envt name_envt) current_env =
     | CSetItem(t, _, v, _) -> max (helpI t) (helpI v)
     | CLambda(_, _, _) -> 1
     | CImmExpr i -> helpI i
+    | CStr _ -> 0
   and helpI i =
     match i with
     | ImmNil _ -> 0
@@ -232,6 +233,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
     | ESetItem(e, idx, newval, pos) ->
       wf_E e env @ wf_E idx env @ wf_E newval env
     | ENil _ -> []
+    | EStr _ -> []
     | EBool _ -> []
     | ENumber(n, loc) ->
       if n > (Int64.div Int64.max_int 2L) || n < (Int64.div Int64.min_int 2L) then
@@ -296,8 +298,6 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
     | ELetRec(binds, body, _) ->
       let nonfuns = List.find_all (fun b -> match b with | (BName _, ELambda _, _) -> false | _ -> true) binds in
       let nonfun_errs = List.map (fun (b, _, where) -> LetRecNonFunction(b, where)) nonfuns in
-
-
       let rec find_locs x (binds : 'a bind list) : 'a list =
         match binds with
         | [] -> []
@@ -506,6 +506,7 @@ let desugar (p : sourcespan program) : sourcespan program =
     | ENumber(n, tag) -> ENumber(n, tag)
     | EBool(b, tag) -> EBool(b, tag)
     | ENil(t, tag) -> ENil(t, tag)
+    | EStr(s, tag) -> EStr(s, tag)
     | EPrim1(op, e, tag) ->
       EPrim1(op, helpE e, tag)
     | EPrim2(op, e1, e2, tag) ->
@@ -607,6 +608,7 @@ let rename_and_tag (p : tag program) : tag program =
       (try
          EId(find env name, tag)
        with InternalCompilerError _ -> e)
+    | EStr(s, tag) -> EStr(s, tag)
     | EApp(func, args, Snake, tag) ->
       let func = helpE env func in
       EApp(func, List.map (helpE env) args, Snake, tag)
@@ -721,13 +723,11 @@ let anf (p : tag program) : unit aprogram =
     | EBool(b, _) -> (ImmBool(b, ()), [])
     | EId(name, _) -> (ImmId(name, ()), [])
     | ENil _ -> (ImmNil(), [])
-
+    | EStr(s, tag) -> raise (NotYetImplemented s)
     | ESeq(e1, e2, _) ->
       let (e1_imm, e1_setup) = helpI e1 in
       let (e2_imm, e2_setup) = helpI e2 in
       (e2_imm, e1_setup @ e2_setup)
-
-
     | ETuple(args, tag) ->
       let tmp = sprintf "tup_%d" tag in
       let (new_args, new_setup) = List.split (List.map helpI args) in
@@ -743,7 +743,6 @@ let anf (p : tag program) : unit aprogram =
       let (idx_imm, idx_setup) = helpI idx in
       let (new_imm, new_setup) = helpI newval in
       (ImmId(tmp, ()), tup_setup @ idx_setup @ new_setup @ [BLet (tmp, CSetItem(tup_imm, idx_imm, new_imm,()))])
-
     | EPrim1(op, arg, tag) ->
       let tmp = sprintf "unary_%d" tag in
       let (arg_imm, arg_setup) = helpI arg in
@@ -849,6 +848,7 @@ let free_vars (e: 'a aexpr) (args : string list) : string list =
     | CLambda(args, body, _) ->
       let newenv = StringSet.union (stringset_of_list args) env in 
       help_aexpr body newenv 
+    | CStr(s, _) -> StringSet.empty
   and help_aexpr (e : 'a aexpr) (env : StringSet.t) : StringSet.t = 
     match e with 
     | ASeq(expr1, expr2, _) -> StringSet.union (help_cexpr expr1 env) (help_aexpr expr2 env)
@@ -944,6 +944,7 @@ let free_vars_cache (prog: 'a aprogram) : (StringSet.t * tag) aprogram =
       let body, body_frees = help_aexpr body (StringSet.union env (stringset_of_list args)) in 
       let frees = StringSet.inter body_frees env in
       CLambda(args, body, (frees, tag)), frees
+    | CStr(s, tag) -> raise (NotYetImplemented "do this")
   and help_aexpr (e : 'a aexpr) (env : StringSet.t) : (StringSet.t * tag) aexpr * StringSet.t = 
     match e with 
     | ASeq(e1, e2, tag) -> 
@@ -1050,7 +1051,7 @@ let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg name_envt n
       let frees = free_vars body binds in
       (get_func_call_params binds frees tag)
       @ get_aexpr_envt body (1 + List.length frees) tag
-    | CPrim1(_) | CPrim2(_) | CApp(_) | CImmExpr(_) | CTuple(_) | CGetItem(_) | CSetItem(_) -> []
+    | CPrim1(_) | CPrim2(_) | CApp(_) | CImmExpr(_) | CTuple(_) | CGetItem(_) | CSetItem(_) | CStr(_) -> []
   in
   match prog with 
   | AProgram(expr, tag) ->
@@ -1077,6 +1078,7 @@ and extract_frees_cexpr (e : (StringSet.t * 'a) cexpr) =
   | CGetItem(tuple, pos, (frees, _)) -> frees
   | CSetItem(tuple, pos, value, (frees, _)) -> frees
   | CLambda(args, body, (frees, _)) -> frees
+  | CStr(s, tag) -> raise (NotYetImplemented "do this")
 and extract_frees_immexpr (e : (StringSet.t * 'a) immexpr) = 
   match e with 
   | ImmNil((frees, _)) -> frees
@@ -1146,6 +1148,7 @@ let rec interfere (e : (StringSet.t * 'a) aexpr) (start_live : StringSet.t) : gr
     | CLambda(args, body, (frees, _)) -> 
       let interferes = StringSet.inter live frees in 
       connect_all (connect_all empty interferes) frees
+    | CStr(s, (frees, _)) -> raise (NotYetImplemented "do this")
   and help_immexpr (e : (StringSet.t * 'a) immexpr) : string option =
     match e with 
     | ImmNil(_) -> None
@@ -1619,6 +1622,10 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
         ]
       | Print -> (setup_call_to_func env current_env [e_reg] (Label("?print")) false)
       | PrintStack -> (setup_call_to_func env current_env [e_reg; Reg(RSP); Reg(RBP); Const(Int64.of_int num_args)] (Label("?print_stack")) false)
+      | IsStr -> raise (NotYetImplemented "do this")
+      | ToStr -> raise (NotYetImplemented "do this")
+      | ToBool -> raise (NotYetImplemented "do this")
+      | ToNum -> raise (NotYetImplemented "do this")
     end
   | CPrim2(op, l, r, tag) ->
     let e1_reg = (compile_imm l env current_env) in
@@ -1774,6 +1781,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
        IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, scratch_reg, word_size, word_size)), Reg(scratch_reg_2));
        IMov(Reg(RAX), set)])
   | CLambda(_) -> compile_lambda e env true current_env
+  | CStr(_) -> raise (NotYetImplemented "do this")
 and compile_imm e env current_env =
   match e with
   | ImmNum(n, _) -> Const(Int64.shift_left n 1)
