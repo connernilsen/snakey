@@ -711,7 +711,7 @@ let anf (p : tag program) : unit aprogram =
       let (idx_imm, idx_setup) = helpI idx in
       let (new_imm, new_setup) = helpI newval in
       (CSetItem(tup_imm, idx_imm, new_imm, ()), tup_setup @ idx_setup @ new_setup)
-    | EStr(s, _) -> raise (NotYetImplemented "maybe do this?")
+    | EStr(s, _) -> (CStr(s, ()), [])
     | _ -> let (imm, setup) = helpI e in (CImmExpr imm, setup)
 
   and helpI (e : tag expr) : (unit immexpr * unit anf_bind list) =
@@ -941,7 +941,7 @@ let free_vars_cache (prog: 'a aprogram) : (StringSet.t * tag) aprogram =
       let body, body_frees = help_aexpr body (StringSet.union env (stringset_of_list args)) in 
       let frees = StringSet.inter body_frees env in
       CLambda(args, body, (frees, tag)), frees
-    | CStr(s, tag) -> raise (NotYetImplemented "do this")
+    | CStr(s, tag) -> raise (NotYetImplemented ("do this: " ^ s))
   and help_aexpr (e : 'a aexpr) (env : StringSet.t) : (StringSet.t * tag) aexpr * StringSet.t = 
     match e with 
     | ASeq(e1, e2, tag) -> 
@@ -1075,7 +1075,7 @@ and extract_frees_cexpr (e : (StringSet.t * 'a) cexpr) =
   | CGetItem(tuple, pos, (frees, _)) -> frees
   | CSetItem(tuple, pos, value, (frees, _)) -> frees
   | CLambda(args, body, (frees, _)) -> frees
-  | CStr(s, tag) -> raise (NotYetImplemented "do this")
+  | CStr(s, (frees, _)) -> frees
 and extract_frees_immexpr (e : (StringSet.t * 'a) immexpr) = 
   match e with 
   | ImmNil((frees, _)) -> frees
@@ -1145,7 +1145,7 @@ let rec interfere (e : (StringSet.t * 'a) aexpr) (start_live : StringSet.t) : gr
     | CLambda(args, body, (frees, _)) -> 
       let interferes = StringSet.inter live frees in 
       connect_all (connect_all empty interferes) frees
-    | CStr(s, (frees, _)) -> raise (NotYetImplemented "do this")
+    | CStr(s, (frees, _)) -> empty
   and help_immexpr (e : (StringSet.t * 'a) immexpr) : string option =
     match e with 
     | ImmNil(_) -> None
@@ -1776,7 +1776,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
        IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, scratch_reg, word_size, word_size)), Reg(scratch_reg_2));
        IMov(Reg(RAX), set)])
   | CLambda(_) -> compile_lambda e env true current_env
-  | CStr(_) -> raise (NotYetImplemented "do this")
+  | CStr(s, _) -> raise (NotYetImplemented ("do this: " ^ s))
 and compile_imm e env current_env =
   match e with
   | ImmNum(n, _) -> Const(Int64.shift_left n 1)
