@@ -67,7 +67,7 @@ let tgcolorint name program (expected: arg name_envt) =
 let builtins_size = 4 (* arity + 0 vars + codeptr + padding *) * (List.length Compile.native_fun_bindings)
 
 let tstring = [
-  t "tstring_simple" "\"test\"" "" "\"test\"";
+  t "tstring_simple" "\"test\"" "" "test";
   t "tstring_complex" "\"\"\"test
   \"\"\"" "" "\"test\"";
 ]

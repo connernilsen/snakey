@@ -941,7 +941,7 @@ let free_vars_cache (prog: 'a aprogram) : (StringSet.t * tag) aprogram =
       let body, body_frees = help_aexpr body (StringSet.union env (stringset_of_list args)) in 
       let frees = StringSet.inter body_frees env in
       CLambda(args, body, (frees, tag)), frees
-    | CStr(s, tag) -> raise (NotYetImplemented ("do this: " ^ s))
+    | CStr(s, tag) -> CStr(s, (StringSet.empty, tag)), StringSet.empty
   and help_aexpr (e : 'a aexpr) (env : StringSet.t) : (StringSet.t * tag) aexpr * StringSet.t = 
     match e with 
     | ASeq(e1, e2, tag) -> 
