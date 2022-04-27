@@ -76,6 +76,7 @@ let tstring = [
     "test\ntest";
   t "tstring_seq" "\"t1\"; print(\"hey\"); \"t2\"" ""
     "heyt2";
+  t "input_test" "input()" "hello" "hello";
 ]
 
 let suite =

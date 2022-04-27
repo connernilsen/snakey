@@ -12,9 +12,6 @@ let ignore_new_line lexbuf =
         pos_bol = lcp.pos_cnum;
       };
     lexbuf.lex_start_p <- lexbuf.lex_curr_p
-;;
-
-let buf_size = 100;;
 }
 
 let dec_digit = ['0'-'9']
@@ -39,8 +36,8 @@ rule token = parse
   | blank { token lexbuf }
   | '\n' { new_line lexbuf; token lexbuf }
   | signed_int as x { NUM (Int64.of_string x) }
-  | '"' '"' '"' { parse_string (Buffer.create 17) true lexbuf}
-  | '"' { parse_string (Buffer.create 17) false lexbuf }
+  | '"' '"' '"' { parse_string (Buffer.create 100) true lexbuf}
+  | '"' { parse_string (Buffer.create 100) false lexbuf }
   | "def" { DEF }
   | "and" { ANDDEF }
   | "print" { PRINT }

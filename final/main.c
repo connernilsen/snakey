@@ -16,6 +16,7 @@ extern SNAKEVAL equal(SNAKEVAL val1, SNAKEVAL val2) asm("?equal");
 extern uint64_t *try_gc(uint64_t *alloc_ptr, uint64_t amount_needed, uint64_t *first_frame, uint64_t *stack_top) asm("?try_gc");
 extern uint64_t *HEAP_END asm("?HEAP_END");
 extern uint64_t *HEAP asm("?HEAP");
+extern uint64_t string_reserve(uint64_t size) asm("?string_reserve");
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001;
 const uint64_t BOOL_TAG_MASK = 0x000000000000000f;
@@ -56,6 +57,7 @@ uint64_t *HEAP;
 uint64_t *HEAP_END;
 
 const int DEBUG_MEM = 0;
+const int STRING_SIZE = 100;
 
 SNAKEVAL set_stack_bottom(uint64_t *stack_bottom)
 {
@@ -269,9 +271,25 @@ SNAKEVAL printStack(SNAKEVAL val, uint64_t *rsp, uint64_t *rbp, uint64_t args)
 
 SNAKEVAL input()
 {
-  uint64_t ans;
-  scanf("%ld", &ans);
-  return ans << 1;
+  char str[STRING_SIZE];
+  scanf("%s", str);
+  int str_len = 0;
+  for (int i = 0; i < STRING_SIZE; i++)
+  {
+    if (str[i] == 0)
+    {
+      str_len = i;
+      break;
+    }
+  }
+  int space_len = ((str_len + 1) / 2) * 2;
+  uint64_t *ptr = string_reserve(space_len);
+  ptr[0] = str_len * 2;
+  for (int i = 0; i < str_len; i++)
+  {
+    ptr[i + 1] = str[i] * 2;
+  }
+  return ((uint64_t)ptr) + STRING_TAG;
 }
 
 SNAKEVAL print(SNAKEVAL val)

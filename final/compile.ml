@@ -1870,7 +1870,40 @@ and args_help args regs =
   | args, [] ->
     List.rev_map (fun arg -> IPush arg) args
   | [], _ -> []
-
+and compile_reserve =
+  let ok = "$memcheck_glob" in
+  let saved_regs = [Reg(List.hd first_six_args_registers)] in
+  [
+    ILabel("?string_reserve");
+    IPush(Reg(RBP));
+    IMov(Reg(RBP), Reg(RSP));
+    IMov(Reg(RAX), LabelContents("?HEAP_END"));
+    ISub(Reg(RAX), Reg(List.hd first_six_args_registers));
+    ICmp(Reg(RAX), Reg(heap_reg));
+    IMov(Reg(RAX), Reg(heap_reg));
+    IJge(Label ok);
+  ]
+  (* Save callee saved regisers so that we can ensure values stored are copied *)
+  @ backup_saved_registers saved_regs
+  @ [
+    IMov(Reg(RDI), Sized(QWORD_PTR, Reg(RSI))); (* bytes_needed in C *)
+    IMov(Reg(RSI), Sized(QWORD_PTR, Reg(heap_reg))); (* alloc_ptr in C *)
+    IMov(Reg(RDX), Sized(QWORD_PTR, Reg(RBP))); (* first_frame in C *)
+    IMov(Reg(RCX), Sized(QWORD_PTR, Reg(RSP))); (* stack_top in C *)
+    ICall(Label("?try_gc"));
+  ]
+  @ restore_saved_registers saved_regs
+  @ [
+    IInstrComment(IMov(Reg(heap_reg), Reg(RAX)), "assume gc success if returning here, so RAX holds the new heap_reg value");
+    ILabel(ok);
+    IMul(Reg(List.hd first_six_args_registers), 
+         Sized(QWORD_PTR, Const(Int64.of_int word_size)));
+    IAdd(Reg(heap_reg), Reg(List.hd first_six_args_registers));
+    IMov(Reg(RSP), Reg(RBP));
+    IPop(Reg(RBP));
+    IRet;
+    ILabel(sprintf "%s_end" "?string_reserve");
+  ]
 
 
 (* This function can be used to take the native functions and produce DFuns whose bodies
@@ -1905,6 +1938,7 @@ let compile_error_handler ((err_name : string), (err_code : int64)) : instructio
 let compile_prog (anfed, (env : arg name_envt name_envt)) =
   let prelude =
     "section .text
+extern ?string_reserve
 extern ?error
 extern ?input
 extern ?print
@@ -1929,7 +1963,7 @@ global ?our_code_starts_here" in
       (label_DESTRUCTURE_INVALID_LEN, err_DESTRUCTURE_INVALID_LEN);
       (label_SHOULD_BE_FUN, err_CALL_NOT_CLOSURE);
       (label_ARITY, err_CALL_ARITY_ERR);
-    ]))
+    ])) @ compile_reserve
   in
   match anfed with
   | AProgram(body, tag) ->
