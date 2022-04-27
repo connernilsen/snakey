@@ -1,6 +1,6 @@
 (library
   (name racer_impl)
-  (modules assembly compile errors exprs phases pretty runner lexer parser graph)
+  (modules assembly compile errors exprs phases pretty runner lexer parser graph libtest)
   (libraries ounit2 extlib unix)
   (wrapped false))
 
@@ -16,7 +16,8 @@
 (test
   (name test)
   (modules test)
-  (libraries racer_impl))
+  (libraries racer_impl ounit2)
+  (modes byte exe))
 
 (env (dev (flags (:standard -warn-error -A))))
 

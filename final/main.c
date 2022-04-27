@@ -18,15 +18,17 @@ extern uint64_t *HEAP_END asm("?HEAP_END");
 extern uint64_t *HEAP asm("?HEAP");
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001;
-const uint64_t BOOL_TAG_MASK = 0x0000000000000007;
-const uint64_t TUPLE_TAG_MASK = 0x0000000000000007;
-const uint64_t CLOSURE_TAG_MASK = 0x0000000000000007;
-const uint64_t FORWARD_TAG_MASK = 0x0000000000000007;
+const uint64_t BOOL_TAG_MASK = 0x000000000000000f;
+const uint64_t TUPLE_TAG_MASK = 0x000000000000000f;
+const uint64_t CLOSURE_TAG_MASK = 0x000000000000000f;
+const uint64_t FORWARD_TAG_MASK = 0x000000000000000f;
+const uint64_t STRING_TAG_MASK = 0x000000000000000f;
 const uint64_t NUM_TAG = 0x0000000000000000;
 const uint64_t BOOL_TAG = 0x0000000000000007;
 const uint64_t TUPLE_TAG = 0x0000000000000001;
 const uint64_t CLOSURE_TAG = 0x0000000000000005;
 const uint64_t FORWARD_TAG = 0x0000000000000003;
+const uint64_t STRING_TAG = 0x0000000000000009;
 const uint64_t BOOL_TRUE = 0xFFFFFFFFFFFFFFFF;
 const uint64_t BOOL_FALSE = 0x7FFFFFFFFFFFFFFF;
 const uint64_t NIL = ((uint64_t)NULL | TUPLE_TAG);
@@ -177,6 +179,16 @@ void printHelp(FILE *out, SNAKEVAL val)
     // Unmark this tuple: restore its length
     *(addr) = len * 2; // length is encoded
   }
+  else if ((val & STRING_TAG_MASK) == STRING_TAG)
+  {
+    uint64_t *addr = (uint64_t *)(val - STRING_TAG);
+
+    uint64_t len = addr[0] / 2;
+    for (uint64_t i = 1; i <= len; i++)
+    {
+      fprintf(out, "%c", addr[i] / 2);
+    }
+  }
   else
   {
     fprintf(out, "Unknown value: %#018lx", val);
@@ -265,7 +277,6 @@ SNAKEVAL input()
 SNAKEVAL print(SNAKEVAL val)
 {
   printHelp(stdout, val);
-  printf("\n");
   fflush(stdout);
   return val;
 }

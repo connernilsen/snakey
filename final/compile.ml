@@ -22,15 +22,15 @@ let const_true       = HexConst(0xFFFFFFFFFFFFFFFFL)
 let const_false      = HexConst(0x7FFFFFFFFFFFFFFFL)
 let bool_mask        = HexConst(0x8000000000000000L)
 let bool_tag         = 0x0000000000000007L
-let bool_tag_mask    = 0x0000000000000007L
+let bool_tag_mask    = 0x000000000000000fL
 let num_tag          = 0x0000000000000000L
 let num_tag_mask     = 0x0000000000000001L
 let closure_tag      = 0x0000000000000005L
-let closure_tag_mask = 0x0000000000000007L
+let closure_tag_mask = 0x000000000000000fL
 let tuple_tag        = 0x0000000000000001L
-let tuple_tag_mask   = 0x0000000000000007L
-let string_tag        = 0x0000000000000003L
-let string_tag_mask   = 0x0000000000000003L
+let tuple_tag_mask   = 0x000000000000000fL
+let string_tag        = 0x0000000000000009L
+let string_tag_mask   = 0x000000000000000fL
 let const_nil        = HexConst(tuple_tag)
 
 let err_COMP_NOT_NUM     = 1L
@@ -1783,20 +1783,19 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
     let length = Bytes.length bytes in 
     let size = (align_stack_by_words (length + 1)) in 
     (* list of all the multiples of 8 from 0-size *)
-    let bytes8 = List.filter (fun n -> n mod 8 == 0) (List.init length (fun i -> i)) in
-    (* let bytes8 = (List.init length (fun i -> i)) in *)
+    let bytes_index = (List.init length (fun i -> i)) in
     (reserve size tag env current_env)
     (* Store snake byte length in [0] *)
-    @ [IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (length * 2)))]
+    @ [
+      ILineComment("Create string");
+      IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (length * 2)))]
     (* Store bytes in big endian at [1:] *)
-    @ List.map (fun i -> IMov(Sized(QWORD_PTR, RegOffset(i + 1, heap_reg)), Const(Bytes.get_int64_be bytes i))) bytes8
+    @ List.map (fun i -> IMov(Sized(QWORD_PTR, RegOffset(i * word_size + 8, heap_reg)), Const(Int64.of_int ((Bytes.get_int8 bytes i) * 2)))) bytes_index
     @ [
       (* Move result to result place *)
       IMov(Reg(RAX), Reg(heap_reg));
       IAdd(Reg(RAX), Const(string_tag));
-    ]
-    (* mov heap_reg to new aligned heap_reg *)
-    @ [
+      (* mov heap_reg to new aligned heap_reg *)
       IAdd(Reg(heap_reg), Const(Int64.of_int (size * word_size)));
     ]
 

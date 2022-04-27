@@ -69,7 +69,13 @@ let builtins_size = 4 (* arity + 0 vars + codeptr + padding *) * (List.length Co
 let tstring = [
   t "tstring_simple" "\"test\"" "" "test";
   t "tstring_complex" "\"\"\"test
-  \"\"\"" "" "\"test\"";
+  test\"\"\"" "" "test\n  test";
+  t "tstring_quotes" "\"test\\\"\"" ""
+    "test\"\n";
+  t "tstring_newline" "\"test\ntest\"" ""
+    "test\ntest\n";
+  t "tstring_seq" "\"t1\"; print(\"hey\"); \"t2\"" ""
+    "heyt2\n";
 ]
 
 let suite =
