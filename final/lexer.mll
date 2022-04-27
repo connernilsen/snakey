@@ -49,6 +49,9 @@ rule token = parse
   | "isbool" { ISBOOL }
   | "isnum" { ISNUM }
   | "isstr" { ISSTR }
+  | "tonum" { TONUM }
+  | "tostr" { TOSTR }
+  | "tobool" { TOBOOL }
   | "add1" { ADD1 }
   | "sub1" { SUB1 }
   | "lambda" { LAMBDA }

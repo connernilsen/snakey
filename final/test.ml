@@ -77,6 +77,14 @@ let tstring = [
   t "tstring_seq" "\"t1\"; print(\"hey\"); \"t2\"" ""
     "heyt2";
   t "input_test" "input()" "hello" "hello";
+  t "isstr_str" "isstr(\"hello\")" "" "true";
+  t "isstr_num" "isstr(5)" "" "false";
+  t "isstr_bool_t" "isstr(true)" "" "false";
+  t "isstr_bool_f" "isstr(false)" "" "false";
+  t "isstr_tuple" "isstr((1, 2, 3))" "" "false";
+  t "isnum_str" "isnum(\"1\")" "" "false";
+  t "isbool_str" "isnum(\"true\")" "" "false";
+  t "istuple_str" "istuple(\"1\")" "" "false";
 ]
 
 let suite =

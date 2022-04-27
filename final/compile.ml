@@ -29,8 +29,8 @@ let closure_tag      = 0x0000000000000005L
 let closure_tag_mask = 0x000000000000000fL
 let tuple_tag        = 0x0000000000000001L
 let tuple_tag_mask   = 0x000000000000000fL
-let string_tag        = 0x0000000000000009L
-let string_tag_mask   = 0x000000000000000fL
+let str_tag        = 0x0000000000000009L
+let str_tag_mask   = 0x000000000000000fL
 let const_nil        = HexConst(tuple_tag)
 
 let err_COMP_NOT_NUM     = 1L
@@ -49,12 +49,14 @@ let err_SET_HIGH_INDEX   = 13L
 let err_CALL_NOT_CLOSURE = 14L
 let err_CALL_ARITY_ERR   = 15L
 let err_GET_NOT_NUM      = 16L
+let err_NOT_STR          = 17L
 
 (* label names for errors *)
 let label_COMP_NOT_NUM         = "error_comp_not_num"
 let label_ARITH_NOT_NUM        = "error_arith_not_num"
 let label_TUPLE_ACCESS_NOT_NUM = "error_tuple_access_not_num"
 let label_NOT_BOOL             = "error_not_bool"
+let label_NOT_STR              = "error_not_str"
 let label_NOT_TUPLE            = "error_not_tuple"
 let label_OVERFLOW             = "error_overflow"
 let label_GET_LOW_INDEX        = "error_get_low_index"
@@ -1621,7 +1623,17 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
         ]
       | Print -> (setup_call_to_func env current_env [e_reg] (Label("?print")) false)
       | PrintStack -> (setup_call_to_func env current_env [e_reg; Reg(RSP); Reg(RBP); Const(Int64.of_int num_args)] (Label("?print_stack")) false)
-      | IsStr -> raise (NotYetImplemented "do this")
+      | IsStr -> 
+        let label_not_str = (sprintf "%s%n" label_NOT_STR tag) in 
+        let label_done = (sprintf "%s%n_str" label_DONE tag) in 
+        IMov(Reg(RAX), e_reg) ::
+        (tag_check const_true label_not_str str_tag_mask str_tag)
+        @ [
+          IJmp(Label(label_done));
+          ILabel(label_not_str);
+          IMov(Reg(RAX), const_false);
+          ILabel(label_done);
+        ]
       | ToStr -> raise (NotYetImplemented "do this")
       | ToBool -> raise (NotYetImplemented "do this")
       | ToNum -> raise (NotYetImplemented "do this")
@@ -1796,7 +1808,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
     @ [
       (* Move result to result place *)
       IMov(Reg(RAX), Reg(heap_reg));
-      IAdd(Reg(RAX), Const(string_tag));
+      IAdd(Reg(RAX), Const(str_tag));
       (* mov heap_reg to new aligned heap_reg *)
       IAdd(Reg(heap_reg), Const(Int64.of_int (size * word_size)));
     ]

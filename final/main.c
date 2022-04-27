@@ -50,6 +50,7 @@ const uint64_t ERR_SET_HIGH_INDEX = 13;
 const uint64_t ERR_CALL_NOT_CLOSURE = 14;
 const uint64_t ERR_CALL_ARITY_ERR = 15;
 const uint64_t ERR_GET_NOT_NUM = 16;
+const uint64_t ERR_NOT_STR = 17;
 
 size_t HEAP_SIZE;
 uint64_t *STACK_BOTTOM;
