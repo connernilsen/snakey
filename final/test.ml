@@ -11,7 +11,7 @@ open Assembly
 open Pretty
 open Graph
 
-let t name program input expected = name>::test_run ~args:[] ~std_input:input Naive program name expected;;
+let t name program input expected = name>::test_run ~args:[] ~std_input:input ~skip_newline:true Naive program name expected;;
 let tr name program input expected = name>::test_run ~args:[] ~std_input:input Register program name expected;;
 let ta name program input expected = name>::test_run_anf ~args:[] ~std_input:input program name expected;;
 let tgc name heap_size program input expected = name>::test_run ~args:[string_of_int heap_size] ~std_input:input Naive program name expected;;
@@ -77,6 +77,8 @@ let tstring = [
   t "tstring_seq" "\"t1\"; print(\"hey\"); \"t2\"" ""
     "heyt2";
   t "input_test" "input()" "hello" "hello";
+]
+let tis = [
   t "isstr_str" "isstr(\"hello\")" "" "true";
   t "isstr_num" "isstr(5)" "" "false";
   t "isstr_bool_t" "isstr(true)" "" "false";
@@ -87,9 +89,12 @@ let tstring = [
   t "istuple_str" "istuple(\"1\")" "" "false";
 ]
 
+(* testing todos: ensure register allocation still works *)
+
 let suite =
   "unit_tests">:::
   tstring
+  @ tis
 
 let () =
   run_test_tt_main ("all_tests">:::[
