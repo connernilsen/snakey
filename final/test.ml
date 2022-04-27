@@ -12,9 +12,9 @@ open Pretty
 open Graph
 
 let t name program input expected = name>::test_run ~args:[] ~std_input:input ~skip_newline:true Naive program name expected;;
-let tr name program input expected = name>::test_run ~args:[] ~std_input:input Register program name expected;;
+let tr name program input expected = name>::test_run ~args:[] ~std_input:input ~skip_newline:true Register program name expected;;
 let ta name program input expected = name>::test_run_anf ~args:[] ~std_input:input program name expected;;
-let tgc name heap_size program input expected = name>::test_run ~args:[string_of_int heap_size] ~std_input:input Naive program name expected;;
+let tgc name heap_size program input expected = name>::test_run ~args:[string_of_int heap_size] ~std_input:input ~skip_newline:true Naive program name expected;;
 let tvg name program input expected = name>::test_run_valgrind ~args:[] ~std_input:input Naive program name expected;;
 let tvgc name heap_size program input expected = name>::test_run_valgrind ~args:[string_of_int heap_size] ~std_input:input Naive program name expected;;
 let terr name program input expected = name>::test_err ~args:[] ~std_input:input Naive program name expected;;
@@ -28,44 +28,12 @@ let tparse name program expected = name>::fun _ ->
 let teq name actual expected = name>::fun _ ->
     assert_equal expected actual ~printer:(fun s -> s);;
 
-(* let tfvs name program expected = name>:: 
-   (fun _ -> 
-    let ast = parse_string name program in 
-    let anfed = anf (tag ast) in 
-    let vars = free_vars anfed [] in 
-    let c = Stdlib.compare in 
-    let str_list_print strs = "[" ^ (ExtString.String.join ", " strs) ^ "]" in 
-    assert_equal (List.sort c vars) (List.sort c expected) ~printer:str_list_print) 
-   ;;  *)
-
-let tfvcs name program expected = name>:: 
-                                  (fun _ -> 
-                                     let ast = parse_string name program in 
-                                     let anfed = anf (tag ast) in 
-                                     let tagged = atag anfed in
-                                     let fv: (Compile.StringSet.t * Exprs.tag) Exprs.aprogram = free_vars_cache tagged in 
-                                     let str_list_print (strs, _) = 
-                                       let strs = NeighborSet.elements strs in
-                                       "[" ^ (ExtString.String.join ", " strs) ^ "]" in 
-                                     let output = string_of_aprogram_with 1000 (str_list_print) fv in
-                                     assert_equal expected output ~printer:(fun s -> s)) 
-;; 
-
-let tgcolor name graph init_env (expected: arg name_envt) = 
-  name>::(fun _ -> 
-      assert_equal expected (color_graph graph init_env) ~printer:(fun s->string_of_envt s))
-let tgcolorint name program (expected: arg name_envt) = 
-  name>::(fun _ -> 
-      assert_equal expected (color_graph (let ast = parse_string name program in 
-                                          let anfed = anf (rename_and_tag (tag ast)) in 
-                                          let tagged = atag anfed in
-                                          let fv = free_vars_cache tagged in 
-                                          match fv with 
-                                          | AProgram(body, _) -> 
-                                            (interfere body StringSet.empty)) []) ~printer:(fun s->string_of_envt s))
-
 let builtins_size = 4 (* arity + 0 vars + codeptr + padding *) * (List.length Compile.native_fun_bindings)
 
+let lexing_and_parsing = [
+  terr "unmatched_parens" "\"hello" "" "Unterminated string";
+  terr "unmatched_parens_second" "\"hello\"; \"" "" "Unterminated string";
+]
 let tstring = [
   t "tstring_simple" "\"test\"" "" "test";
   t "tstring_complex" "\"\"\"test
@@ -77,6 +45,27 @@ let tstring = [
   t "tstring_seq" "\"t1\"; print(\"hey\"); \"t2\"" ""
     "heyt2";
   t "input_test" "input()" "hello" "hello";
+]
+let tstring_complex = [
+  (let long = "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
+  hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
+  hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
+  hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
+  hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
+  hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
+  hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
+  hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
+  hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
+  hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
+  hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
+  hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello"
+   in t "very_long" ("\"" ^ long ^ "\"") "" long);
+  t "tstring_in_let" "let s = \"test\" in s" "" "test";
+]
+let tstring_gc = [
+  tgc "tstring_gc_simple" (builtins_size + 6) "\"test\"" "" "test";
+  tgc "tstring_gc_repeat" (builtins_size + 6) "\"test\"; \"test\"; \"test\"; \"test\"" "" "test";
+
 ]
 let tis = [
   t "isstr_str" "isstr(\"hello\")" "" "true";
@@ -93,8 +82,11 @@ let tis = [
 
 let suite =
   "unit_tests">:::
-  tstring
+  lexing_and_parsing
+  @ tstring
   @ tis
+  @ tstring_complex
+  @ tstring_gc
 
 let () =
   run_test_tt_main ("all_tests">:::[
