@@ -12,7 +12,9 @@ let ignore_new_line lexbuf =
         pos_bol = lcp.pos_cnum;
       };
     lexbuf.lex_start_p <- lexbuf.lex_curr_p
+;;
 
+let buf_size = 100;;
 }
 
 let dec_digit = ['0'-'9']
@@ -37,8 +39,8 @@ rule token = parse
   | blank { token lexbuf }
   | '\n' { new_line lexbuf; token lexbuf }
   | signed_int as x { NUM (Int64.of_string x) }
-  | '"' ([^ '\n']* as str) '"' { STR str }
-  | "\"\"\"" (_* as str) "\"\"\"" { STR str }
+  | '"' '"' '"' { parse_string (Buffer.create 17) true lexbuf}
+  | '"' { parse_string (Buffer.create 17) false lexbuf }
   | "def" { DEF }
   | "and" { ANDDEF }
   | "print" { PRINT }
@@ -84,4 +86,19 @@ rule token = parse
   | ident as x { if x = "_" then UNDERSCORE else ID x }
   | eof { EOF }
   | _ as c { failwith (sprintf "Unrecognized character: %c" c) }
+and parse_string str is_herestring =
+  parse
+  | '"' '"' '"' { 
+    if is_herestring 
+    then STR (Buffer.contents str) 
+    else failwith "Herestring terminated in non-herestring literal"
+  }
+  | '"' { 
+    if is_herestring
+    then (Buffer.add_char str '"'; parse_string str is_herestring lexbuf)
+    else (STR (Buffer.contents str))
+  }
+  | '\\' '"' { Buffer.add_char str '"'; parse_string str is_herestring lexbuf }
+  | _ as c { Buffer.add_char str c; parse_string str is_herestring lexbuf }
+  | eof { failwith "Unterminated string" }
 

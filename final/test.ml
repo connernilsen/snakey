@@ -71,11 +71,11 @@ let tstring = [
   t "tstring_complex" "\"\"\"test
   test\"\"\"" "" "test\n  test";
   t "tstring_quotes" "\"test\\\"\"" ""
-    "test\"\n";
+    "test\"";
   t "tstring_newline" "\"test\ntest\"" ""
-    "test\ntest\n";
+    "test\ntest";
   t "tstring_seq" "\"t1\"; print(\"hey\"); \"t2\"" ""
-    "heyt2\n";
+    "heyt2";
 ]
 
 let suite =

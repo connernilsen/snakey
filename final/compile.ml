@@ -722,7 +722,9 @@ let anf (p : tag program) : unit aprogram =
     | EBool(b, _) -> (ImmBool(b, ()), [])
     | EId(name, _) -> (ImmId(name, ()), [])
     | ENil _ -> (ImmNil(), [])
-    | EStr(s, tag) -> raise (NotYetImplemented s)
+    | EStr(s, tag) -> 
+      let tmp = sprintf "str_%d" tag in
+      (ImmId(tmp, ()), [BLet(tmp, CStr(s, ()))])
     | ESeq(e1, e2, _) ->
       let (e1_imm, e1_setup) = helpI e1 in
       let (e2_imm, e2_setup) = helpI e2 in
