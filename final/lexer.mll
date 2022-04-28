@@ -79,6 +79,7 @@ rule token = parse
   | "||" { OR }
   | "!" { NOT }
   | ";" { SEMI }
+  | "^" { CONCAT }
   | "begin" { BEGIN }
   | "end" { END }
   | "rec" { REC }

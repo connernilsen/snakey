@@ -60,6 +60,8 @@ let tstring_complex = [
   hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
   hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello"
    in t "very_long" ("\"" ^ long ^ "\"") "" long);
+  (* todo: string overflow? concat overflow? *)
+  t "empty" "let s = \"\" in s" "" "";
   t "tstring_in_let" "let s = \"test\" in s" "" "test";
   t "string_in_tuple" "let s = \"test\" in (s, s, s)" "" "(test, test, test)";
   t "string_in_lambda_in_tuple" "let s = (lambda: \"test\") in (s(), s(), s())" "" "(test, test, test)";
@@ -81,6 +83,16 @@ let tis = [
   t "istuple_str" "istuple(\"1\")" "" "false";
 ]
 
+let tconcat = [
+  terr "incorrect_type_1"  "12 ^ \"\"" "" "expected string";
+  terr "incorrect_type_2"  "\"\" ^ 12" "" "expected string";
+  terr "incorrect_type_both"  "12 ^ 12" "" "expected string";
+  t "concat_empty" "\"\" ^ \"\"" "" "";
+  t "concat_first" "\"a\" ^ \"\"" "" "a";
+  t "concat_second" "\"\" ^ \"b\"" "" "b";
+  t "concat_both" "\"a\" ^ \"b\"" "" "ab";
+]
+
 (* testing todos: ensure register allocation still works *)
 
 let suite =
@@ -90,6 +102,7 @@ let suite =
   @ tis
   @ tstring_complex
   @ tstring_gc
+  @ tconcat
 
 let () =
   run_test_tt_main ("all_tests">:::[

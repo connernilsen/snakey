@@ -362,6 +362,9 @@ void error(uint64_t code, SNAKEVAL val)
   case ERR_GET_NOT_NUM:
     fprintf(stderr, "Error: get tuple not number\n");
     break;
+  case ERR_NOT_STR:
+    fprintf(stderr, "Error: expected string\n");
+    break;
   default:
     fprintf(stderr, "Error: Unknown error code: %ld, val: ", code);
     printHelp(stderr, val);
