@@ -289,7 +289,7 @@ SNAKEVAL input()
       break;
     }
   }
-  int space_len = ((str_len + 1) / 2) * 2;
+  int space_len = ((str_len + 2) / 2) * 2;
   // TODO: this might cause an issue when doing gc
   // because we have an array of strings on the stack
   // we could just be wasteful and reserve a ton of space, but not use all of it?
@@ -368,11 +368,14 @@ SNAKEVAL tonum(SNAKEVAL val)
   {
     uint64_t *addr = (uint64_t *)(val - STRING_TAG);
     int len = ((int)(addr[0])) >> 1;
-    int res = 0;
+    int neg = addr[1] == ('-' * 2);
+    int offset = 1 + neg;
+    len -= neg;
+    uint64_t res = 0;
     for (int i = 0; i < len; i++)
     {
       res *= 10;
-      char num = addr[i + 1] >> 1;
+      char num = addr[i + offset] >> 1;
       if (num < '0' || num > '9')
       {
         error(ERR_INVALID_CONVERSION, val);
@@ -380,7 +383,12 @@ SNAKEVAL tonum(SNAKEVAL val)
       int numval = num - '0';
       res += numval;
     }
-    return res << 1;
+    res = res << 1;
+    if (neg)
+    {
+      res *= -1;
+    }
+    return res;
   }
   else if (val == BOOL_FALSE)
   {
@@ -403,23 +411,39 @@ SNAKEVAL tostr(SNAKEVAL val)
   }
   else if ((val & NUM_TAG_MASK) == NUM_TAG)
   {
-    int num = (int)(val - NUM_TAG) / 2;
-    int num_digits;
+    int64_t num = (int64_t)(val - NUM_TAG) / 2;
+    int neg = num < 0;
+    if (neg)
+    {
+      num *= -1;
+    }
+    int num_digits = 0;
     if (num == 0)
     {
       num_digits = 1;
     }
     else
     {
-      num_digits = (int)floor(log10(fabs((double)num))) + 1;
+      int64_t iter_num = num;
+      while (iter_num > 0)
+      {
+        num_digits += 1;
+        iter_num /= 10;
+      }
     }
-    int space = (((num_digits) + 1) / 2) * 2;
+    int space = ((num_digits + neg + 2) / 2) * 2;
+    int offset = 1;
+    offset += neg;
     uint64_t *str = string_reserve(space);
-    str[0] = num_digits * 2;
+    str[0] = (num_digits + neg) * 2;
+    if (neg)
+    {
+      str[1] = (uint64_t)('-' * 2);
+    }
     for (int i = 0; i < num_digits; i++)
     {
       int digit = num % 10;
-      str[num_digits + 1 - i] = (uint64_t)((digit + '0') * 2);
+      str[num_digits + offset - i] = (uint64_t)((digit + '0') * 2);
       num = (num - digit) / 10;
     }
     return ((uint64_t)str) + STRING_TAG;
