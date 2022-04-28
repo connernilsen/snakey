@@ -1432,6 +1432,18 @@ let byte_align_16 (words : int) : int64 =
   Int64.of_int (word_size * (align_stack_by_words words))
 ;;
 
+let c_string_reserve_cleanup =
+  [IMov(Reg(heap_reg), Reg(RAX));
+   IMov(Reg(scratch_reg), RegOffset(0, RAX));
+   IAdd(Reg(heap_reg), Reg(scratch_reg));
+   IAdd(Reg(heap_reg), Const(Int64.of_int word_size));
+   (* Stack align *)
+   IAdd(Sized(QWORD_PTR, Reg(heap_reg)), Const(15L));
+   IMov(Reg scratch_reg, HexConst(0xFFFFFFFFFFFFFFF0L));
+   IAnd(Sized(QWORD_PTR, Reg(heap_reg)), Reg scratch_reg);
+  ]
+;;
+
 let rec replicate x i =
   if i = 0 then []
   else x :: (replicate x (i - 1))
@@ -1670,7 +1682,9 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
           IMov(Reg(RAX), const_false);
           ILabel(label_done);
         ]
-      | ToStr -> (setup_call_to_func env current_env [e_reg] (Label("?tostr")) false)
+      | ToStr -> 
+        (setup_call_to_func env current_env [e_reg; Reg(heap_reg); Reg(RBP); Reg(RSP)] (Label("?tostr")) false)
+        @ c_string_reserve_cleanup
       | ToBool -> (setup_call_to_func env current_env [e_reg] (Label("?tobool")) false)
       | ToNum -> (setup_call_to_func env current_env [e_reg] (Label("?tonum")) false)
     end
@@ -1758,6 +1772,10 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
   | CApp(ImmId("?print_heap", _), _, Native, _) -> 
     let arg_regs = [Const(0L); Const(0L); LabelContents("?HEAP"); Reg(R15)] in
     (setup_call_to_func env current_env arg_regs (Label("?print_heap")) false)
+  | CApp(ImmId("?input", _), _, Native, _) -> 
+    let arg_regs = [Reg(heap_reg); Reg(RBP); Reg(RSP)] in
+    (setup_call_to_func env current_env arg_regs (Label("?input")) false)
+    @ c_string_reserve_cleanup
   | CApp(func, args, Native, _) -> 
     let arg_regs = (List.map (fun (a) -> (compile_imm a env current_env)) args) in 
     (setup_call_to_func env current_env arg_regs (Label(get_func_name_imm func)) false)
@@ -1944,41 +1962,6 @@ and args_help args regs =
   | args, [] ->
     List.rev_map (fun arg -> IPush arg) args
   | [], _ -> []
-and compile_reserve =
-  let ok = "$memcheck_glob" in
-  let saved_regs = [Reg(List.hd first_six_args_registers)] in
-  [
-    ILabel("?string_reserve");
-    IPush(Reg(RBP));
-    IMov(Reg(RBP), Reg(RSP));
-    IMov(Reg(RAX), LabelContents("?HEAP_END"));
-    ISub(Reg(RAX), Reg(List.hd first_six_args_registers));
-    ICmp(Reg(RAX), Reg(heap_reg));
-    IMov(Reg(RAX), Reg(heap_reg));
-    IJge(Label ok);
-  ]
-  (* Save callee saved regisers so that we can ensure values stored are copied *)
-  @ backup_saved_registers saved_regs
-  @ [
-    IMov(Reg(RDI), Sized(QWORD_PTR, Reg(RSI))); (* bytes_needed in C *)
-    IMov(Reg(RSI), Sized(QWORD_PTR, Reg(heap_reg))); (* alloc_ptr in C *)
-    IMov(Reg(RDX), Sized(QWORD_PTR, Reg(RBP))); (* first_frame in C *)
-    IMov(Reg(RCX), Sized(QWORD_PTR, Reg(RSP))); (* stack_top in C *)
-    ICall(Label("?try_gc"));
-  ]
-  @ restore_saved_registers saved_regs
-  @ [
-    IInstrComment(IMov(Reg(heap_reg), Reg(RAX)), "assume gc success if returning here, so RAX holds the new heap_reg value");
-    ILabel(ok);
-    IMul(Reg(List.hd first_six_args_registers), 
-         Sized(QWORD_PTR, Const(Int64.of_int word_size)));
-    IAdd(Reg(heap_reg), Reg(List.hd first_six_args_registers));
-    IMov(Reg(RSP), Reg(RBP));
-    IPop(Reg(RBP));
-    IRet;
-    ILabel(sprintf "%s_end" "?string_reserve");
-  ]
-
 
 (* This function can be used to take the native functions and produce DFuns whose bodies
    simply contain an EApp (with a Native call_type) to that native function.  Then,
@@ -2012,7 +1995,6 @@ let compile_error_handler ((err_name : string), (err_code : int64)) : instructio
 let compile_prog (anfed, (env : arg name_envt name_envt)) =
   let prelude =
     "section .text
-extern ?string_reserve
 extern ?error
 extern ?input
 extern ?print
@@ -2042,7 +2024,7 @@ global ?our_code_starts_here" in
       (label_ARITY, err_CALL_ARITY_ERR);
       (label_NOT_STR, err_NOT_STR);
       (label_INVALID_CONVERSION, err_INVALID_CONVERSION);
-    ])) @ compile_reserve
+    ]))
   in
   match anfed with
   | AProgram(body, tag) ->

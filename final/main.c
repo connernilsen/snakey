@@ -11,16 +11,15 @@ extern SNAKEVAL our_code_starts_here(uint64_t *HEAP, uint64_t size) asm("?our_co
 extern void error() asm("?error");
 extern SNAKEVAL set_stack_bottom(uint64_t *stack_bottom) asm("?set_stack_bottom");
 extern SNAKEVAL print(SNAKEVAL val) asm("?print");
-extern SNAKEVAL input() asm("?input");
+extern SNAKEVAL input(uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?input");
 extern SNAKEVAL printStack(SNAKEVAL val, uint64_t *rsp, uint64_t *rbp, uint64_t args) asm("?print_stack");
 extern SNAKEVAL equal(SNAKEVAL val1, SNAKEVAL val2) asm("?equal");
 extern uint64_t *try_gc(uint64_t *alloc_ptr, uint64_t amount_needed, uint64_t *first_frame, uint64_t *stack_top) asm("?try_gc");
 extern uint64_t *HEAP_END asm("?HEAP_END");
 extern uint64_t *HEAP asm("?HEAP");
-extern uint64_t *string_reserve(uint64_t size) asm("?string_reserve");
 extern SNAKEVAL tobool(SNAKEVAL val) asm("?tobool");
 extern SNAKEVAL tonum(SNAKEVAL val) asm("?tonum");
-extern SNAKEVAL tostr(SNAKEVAL) asm("?tostr");
+extern SNAKEVAL tostr(SNAKEVAL val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?tostr");
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001;
 const uint64_t BOOL_TAG_MASK = 0x000000000000000f;
@@ -276,7 +275,19 @@ SNAKEVAL printStack(SNAKEVAL val, uint64_t *rsp, uint64_t *rbp, uint64_t args)
   return val;
 }
 
-SNAKEVAL input()
+uint64_t *reserve_memory(uint64_t *heap_pos, int size, uint64_t *old_rbp, uint64_t *old_rsp)
+{
+  if (heap_pos + size < HEAP_END)
+  {
+    return try_gc(heap_pos, size, old_rbp, old_rsp);
+  }
+  else
+  {
+    return heap_pos;
+  }
+}
+
+SNAKEVAL input(uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
   char str[STRING_SIZE];
   scanf("%s", str);
@@ -289,12 +300,9 @@ SNAKEVAL input()
       break;
     }
   }
-  // TODO: this might cause an issue when doing gc
-  // because we have an array of strings on the stack
-  // we could just be wasteful and reserve a ton of space, but not use all of it?
   int byte_length = (str_len + 8 - 1) / 8;
   int space_len = ((byte_length + 2) / 2) * 2;
-  uint64_t *ptr = string_reserve(space_len);
+  uint64_t *ptr = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
   ptr[0] = str_len * 2;
   for (int i = 0; i < str_len; i++)
   {
@@ -403,7 +411,7 @@ SNAKEVAL tonum(SNAKEVAL val)
   return -1;
 }
 
-SNAKEVAL tostr(SNAKEVAL val)
+SNAKEVAL tostr(SNAKEVAL val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
   if ((val & STRING_TAG_MASK) == STRING_TAG)
   {
@@ -435,7 +443,7 @@ SNAKEVAL tostr(SNAKEVAL val)
     int space = ((num_digits + neg + 2) / 2) * 2;
     int offset = 1;
     offset += neg;
-    uint64_t *str = string_reserve(space);
+    uint64_t *str = reserve_memory(heap_pos, space, old_rbp, old_rsp);
     str[0] = (num_digits + neg) * 2;
     if (neg)
     {
@@ -451,7 +459,7 @@ SNAKEVAL tostr(SNAKEVAL val)
   }
   else if ((val & BOOL_TAG_MASK) == BOOL_TAG)
   {
-    uint64_t *str = string_reserve(6);
+    uint64_t *str = reserve_memory(heap_pos, 6, old_rbp, old_rsp);
     if (val == BOOL_TRUE)
     {
       str[0] = 8;
