@@ -1864,7 +1864,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
       ILineComment("Create string");
       IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (length * 2)))]
     (* Store bytes in big endian at [1:] *)
-    @ List.map (fun i -> IMov(Sized(QWORD_PTR, RegOffset(i + 8, heap_reg)), Const(Int64.of_int (Bytes.get_int8 bytes i)))) bytes_index
+    @ List.map (fun i -> IMov(Sized(QWORD_PTR, RegOffset(i + 8, heap_reg)), Const(Int64.of_int (2 * (Bytes.get_int8 bytes i))))) bytes_index
     @ [
       (* Move result to result place *)
       IMov(Reg(RAX), Reg(heap_reg));

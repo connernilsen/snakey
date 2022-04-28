@@ -62,6 +62,7 @@ let tstring_complex = [
    in t "very_long" ("\"" ^ long ^ "\"") "" long);
   (* todo: string overflow? concat overflow? *)
   t "empty" "let s = \"\" in s" "" "";
+  t "big" "let s = \"~\" in s" "" "~";
   t "tstring_in_let" "let s = \"test\" in s" "" "test";
   t "string_in_tuple" "let s = \"test\" in (s, s, s)" "" "(test, test, test)";
   t "string_in_lambda_in_tuple" "let s = (lambda: \"test\") in (s(), s(), s())" "" "(test, test, test)";
@@ -70,7 +71,7 @@ let tstring_gc = [
   tgc "tstring_gc_simple" (builtins_size + 6) "\"test\"" "" "test";
   tgc "tstring_gc_repeat" (builtins_size + 6) "\"test\"; \"test\"; \"tesc\"; \"tesh\"" "" "tesh";
   tgc "tstring_gc_odd" (builtins_size + 6) "let a = \"a\" in let b = \"b\";\"c\" in let c = \"c\" in a" "" "a";
-  tgc "tstring_gc_lambda" (builtins_size + 6) "let a = \"a\" in let b = (lambda: \"ccccc\") in print(b()); print(\"aaaaa\"); a" "" "cccccaaaaaa";
+  tgc "tstring_gc_lambda" (builtins_size + 12) "let a = \"a\" in let b = (lambda: \"ccccc\") in print(b()); print(\"aaaaa\"); a" "" "cccccaaaaaa";
 ]
 let tis = [
   t "isstr_str" "isstr(\"hello\")" "" "true";
