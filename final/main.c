@@ -316,6 +316,8 @@ SNAKEVAL printStack(SNAKEVAL val, uint64_t *rsp, uint64_t *rbp, uint64_t args)
 
 uint64_t *reserve_memory(uint64_t *heap_pos, int size, uint64_t *old_rbp, uint64_t *old_rsp)
 {
+  // TODO: uncomment this when gc issue is fixed
+  // if (heap_pos + size >= HEAP_END)
   if (heap_pos + size < HEAP_END)
   {
     return try_gc(heap_pos, size, old_rbp, old_rsp);

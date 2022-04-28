@@ -1433,14 +1433,16 @@ let byte_align_16 (words : int) : int64 =
 ;;
 
 let c_string_reserve_cleanup =
-  [IMov(Reg(heap_reg), Reg(RAX));
-   IMov(Reg(scratch_reg), RegOffset(0, RAX));
-   IAdd(Reg(heap_reg), Reg(scratch_reg));
-   IAdd(Reg(heap_reg), Const(Int64.of_int word_size));
-   (* Stack align *)
-   IAdd(Sized(QWORD_PTR, Reg(heap_reg)), Const(15L));
-   IMov(Reg scratch_reg, HexConst(0xFFFFFFFFFFFFFFF0L));
-   IAnd(Sized(QWORD_PTR, Reg(heap_reg)), Reg scratch_reg);
+  [
+    ILineComment("Cleaning up string reserve and updating to new R15");
+    IMov(Reg(heap_reg), Reg(RAX));
+    IMov(Reg(scratch_reg), RegOffset(0, RAX));
+    IAdd(Reg(heap_reg), Reg(scratch_reg));
+    IAdd(Reg(heap_reg), Const(Int64.of_int word_size));
+    (* Stack align *)
+    IAdd(Sized(QWORD_PTR, Reg(heap_reg)), Const(15L));
+    IMov(Reg scratch_reg, HexConst(0xFFFFFFFFFFFFFFF0L));
+    IAnd(Sized(QWORD_PTR, Reg(heap_reg)), Reg scratch_reg);
   ]
 ;;
 
