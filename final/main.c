@@ -16,7 +16,9 @@ extern SNAKEVAL equal(SNAKEVAL val1, SNAKEVAL val2) asm("?equal");
 extern uint64_t *try_gc(uint64_t *alloc_ptr, uint64_t amount_needed, uint64_t *first_frame, uint64_t *stack_top) asm("?try_gc");
 extern uint64_t *HEAP_END asm("?HEAP_END");
 extern uint64_t *HEAP asm("?HEAP");
-extern uint64_t string_reserve(uint64_t size) asm("?string_reserve");
+extern uint64_t *string_reserve(uint64_t size) asm("?string_reserve");
+extern uint64_t tobool(SNAKEVAL val) asm("?tobool");
+extern uint64_t tonum(SNAKEVAL val) asm("?tonum");
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001;
 const uint64_t BOOL_TAG_MASK = 0x000000000000000f;
@@ -51,6 +53,7 @@ const uint64_t ERR_CALL_NOT_CLOSURE = 14;
 const uint64_t ERR_CALL_ARITY_ERR = 15;
 const uint64_t ERR_GET_NOT_NUM = 16;
 const uint64_t ERR_NOT_STR = 17;
+const uint64_t ERR_INVALID_CONVERSION = 18;
 
 size_t HEAP_SIZE;
 uint64_t *STACK_BOTTOM;
@@ -186,10 +189,11 @@ void printHelp(FILE *out, SNAKEVAL val)
   {
     uint64_t *addr = (uint64_t *)(val - STRING_TAG);
 
-    uint64_t len = addr[0] / 2;
-    for (uint64_t i = 1; i <= len; i++)
+    int len = ((int)(addr[0])) >> 1;
+    for (uint64_t i = 0; i <= len; i++)
     {
-      fprintf(out, "%c", addr[i] / 2);
+      char c = (char)(addr[i + 1] >> 1);
+      fprintf(out, "%c", c);
     }
   }
   else
@@ -284,13 +288,108 @@ SNAKEVAL input()
     }
   }
   int space_len = ((str_len + 1) / 2) * 2;
+  // TODO: this might cause an issue when doing gc
+  // because we have an array of strings on the stack
+  // we could just be wasteful and reserve a ton of space, but not use all of it?
   uint64_t *ptr = string_reserve(space_len);
   ptr[0] = str_len * 2;
   for (int i = 0; i < str_len; i++)
   {
-    ptr[i + 1] = str[i] * 2;
+    ptr[i + 1] = (uint64_t)(str[i] << 1);
   }
   return ((uint64_t)ptr) + STRING_TAG;
+}
+
+SNAKEVAL tobool(SNAKEVAL val)
+{
+  if ((val & BOOL_TAG_MASK) == BOOL_TAG)
+  {
+    return val;
+  }
+  if ((val & NUM_TAG_MASK) == NUM_TAG)
+  {
+    if (val == 0)
+    {
+      return BOOL_FALSE;
+    }
+    else
+    {
+      return BOOL_TRUE;
+    }
+  }
+  else if ((val & STRING_TAG_MASK) == STRING_TAG)
+  {
+    uint64_t *addr = (uint64_t *)(val - STRING_TAG);
+    char *b_val;
+    int len = ((int)addr[0]) >> 1;
+    if (len == 4 || len == 5)
+    {
+      if (len == 4)
+      {
+        char t[4] = {'t', 'r', 'u', 'e'};
+        b_val = t;
+      }
+      else if (len == 5)
+      {
+        char f[5] = {'f', 'a', 'l', 's', 'e'};
+        b_val = f;
+      }
+
+      for (int i = 0; i < len; i++)
+      {
+        if ((((int)addr[i + 1]) >> 1) != b_val[i])
+        {
+          error(ERR_INVALID_CONVERSION, val);
+        }
+      }
+      if (len == 4)
+      {
+        return BOOL_TRUE;
+      }
+      else
+      {
+        return BOOL_FALSE;
+      }
+    }
+  }
+  error(ERR_INVALID_CONVERSION, val);
+  return -1;
+}
+
+SNAKEVAL tonum(SNAKEVAL val)
+{
+  if ((val & NUM_TAG_MASK) == NUM_TAG)
+  {
+    return val;
+  }
+  else if ((val & STRING_TAG_MASK) == STRING_TAG)
+  {
+    uint64_t *addr = (uint64_t *)(val - STRING_TAG);
+    int len = ((int)(addr[0])) >> 1;
+    int res = 0;
+    for (int i = 0; i < len; i++)
+    {
+      res *= 10;
+      char num = addr[i + 1] >> 1;
+      if (num < '0' || num > '9')
+      {
+        error(ERR_INVALID_CONVERSION, val);
+      }
+      int numval = num - 48;
+      res += numval;
+    }
+    return res << 1;
+  }
+  else if (val == BOOL_FALSE)
+  {
+    return 0;
+  }
+  else if (val == BOOL_TRUE)
+  {
+    return 2;
+  }
+  error(ERR_INVALID_CONVERSION, val);
+  return -1;
 }
 
 SNAKEVAL print(SNAKEVAL val)
@@ -360,6 +459,14 @@ void error(uint64_t code, SNAKEVAL val)
     break;
   case ERR_GET_NOT_NUM:
     fprintf(stderr, "Error: get tuple not number\n");
+    break;
+  case ERR_NOT_STR:
+    fprintf(stderr, "Error: Value not a string, got ");
+    printHelp(stderr, val);
+    break;
+  case ERR_INVALID_CONVERSION:
+    fprintf(stderr, "Error: conversion function received invalid value, got ");
+    printHelp(stderr, val);
     break;
   default:
     fprintf(stderr, "Error: Unknown error code: %ld, val: ", code);

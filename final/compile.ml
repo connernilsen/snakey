@@ -50,6 +50,7 @@ let err_CALL_NOT_CLOSURE = 14L
 let err_CALL_ARITY_ERR   = 15L
 let err_GET_NOT_NUM      = 16L
 let err_NOT_STR          = 17L
+let err_INVALID_CONVERSION = 18L
 
 (* label names for errors *)
 let label_COMP_NOT_NUM         = "error_comp_not_num"
@@ -65,6 +66,7 @@ let label_NIL_DEREF            = "error_nil_deref"
 let label_DESTRUCTURE_INVALID_LEN         = "destructure_invalid_len"
 let label_SHOULD_BE_FUN         = "error_should_be_fun"
 let label_ARITY         = "error_arity"
+let label_INVALID_CONVERSION = "invalid_conversion"
 
 (* label names for conditionals *)
 let label_IS_NOT_BOOL  = "is_not_bool"
@@ -1635,8 +1637,8 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
           ILabel(label_done);
         ]
       | ToStr -> raise (NotYetImplemented "do this")
-      | ToBool -> raise (NotYetImplemented "do this")
-      | ToNum -> raise (NotYetImplemented "do this")
+      | ToBool -> (setup_call_to_func env current_env [e_reg] (Label("?tobool")) false)
+      | ToNum -> (setup_call_to_func env current_env [e_reg] (Label("?tonum")) false)
     end
   | CPrim2(op, l, r, tag) ->
     let e1_reg = (compile_imm l env current_env) in
@@ -1956,6 +1958,8 @@ extern ?input
 extern ?print
 extern ?print_stack
 extern ?equal
+extern ?tobool
+extern ?tonum
 extern ?try_gc
 extern ?print_heap
 extern ?HEAP
@@ -1975,6 +1979,8 @@ global ?our_code_starts_here" in
       (label_DESTRUCTURE_INVALID_LEN, err_DESTRUCTURE_INVALID_LEN);
       (label_SHOULD_BE_FUN, err_CALL_NOT_CLOSURE);
       (label_ARITY, err_CALL_ARITY_ERR);
+      (label_NOT_STR, err_NOT_STR);
+      (label_INVALID_CONVERSION, err_INVALID_CONVERSION);
     ])) @ compile_reserve
   in
   match anfed with

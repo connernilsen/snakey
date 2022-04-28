@@ -12,6 +12,7 @@ open Pretty
 open Graph
 
 let t name program input expected = name>::test_run ~args:[] ~std_input:input Naive program name expected;;
+let te name program expected_err = name>::test_err ~vg:false Naive program name expected_err;;
 let tr name program input expected = name>::test_run ~args:[] ~std_input:input Register program name expected;;
 let ta name program input expected = name>::test_run_anf ~args:[] ~std_input:input program name expected;;
 let tgc name heap_size program input expected = name>::test_run ~args:[string_of_int heap_size] ~std_input:input Naive program name expected;;
@@ -85,6 +86,20 @@ let tstring = [
   t "isnum_str" "isnum(\"1\")" "" "false";
   t "isbool_str" "isnum(\"true\")" "" "false";
   t "istuple_str" "istuple(\"1\")" "" "false";
+  t "tonum_int" "tonum(1)" "" "1";
+  t "tonum_str" "tonum(\"1\")" "" "1";
+  t "tonum_bool_f" "tonum(false)" "" "0";
+  t "tonum_bool_t" "tonum(true)" "" "1";
+  te "tonum_invalid_str" "tonum(\"a\")" "Error: invalid converseion \"a\"";
+  t "tonum_empty_str" "tonum(\"\")" "" "0";
+  t "tobool_boolf" "tobool(false)" "" "false";
+  t "tobool_bool_t" "tobool(true)" "" "true";
+  t "tobool_num_0" "tobool(0)" "" "false";
+  t "tobool_num_1" "tobool(1)" "" "true";
+  t "tobool_num_5" "tobool(5)" "" "true";
+  t "tobool_str_t" "tobool(\"true\")" "" "true";
+  t "tobool_str_f" "tobool(\"false\")" "" "false";
+  te "tobool_invalid_str" "tobool(\"truee\")" "Error: invalid conversion \"truee\"";
 ]
 
 let suite =
