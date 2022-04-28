@@ -64,8 +64,8 @@ let tstring_complex = [
 ]
 let tstring_gc = [
   tgc "tstring_gc_simple" (builtins_size + 6) "\"test\"" "" "test";
-  tgc "tstring_gc_repeat" (builtins_size + 6) "\"test\"; \"test\"; \"test\"; \"test\"" "" "test";
-
+  tgc "tstring_gc_repeat" (builtins_size + 6) "\"test\"; \"test\"; \"tesc\"; \"tesh\"" "" "tesh";
+  tgc "tstring_gc_odd" (builtins_size + 6) "let a = \"a\" in let b = \"b\";\"c\" in let c = \"c\" in a" "" "a";
 ]
 let tis = [
   t "isstr_str" "isstr(\"hello\")" "" "true";
