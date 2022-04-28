@@ -20,6 +20,7 @@ extern uint64_t *HEAP asm("?HEAP");
 extern SNAKEVAL tobool(SNAKEVAL val) asm("?tobool");
 extern SNAKEVAL tonum(SNAKEVAL val) asm("?tonum");
 extern SNAKEVAL tostr(SNAKEVAL val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?tostr");
+extern SNAKEVAL concat(uint64_t *string_1, uint64_t *string_2, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?concat");
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001;
 const uint64_t BOOL_TAG_MASK = 0x000000000000000f;
@@ -346,6 +347,30 @@ SNAKEVAL input(uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
   for (int i = 0; i < str_len; i++)
   {
     ((uint8_t *)ptr)[i + 8] = (uint8_t)(str[i] << 1);
+  }
+  return ((uint64_t)ptr) + STRING_TAG;
+}
+
+SNAKEVAL concat(uint64_t *string_1, uint64_t *string_2, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
+{
+  string_1 = (uint64_t *)(((uint64_t)string_1) - STRING_TAG);
+  string_2 = (uint64_t *)(((uint64_t)string_2) - STRING_TAG);
+  int str1_len = *string_1 >> 1;
+  int str2_len = *string_2 >> 1;
+  int byte_length = (str1_len + str2_len + 8 - 1) / 8;
+  int space_len = ((byte_length + 2) / 2) * 2;
+
+  // string_1 and 2 accessible until here, then seg faults below
+  uint64_t *ptr = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
+
+  *ptr = (str1_len + str2_len) << 1;
+  for (int i = 0; i < str1_len; i++)
+  {
+    ((uint8_t *)ptr)[i + 8] = ((uint8_t *)string_1)[i + 8];
+  }
+  for (int i = 0; i < str2_len; i++)
+  {
+    ((uint8_t *)ptr)[i + str1_len + 8] = ((uint8_t *)string_2)[i + 8];
   }
   return ((uint64_t)ptr) + STRING_TAG;
 }
