@@ -235,7 +235,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
     | ESetItem(e, idx, newval, pos) ->
       wf_E e env @ wf_E idx env @ wf_E newval env
     | ENil _ -> []
-    | EStr _ -> []
+    | EStr (s, pos) -> if String.exists (fun c -> ((Char.code c) > 127)) s then [(StringIllegalChar(s, pos))] else []
     | EBool _ -> []
     | ENumber(n, loc) ->
       if n > (Int64.div Int64.max_int 2L) || n < (Int64.div Int64.min_int 2L) then

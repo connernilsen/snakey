@@ -46,6 +46,10 @@ let tstring = [
     "heyt2";
   t "input_test" "input()" "hello" "hello";
 ]
+let tstring_wf = [
+  terr "tstring_illegal" "\"é\"" "" "String é at tstring_illegal, 1:3-1:4 contains at least one illegal character.";
+  terr "tstring_illegal_2" "\"€\"" "" "String € at tstring_illegal_2, 1:4-1:5 contains at least one illegal character.";
+]
 let tstring_complex = [
   (let long = "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
   hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
@@ -101,6 +105,7 @@ let suite =
   lexing_and_parsing
   @ tstring
   @ tis
+  @ tstring_wf
   @ tstring_complex
   @ tstring_gc
   @ tconcat
