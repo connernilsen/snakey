@@ -1636,7 +1636,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
           IMov(Reg(RAX), const_false);
           ILabel(label_done);
         ]
-      | ToStr -> raise (NotYetImplemented "do this")
+      | ToStr -> (setup_call_to_func env current_env [e_reg] (Label("?tostr")) false)
       | ToBool -> (setup_call_to_func env current_env [e_reg] (Label("?tobool")) false)
       | ToNum -> (setup_call_to_func env current_env [e_reg] (Label("?tonum")) false)
     end
@@ -1960,6 +1960,7 @@ extern ?print_stack
 extern ?equal
 extern ?tobool
 extern ?tonum
+extern ?tostr
 extern ?try_gc
 extern ?print_heap
 extern ?HEAP

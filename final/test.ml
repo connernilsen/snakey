@@ -86,20 +86,27 @@ let tstring = [
   t "isnum_str" "isnum(\"1\")" "" "false";
   t "isbool_str" "isnum(\"true\")" "" "false";
   t "istuple_str" "istuple(\"1\")" "" "false";
-  t "tonum_int" "tonum(1)" "" "1";
-  t "tonum_str" "tonum(\"1\")" "" "1";
-  t "tonum_bool_f" "tonum(false)" "" "0";
-  t "tonum_bool_t" "tonum(true)" "" "1";
+  t "tonum_int" "tonum(1) + 0" "" "1";
+  t "tonum_str" "tonum(\"1\") + 0" "" "1";
+  t "tonum_bool_f" "tonum(false) + 0" "" "0";
+  t "tonum_bool_t" "tonum(true) + 0" "" "1";
   te "tonum_invalid_str" "tonum(\"a\")" "Error: invalid converseion \"a\"";
-  t "tonum_empty_str" "tonum(\"\")" "" "0";
-  t "tobool_boolf" "tobool(false)" "" "false";
-  t "tobool_bool_t" "tobool(true)" "" "true";
-  t "tobool_num_0" "tobool(0)" "" "false";
-  t "tobool_num_1" "tobool(1)" "" "true";
-  t "tobool_num_5" "tobool(5)" "" "true";
-  t "tobool_str_t" "tobool(\"true\")" "" "true";
-  t "tobool_str_f" "tobool(\"false\")" "" "false";
+  t "tonum_empty_str" "tonum(\"\") + 0" "" "0";
+  t "tobool_bool_f" "tobool(false) && false" "" "false";
+  t "tobool_bool_t" "tobool(true) || false" "" "true";
+  t "tobool_num_0" "tobool(0) || false" "" "false";
+  t "tobool_num_1" "tobool(1) || false" "" "true";
+  t "tobool_num_5" "tobool(5) || false" "" "true";
+  t "tobool_str_t" "tobool(\"true\") || false" "" "true";
+  t "tobool_str_f" "tobool(\"false\") || false" "" "false";
   te "tobool_invalid_str" "tobool(\"truee\")" "Error: invalid conversion \"truee\"";
+  t "tostr_str" "tostr(\"hello\")" "" "hello";
+  t "tostr_bool_f" "tostr(false)" "" "false";
+  t "tostr_bool_t" "tostr(true)" "" "true";
+  t "tostr_num" "tostr(5)" "" "5";
+  te "tostr_bool_f_err" "tostr(false) || false" "false";
+  te "tostr_bool_t_err" "tostr(true) || false" "true";
+  te "tostr_num_err" "tostr(5) + 0" "5";
 ]
 
 let suite =

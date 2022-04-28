@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <math.h>
 #include "gc.h"
 
 typedef uint64_t SNAKEVAL;
@@ -17,8 +18,9 @@ extern uint64_t *try_gc(uint64_t *alloc_ptr, uint64_t amount_needed, uint64_t *f
 extern uint64_t *HEAP_END asm("?HEAP_END");
 extern uint64_t *HEAP asm("?HEAP");
 extern uint64_t *string_reserve(uint64_t size) asm("?string_reserve");
-extern uint64_t tobool(SNAKEVAL val) asm("?tobool");
-extern uint64_t tonum(SNAKEVAL val) asm("?tonum");
+extern SNAKEVAL tobool(SNAKEVAL val) asm("?tobool");
+extern SNAKEVAL tonum(SNAKEVAL val) asm("?tonum");
+extern SNAKEVAL tostr(SNAKEVAL) asm("?tostr");
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001;
 const uint64_t BOOL_TAG_MASK = 0x000000000000000f;
@@ -375,7 +377,7 @@ SNAKEVAL tonum(SNAKEVAL val)
       {
         error(ERR_INVALID_CONVERSION, val);
       }
-      int numval = num - 48;
+      int numval = num - '0';
       res += numval;
     }
     return res << 1;
@@ -387,6 +389,63 @@ SNAKEVAL tonum(SNAKEVAL val)
   else if (val == BOOL_TRUE)
   {
     return 2;
+  }
+  error(ERR_INVALID_CONVERSION, val);
+  return -1;
+}
+
+SNAKEVAL tostr(SNAKEVAL val)
+{
+  if ((val & STRING_TAG_MASK) == STRING_TAG)
+  {
+    // TODO: should this do string copy?
+    return val;
+  }
+  else if ((val & NUM_TAG_MASK) == NUM_TAG)
+  {
+    int num = (int)(val - NUM_TAG) / 2;
+    int num_digits;
+    if (num == 0)
+    {
+      num_digits = 1;
+    }
+    else
+    {
+      num_digits = (int)floor(log10(fabs((double)num))) + 1;
+    }
+    int space = (((num_digits) + 1) / 2) * 2;
+    uint64_t *str = string_reserve(space);
+    str[0] = num_digits * 2;
+    for (int i = 0; i < num_digits; i++)
+    {
+      int digit = num % 10;
+      str[num_digits + 1 - i] = (uint64_t)((digit + '0') * 2);
+      num = (num - digit) / 10;
+    }
+    return ((uint64_t)str) + STRING_TAG;
+  }
+  else if ((val & BOOL_TAG_MASK) == BOOL_TAG)
+  {
+    uint64_t *str = string_reserve(6);
+    if (val == BOOL_TRUE)
+    {
+      str[0] = 8;
+      str[1] = 't' * 2;
+      str[2] = 'r' * 2;
+      str[3] = 'u' * 2;
+      str[4] = 'e' * 2;
+      str[5] = 62;
+    }
+    else
+    {
+      str[0] = 10;
+      str[1] = 'f' * 2;
+      str[2] = 'a' * 2;
+      str[3] = 'l' * 2;
+      str[4] = 's' * 2;
+      str[5] = 'e' * 2;
+    }
+    return (uint64_t)str;
   }
   error(ERR_INVALID_CONVERSION, val);
   return -1;
