@@ -100,6 +100,24 @@ SNAKEVAL equal(SNAKEVAL val1, SNAKEVAL val2)
     }
     return BOOL_TRUE;
   }
+  if ((val1 & STRING_TAG_MASK) == STRING_TAG && (val2 & STRING_TAG_MASK) == STRING_TAG)
+  {
+    uint64_t *str1 = (uint64_t *)(val1 - STRING_TAG);
+    uint64_t *str2 = (uint64_t *)(val2 - STRING_TAG);
+    if (str1[0] != str2[0])
+    {
+      return BOOL_FALSE;
+    }
+    int len = (str1[0] + 8 - 1) / 8;
+    for (uint64_t i = 1; i <= len; i++)
+    {
+      if (str1[i] != str2[i])
+      {
+        return BOOL_FALSE;
+      }
+    }
+    return BOOL_TRUE;
+  }
   return BOOL_FALSE;
 }
 

@@ -118,13 +118,21 @@ let tis = [
   t "tonum_str_neg_only" "tonum(\"-\")" "" "0";
   t "tostr_neg" "tostr(-5)" "" "-5";
   te "tostr_neg_err" "tostr(-5) * 1" "Error 2: Error: arithmetic expected a number, got \"-5\"";
-  t "streq" "equal(\"asdf\", \"asdf\")" "" "true"
+  t "streq_1" "equal(\"asdf\", \"asdf\")" "" "true";
+  t "streq_2" "equal(\"asdf\", \"asdh\")" "" "false";
+  t "streq_3" "equal(5, \"a\")" "" "false";
+  t "streq_4" "equal(\"a\", 5)" "" "false";
+  t "streq_5" "equal(\"false\", false)" "" "false";
+  t "streq_6" "equal(true, \"true\")" "" "false";
+  t "streq_7" "equal((0, 1), \"a\")" "" "false";
+  t "streq_8" "equal(\"a\", (0, 1))" "" "false";
+  t "streq_9" "equal(\"a\", \"b\")" "" "false";
 ]
 
 let tconcat = [
-  terr "incorrect_type_1"  "12 ^ \"\"" "" "expected string";
-  terr "incorrect_type_2"  "\"\" ^ 12" "" "expected string";
-  terr "incorrect_type_both"  "12 ^ 12" "" "expected string";
+  terr "incorrect_type_1"  "12 ^ \"\"" "" "Value not a string, got 12";
+  terr "incorrect_type_2"  "\"\" ^ 12" "" "Value not a string, got 12";
+  terr "incorrect_type_both"  "12 ^ 12" "" "Value not a string, got 12";
   t "concat_empty" "\"\" ^ \"\"" "" "";
   t "concat_first" "\"a\" ^ \"\"" "" "a";
   t "concat_second" "\"\" ^ \"b\"" "" "b";
