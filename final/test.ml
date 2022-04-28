@@ -43,9 +43,19 @@ let tstring = [
     "test\"";
   t "tstring_newline" "\"test\ntest\"" ""
     "test\ntest";
-  t "tstring_seq" "\"t1\"; print(\"hey\"); \"t2\"" ""
-    "heyt2";
+  t "tstring_newline" "\"test\ntest\"" ""
+    "test\ntest";
+  t "tstring_carriage_return" "\"test\rtest\"" ""
+    "test\rtest";
+  t "tstring_tag" "\"test\ttest\"" ""
+    "test\ttest";
+  t "tstring_question" "\"test?\"" ""
+    "test?";
   t "input_test" "input()" "hello" "hello";
+]
+let tstring_wf = [
+  terr "tstring_illegal" "\"é\"" "" "String é at tstring_illegal, 1:3-1:4 contains at least one illegal character.";
+  terr "tstring_illegal_2" "\"€\"" "" "String € at tstring_illegal_2, 1:4-1:5 contains at least one illegal character.";
 ]
 let tstring_complex = [
   (let long = "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
@@ -127,6 +137,7 @@ let suite =
   lexing_and_parsing
   @ tstring
   @ tis
+  @ tstring_wf
   @ tstring_complex
   @ tstring_gc
   @ tconcat
