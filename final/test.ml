@@ -42,8 +42,14 @@ let tstring = [
     "test\"";
   t "tstring_newline" "\"test\ntest\"" ""
     "test\ntest";
-  t "tstring_seq" "\"t1\"; print(\"hey\"); \"t2\"" ""
-    "heyt2";
+  t "tstring_newline" "\"test\ntest\"" ""
+    "test\ntest";
+  t "tstring_carriage_return" "\"test\rtest\"" ""
+    "test\rtest";
+  t "tstring_tag" "\"test\ttest\"" ""
+    "test\ttest";
+  t "tstring_question" "\"test?\"" ""
+    "test?";
   t "input_test" "input()" "hello" "hello";
 ]
 let tstring_wf = [
