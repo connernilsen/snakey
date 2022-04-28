@@ -1745,29 +1745,10 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
           IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
       | Concat ->
         [IPush(Reg(scratch_reg_2)); IMov(Reg(RAX), e1_reg)]
-        @ (tag_check (Reg(RAX)) label_NOT_STR str_tag_mask str_tag)
-        @ IMov(Reg(RAX), e2_reg) :: (tag_check (Reg(RAX)) label_NOT_STR str_tag_mask str_tag)
-        @ [
-          ILineComment("String append");
-          (* Put str2 length in scratch_reg *)
-          IMov(Reg(scratch_reg), e1_reg);
-          ISub(Reg(scratch_reg), Const(str_tag));
-          IMov(Reg(scratch_reg), RegOffset(0, scratch_reg));
-          IShr(Reg(scratch_reg), Const(1L));
-          (* Put str1 length in scratch_reg_2 *)
-          IMov(Reg(scratch_reg_2), e2_reg);
-          ISub(Reg(scratch_reg_2), Const(str_tag));
-          IMov(Reg(scratch_reg_2), RegOffset(0, scratch_reg_2));
-          IShr(Reg(scratch_reg_2), Const(1L));
-          (* add str1 and 2 length in rax *)
-          IAdd(Reg(scratch_reg), Reg(scratch_reg_2));
-          IJo(Label(label_OVERFLOW));
-        ]
-        (* we kinda need some asm in the runtime to do this. that'll help our code blowup too *)
-        (* @ (reserve_reg (Reg(RAX)) tag env current_env)
-           @ List.map (fun i -> IMov(Sized(QWORD_PTR, RegOffset(i + 8, heap_reg)), Const(Int64.of_int (Bytes.get_int8 bytes i)))) bytes_index *)
-        @ [IMov(Reg(RAX), e1_reg);
-           IPop(Reg(scratch_reg_2))]
+        @ (tag_check e1_reg label_NOT_STR str_tag_mask str_tag)
+        @ IMov(Reg(RAX), e2_reg) :: (tag_check e2_reg label_NOT_STR str_tag_mask str_tag)
+        @ (setup_call_to_func env current_env [e1_reg; e2_reg; Reg(heap_reg); Reg(RBP); Reg(RSP)] (Label("?concat")) false)
+        @ c_string_reserve_cleanup
     end
   | CApp(ImmId("?print_heap", _), _, Native, _) -> 
     let arg_regs = [Const(0L); Const(0L); LabelContents("?HEAP"); Reg(R15)] in
@@ -2005,6 +1986,7 @@ extern ?tonum
 extern ?tostr
 extern ?try_gc
 extern ?print_heap
+extern ?concat
 extern ?HEAP
 extern ?HEAP_END
 extern ?set_stack_bottom
