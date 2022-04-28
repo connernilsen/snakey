@@ -12,6 +12,7 @@ extern uint64_t FORWARD_TAG_MASK;
 extern uint64_t CLOSURE_TAG;
 extern uint64_t FORWARD_TAG;
 extern uint64_t TUPLE_TAG;
+extern uint64_t STRING_TAG;
 extern uint64_t NIL;
 extern uint64_t tupleCounter;
 extern uint64_t *STACK_BOTTOM;
@@ -116,7 +117,7 @@ uint64_t *copy_if_needed(uint64_t *val_addr, uint64_t *heap_top)
   // and exit if it's not a closure or tuple
   uint64_t top_level_val = *val_addr;
   uint64_t tag = top_level_val & FORWARD_TAG_MASK;
-  if ((tag != CLOSURE_TAG && tag != TUPLE_TAG) || top_level_val == NIL)
+  if ((tag != CLOSURE_TAG && tag != TUPLE_TAG && tag != STRING_TAG) || top_level_val == NIL)
   {
     return heap_top;
   }
@@ -136,6 +137,11 @@ uint64_t *copy_if_needed(uint64_t *val_addr, uint64_t *heap_top)
   {
     length = memory_addr[2];
     metadata_length = 3;
+  }
+  else if (tag == TUPLE_TAG)
+  {
+    length = memory_addr[0];
+    metadata_length = 1;
   }
   else
   {
