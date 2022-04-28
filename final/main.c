@@ -104,7 +104,7 @@ SNAKEVAL equal(SNAKEVAL val1, SNAKEVAL val2)
 }
 
 uint64_t tupleCounter = 0;
-void printHelp(FILE *out, SNAKEVAL val)
+void printHelp(FILE *out, SNAKEVAL val, int verbose)
 {
   if (val == NIL)
   {
@@ -127,23 +127,34 @@ void printHelp(FILE *out, SNAKEVAL val)
     uint64_t *addr = (uint64_t *)(val - CLOSURE_TAG);
     fprintf(out, "[%p - 5] ==> <function arity %ld, closed %ld, fn-ptr %p>",
             (uint64_t *)val, addr[0] / 2, addr[1] / 2, (uint64_t *)addr[2]);
-    /* fprintf(out, "\nClosed-over values:\n"); */
-    /* for (uint64_t i = 0; i < addr[1] / 2; i++) { */
-    /*   if (i > 0) { fprintf(out, "\n"); } */
-    /*   if ((addr[3 + i] & TUPLE_TAG_MASK) == 5) { */
-    /*     fprintf(out, "<closure %p>", (uint64_t*)addr[3 + i]); */
-    /*   } else { */
-    /*     printHelp(out, addr[3 + i]); */
-    /*   } */
-    /* } */
+    if (verbose)
+    {
+      fprintf(out, "\nClosed-over values:\n");
+      for (uint64_t i = 0; i < addr[1] / 2; i++)
+      {
+        if (i > 0)
+        {
+          fprintf(out, "\n");
+        }
+        if ((addr[3 + i] & TUPLE_TAG_MASK) == 5)
+        {
+          fprintf(out, "<closure %p>", (uint64_t *)addr[3 + i]);
+        }
+        else
+        {
+          printHelp(out, addr[3 + i], verbose);
+        }
+      }
+    }
   }
-  /* else if ((val & TUPLE_TAG_MASK) == 3) { */
-  /*   fprintf(out, "forwarding to "); */
-  /*   fflush(out); */
-  /*   fprintf(out, "%p", (int*)(val - 3)); */
-  /*   fflush(out); */
-  /*   return; */
-  /* } */
+  else if ((val & TUPLE_TAG_MASK) == 3 && verbose)
+  {
+    fprintf(out, "forwarding to ");
+    fflush(out);
+    fprintf(out, "%p", (int *)(val - 3));
+    fflush(out);
+    return;
+  }
   else if ((val & TUPLE_TAG_MASK) == TUPLE_TAG)
   {
     uint64_t *addr = (uint64_t *)(val - TUPLE_TAG);
@@ -153,10 +164,11 @@ void printHelp(FILE *out, SNAKEVAL val)
       fprintf(out, "<cyclic tuple %d>", (int)(*addr & 0x7FFFFFFFFFFFFFFF));
       return;
     }
-    /* if (!(addr >= FROM_S && addr < FROM_E) && !(addr >= TO_S && addr < TO_E)) { */
-    /*   fprintf(out, "DANGLING POINTER %p", addr); */
-    /*   return; */
-    /* } */
+    if (!(addr >= FROM_S && addr < FROM_E) && !(addr >= TO_S && addr < TO_E) && verbose)
+    {
+      fprintf(out, "DANGLING POINTER %p", addr);
+      return;
+    }
     // Mark this tuple: save its length locally, then mark it
     uint64_t len = addr[0];
     if (len & 0x1)
@@ -168,17 +180,17 @@ void printHelp(FILE *out, SNAKEVAL val)
     {
       len /= 2; // length is encoded
     }
-    /* fprintf(out, "Heap is:\n"); */
-    /* naive_print_heap(HEAP, HEAP_END); */
-    /* fprintf(out, "%p-->(len=%d)", (int*)(val - 1), len / 2); */
-    /* fflush(out); */
+    // fprintf(out, "Heap is:\n");
+    // naive_print_heap(HEAP, HEAP_END);
+    // fprintf(out, "%p-->(len=%lu)", (int *)(val - 1), len / 2);
+    // fflush(out);
     *(addr) = 0x8000000000000000 | (++tupleCounter);
     fprintf(out, "(");
     for (uint64_t i = 1; i <= len; i++)
     {
       if (i > 1)
         fprintf(out, ", ");
-      printHelp(out, addr[i]);
+      printHelp(out, addr[i], verbose);
     }
     if (len == 1)
       fprintf(out, ", ");
@@ -190,11 +202,19 @@ void printHelp(FILE *out, SNAKEVAL val)
   {
     uint64_t *addr = (uint64_t *)(val - STRING_TAG);
 
+    if (verbose)
+    {
+      fprintf(out, "\"");
+    }
     int len = ((int)(addr[0])) >> 1;
     for (int i = 0; i < len; i++)
     {
       char c = (char)(addr[i + 1] >> 1);
       fprintf(out, "%c", ((uint8_t *)(addr + 1))[i] >> 1);
+    }
+    if (verbose)
+    {
+      fprintf(out, "\"");
     }
   }
   else
@@ -207,17 +227,17 @@ SNAKEVAL printStack(SNAKEVAL val, uint64_t *rsp, uint64_t *rbp, uint64_t args)
 {
   printf("RSP: %#018lx\t==>  ", (uint64_t)rsp);
   fflush(stdout);
-  printHelp(stdout, *rsp);
+  printHelp(stdout, *rsp, 1);
   fflush(stdout);
   printf("\nRBP: %#018lx\t==>  ", (uint64_t)rbp);
   fflush(stdout);
-  printHelp(stdout, *rbp);
+  printHelp(stdout, *rbp, 1);
   fflush(stdout);
   printf("\n(difference: %ld)\n", (uint64_t)(rsp - rbp));
   fflush(stdout);
   printf("Requested return val: %#018lx\t==> ", (uint64_t)val);
   fflush(stdout);
-  printHelp(stdout, val);
+  printHelp(stdout, val, 1);
   fflush(stdout);
   printf("\n");
   fflush(stdout);
@@ -265,7 +285,7 @@ SNAKEVAL printStack(SNAKEVAL val, uint64_t *rsp, uint64_t *rbp, uint64_t args)
       {
         printf("    %#018lx: %#018lx\t==>  ", (uint64_t)cur, *cur);
         fflush(stdout);
-        printHelp(stdout, *cur);
+        printHelp(stdout, *cur, 1);
         fflush(stdout);
         printf("\n");
         fflush(stdout);
@@ -491,7 +511,7 @@ SNAKEVAL tostr(SNAKEVAL val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *ol
 
 SNAKEVAL print(SNAKEVAL val)
 {
-  printHelp(stdout, val);
+  printHelp(stdout, val, 0);
   fflush(stdout);
   return val;
 }
@@ -502,35 +522,35 @@ void error(uint64_t code, SNAKEVAL val)
   {
   case ERR_COMP_NOT_NUM:
     fprintf(stderr, "Error: comparison expected a number, got ");
-    printHelp(stderr, val);
+    printHelp(stderr, val, 1);
     break;
   case ERR_ARITH_NOT_NUM:
     fprintf(stderr, "Error: arithmetic expected a number, got ");
-    printHelp(stderr, val);
+    printHelp(stderr, val, 1);
     break;
   case ERR_NOT_BOOL:
     fprintf(stderr, "Error: expected a boolean, got ");
-    printHelp(stderr, val);
+    printHelp(stderr, val, 1);
     break;
   case ERR_DESTRUCTURE_INVALID_LEN:
     fprintf(stderr, "Error: unable to destructure tuple with incorrect length, got ");
-    printHelp(stderr, val);
+    printHelp(stderr, val, 1);
     break;
   case ERR_OVERFLOW:
     fprintf(stderr, "Error: Integer overflow, got ");
-    printHelp(stderr, val);
+    printHelp(stderr, val, 1);
     break;
   case ERR_GET_NOT_TUPLE:
     fprintf(stderr, "Error: get expected tuple, got ");
-    printHelp(stderr, val);
+    printHelp(stderr, val, 1);
     break;
   case ERR_GET_LOW_INDEX:
     fprintf(stderr, "Error: index too small to get, got ");
-    printHelp(stderr, val);
+    printHelp(stderr, val, 1);
     break;
   case ERR_GET_HIGH_INDEX:
     fprintf(stderr, "Error: index too large to get, got ");
-    printHelp(stderr, val);
+    printHelp(stderr, val, 1);
     break;
   case ERR_NIL_DEREF:
     fprintf(stderr, "Error: tried to access component of nil\n");
@@ -549,7 +569,7 @@ void error(uint64_t code, SNAKEVAL val)
     break;
   case ERR_CALL_NOT_CLOSURE:
     fprintf(stderr, "Error: tried to call a non-closure value: ");
-    printHelp(stderr, val);
+    printHelp(stderr, val, 1);
     break;
   case ERR_CALL_ARITY_ERR:
     fprintf(stderr, "Error: arity mismatch in call\n");
@@ -559,18 +579,18 @@ void error(uint64_t code, SNAKEVAL val)
     break;
   case ERR_NOT_STR:
     fprintf(stderr, "Error: Value not a string, got ");
-    printHelp(stderr, val);
+    printHelp(stderr, val, 1);
     break;
   case ERR_INVALID_CONVERSION:
     fprintf(stderr, "Error: conversion function received invalid value, got ");
-    printHelp(stderr, val);
+    printHelp(stderr, val, 1);
     break;
   default:
     fprintf(stderr, "Error: Unknown error code: %ld, val: ", code);
-    printHelp(stderr, val);
+    printHelp(stderr, val, 1);
   }
   fprintf(stderr, "\n%p ==> ", (uint64_t *)val);
-  printHelp(stderr, val);
+  printHelp(stderr, val, 1);
   fprintf(stderr, "\n");
   fflush(stderr);
   // naive_print_heap(HEAP, HEAP_END);
