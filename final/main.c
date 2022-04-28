@@ -187,9 +187,9 @@ void printHelp(FILE *out, SNAKEVAL val)
     uint64_t *addr = (uint64_t *)(val - STRING_TAG);
 
     uint64_t len = addr[0] / 2;
-    for (uint64_t i = 1; i <= len; i++)
+    for (uint64_t i = 0; i < len; i++)
     {
-      fprintf(out, "%c", addr[i] / 2);
+      fprintf(out, "%c", ((uint8_t *)(addr + 1))[i]);
     }
   }
   else
@@ -283,12 +283,13 @@ SNAKEVAL input()
       break;
     }
   }
-  int space_len = ((str_len + 1) / 2) * 2;
+  int byte_length = (str_len + 8 - 1) / 8;
+  int space_len = ((byte_length + 1) / 2) * 2;
   uint64_t *ptr = string_reserve(space_len);
   ptr[0] = str_len * 2;
   for (int i = 0; i < str_len; i++)
   {
-    ptr[i + 1] = str[i] * 2;
+    ((uint8_t *)ptr)[i + 8] = str[i];
   }
   return ((uint64_t)ptr) + STRING_TAG;
 }

@@ -1795,7 +1795,8 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
   | CStr(s, tag) -> 
     let bytes = Bytes.of_string s in 
     let length = Bytes.length bytes in 
-    let size = (align_stack_by_words (length + 1)) in 
+    let length_8 = (length + 8 - 1) / 8 in 
+    let size = (align_stack_by_words (length_8 + 1)) in 
     (* list of all the multiples of 8 from 0-size *)
     let bytes_index = (List.init length (fun i -> i)) in
     (reserve size tag env current_env)
@@ -1804,7 +1805,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
       ILineComment("Create string");
       IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (length * 2)))]
     (* Store bytes in big endian at [1:] *)
-    @ List.map (fun i -> IMov(Sized(QWORD_PTR, RegOffset(i * word_size + 8, heap_reg)), Const(Int64.of_int ((Bytes.get_int8 bytes i) * 2)))) bytes_index
+    @ List.map (fun i -> IMov(Sized(QWORD_PTR, RegOffset(i + 8, heap_reg)), Const(Int64.of_int (Bytes.get_int8 bytes i)))) bytes_index
     @ [
       (* Move result to result place *)
       IMov(Reg(RAX), Reg(heap_reg));
