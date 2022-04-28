@@ -29,7 +29,7 @@ const uint64_t CLOSURE_TAG_MASK = 0x000000000000000f;
 const uint64_t FORWARD_TAG_MASK = 0x000000000000000f;
 const uint64_t STRING_TAG_MASK = 0x000000000000000f;
 const uint64_t NUM_TAG = 0x0000000000000000;
-const uint64_t BOOL_TAG = 0x0000000000000007;
+const uint64_t BOOL_TAG = 0x000000000000000f;
 const uint64_t TUPLE_TAG = 0x0000000000000001;
 const uint64_t CLOSURE_TAG = 0x0000000000000005;
 const uint64_t FORWARD_TAG = 0x0000000000000003;
@@ -545,10 +545,12 @@ void error(uint64_t code, SNAKEVAL val)
     fprintf(stderr, "Error: get tuple not number\n");
     break;
   case ERR_NOT_STR:
-    fprintf(stderr, "Error: Value not a string, got");
+    fprintf(stderr, "Error: Value not a string, got ");
+    printHelp(stderr, val);
     break;
   case ERR_INVALID_CONVERSION:
-    fprintf(stderr, "Error: conversion function received invalid value");
+    fprintf(stderr, "Error: conversion function received invalid value, got ");
+    printHelp(stderr, val);
     break;
   default:
     fprintf(stderr, "Error: Unknown error code: %ld, val: ", code);

@@ -87,7 +87,7 @@ let tis = [
   t "tonum_str" "tonum(\"1\") + 0" "" "1";
   t "tonum_bool_f" "tonum(false) + 0" "" "0";
   t "tonum_bool_t" "tonum(true) + 0" "" "1";
-  te "tonum_invalid_str" "tonum(\"a\")" "Error: invalid converseion \"a\"";
+  te "tonum_invalid_str" "tonum(\"a\")" "Error 18: Error: conversion function received invalid value";
   t "tonum_empty_str" "tonum(\"\") + 0" "" "0";
   t "tobool_bool_f" "tobool(false) && false" "" "false";
   t "tobool_bool_t" "tobool(true) || false" "" "true";
@@ -96,7 +96,7 @@ let tis = [
   t "tobool_num_5" "tobool(5) || false" "" "true";
   t "tobool_str_t" "tobool(\"true\") || false" "" "true";
   t "tobool_str_f" "tobool(\"false\") || false" "" "false";
-  te "tobool_invalid_str" "tobool(\"truee\")" "Error: invalid conversion \"truee\"";
+  te "tobool_invalid_str" "tobool(\"truee\")" "Error: conversion function received invalid value, got truee";
   t "tostr_str" "tostr(\"hello\")" "" "hello";
   t "tostr_bool_f" "tostr(false)" "" "false";
   t "tostr_bool_t" "tostr(true)" "" "true";
