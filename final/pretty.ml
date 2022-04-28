@@ -55,6 +55,7 @@ let string_of_op2 op =
   | LessEq -> "<="
   | Eq -> "=="
   | CheckSize -> "check_size"
+  | Concat -> "^"
 let name_of_op2 op =
   match op with
   | Plus -> "Plus"
@@ -68,6 +69,7 @@ let name_of_op2 op =
   | LessEq -> "LessEq"
   | Eq -> "Eq"
   | CheckSize -> "CheckSize"
+  | Concat -> "Concat"
 
 
 let rec string_of_bind (b : 'a bind) : string =

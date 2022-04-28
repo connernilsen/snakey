@@ -192,10 +192,10 @@ void printHelp(FILE *out, SNAKEVAL val)
     uint64_t *addr = (uint64_t *)(val - STRING_TAG);
 
     int len = ((int)(addr[0])) >> 1;
-    for (uint64_t i = 0; i <= len; i++)
+    for (int i = 0; i < len; i++)
     {
       char c = (char)(addr[i + 1] >> 1);
-      fprintf(out, "%c", c);
+      fprintf(out, "%c", ((uint8_t *)(addr + 1))[i] >> 1);
     }
   }
   else
@@ -289,15 +289,16 @@ SNAKEVAL input()
       break;
     }
   }
-  int space_len = ((str_len + 2) / 2) * 2;
   // TODO: this might cause an issue when doing gc
   // because we have an array of strings on the stack
   // we could just be wasteful and reserve a ton of space, but not use all of it?
+  int byte_length = (str_len + 8 - 1) / 8;
+  int space_len = ((byte_length + 2) / 2) * 2;
   uint64_t *ptr = string_reserve(space_len);
   ptr[0] = str_len * 2;
   for (int i = 0; i < str_len; i++)
   {
-    ptr[i + 1] = (uint64_t)(str[i] << 1);
+    ((uint8_t *)ptr)[i + 8] = (uint8_t)(str[i] << 1);
   }
   return ((uint64_t)ptr) + STRING_TAG;
 }
@@ -544,12 +545,10 @@ void error(uint64_t code, SNAKEVAL val)
     fprintf(stderr, "Error: get tuple not number\n");
     break;
   case ERR_NOT_STR:
-    fprintf(stderr, "Error: Value not a string, got ");
-    printHelp(stderr, val);
+    fprintf(stderr, "Error: Value not a string, got");
     break;
   case ERR_INVALID_CONVERSION:
-    fprintf(stderr, "Error: conversion function received invalid value, got ");
-    printHelp(stderr, val);
+    fprintf(stderr, "Error: conversion function received invalid value");
     break;
   default:
     fprintf(stderr, "Error: Unknown error code: %ld, val: ", code);

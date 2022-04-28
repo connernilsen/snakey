@@ -1469,6 +1469,40 @@ and reserve size tag (env : arg name_envt name_envt) curr_env =
     ILabel(ok);
   ]
 
+and reserve_reg (size: Assembly.arg) tag (env : arg name_envt name_envt) curr_env =
+  let ok = sprintf "$memcheck_%d" tag in
+  let callee_saved_regs = 
+    if List.exists (fun (_, sub_ls) ->
+        List.exists (fun (_, reg) -> 
+            List.exists (fun callee_reg -> reg = callee_reg)
+              callee_saved_regs)
+          sub_ls) env
+    then callee_saved_regs
+    else []
+  in 
+  [
+    IMul(size, Const(Int64.of_int word_size));
+    IInstrComment(IMov(Reg(RAX), LabelContents("?HEAP_END")),
+                  sprintf "Reserving %s words" (arg_to_asm size));
+    ISub(Reg(RAX), size);
+    ICmp(Reg(RAX), Reg(heap_reg));
+    IJge(Label ok);
+  ]
+  (* Save callee saved regisers so that we can ensure values stored are copied *)
+  @ backup_saved_registers callee_saved_regs
+  @ (setup_call_to_func env curr_env [
+      (Sized(QWORD_PTR, Reg(heap_reg))); (* alloc_ptr in C *)
+      (Sized(QWORD_PTR, size)); (* bytes_needed in C *)
+      (Sized(QWORD_PTR, Reg(RBP))); (* first_frame in C *)
+      (Sized(QWORD_PTR, Reg(RSP))); (* stack_top in C *)
+    ] (Label "?try_gc") false)
+  @ restore_saved_registers callee_saved_regs
+  @ [
+    IInstrComment(IMov(Reg(heap_reg), Reg(RAX)), "assume gc success if returning here, so RAX holds the new heap_reg value");
+    ILabel(ok);
+  ]
+
+
 and get_env_callee_save_regs env = 
   let rec help env acc =
     match env with 
@@ -1695,6 +1729,31 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
           IMov(Reg(scratch_reg), Sized(QWORD_PTR, e1_reg)); ISub(Reg(scratch_reg), Const(1L)); IMov(Reg(scratch_reg), RegOffset(0, scratch_reg));
           ICmp(Reg(scratch_reg), Sized(QWORD_PTR, e2_reg)); IJne(Label(label_DESTRUCTURE_INVALID_LEN));
           IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
+      | Concat ->
+        [IPush(Reg(scratch_reg_2)); IMov(Reg(RAX), e1_reg)]
+        @ (tag_check (Reg(RAX)) label_NOT_STR str_tag_mask str_tag)
+        @ IMov(Reg(RAX), e2_reg) :: (tag_check (Reg(RAX)) label_NOT_STR str_tag_mask str_tag)
+        @ [
+          ILineComment("String append");
+          (* Put str2 length in scratch_reg *)
+          IMov(Reg(scratch_reg), e1_reg);
+          ISub(Reg(scratch_reg), Const(str_tag));
+          IMov(Reg(scratch_reg), RegOffset(0, scratch_reg));
+          IShr(Reg(scratch_reg), Const(1L));
+          (* Put str1 length in scratch_reg_2 *)
+          IMov(Reg(scratch_reg_2), e2_reg);
+          ISub(Reg(scratch_reg_2), Const(str_tag));
+          IMov(Reg(scratch_reg_2), RegOffset(0, scratch_reg_2));
+          IShr(Reg(scratch_reg_2), Const(1L));
+          (* add str1 and 2 length in rax *)
+          IAdd(Reg(scratch_reg), Reg(scratch_reg_2));
+          IJo(Label(label_OVERFLOW));
+        ]
+        (* we kinda need some asm in the runtime to do this. that'll help our code blowup too *)
+        (* @ (reserve_reg (Reg(RAX)) tag env current_env)
+           @ List.map (fun i -> IMov(Sized(QWORD_PTR, RegOffset(i + 8, heap_reg)), Const(Int64.of_int (Bytes.get_int8 bytes i)))) bytes_index *)
+        @ [IMov(Reg(RAX), e1_reg);
+           IPop(Reg(scratch_reg_2))]
     end
   | CApp(ImmId("?print_heap", _), _, Native, _) -> 
     let arg_regs = [Const(0L); Const(0L); LabelContents("?HEAP"); Reg(R15)] in
@@ -1797,7 +1856,8 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
   | CStr(s, tag) -> 
     let bytes = Bytes.of_string s in 
     let length = Bytes.length bytes in 
-    let size = (align_stack_by_words (length + 1)) in 
+    let length_8 = (length + 8 - 1) / 8 in 
+    let size = (align_stack_by_words (length_8 + 1)) in 
     (* list of all the multiples of 8 from 0-size *)
     let bytes_index = (List.init length (fun i -> i)) in
     (reserve size tag env current_env)
@@ -1806,7 +1866,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
       ILineComment("Create string");
       IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (length * 2)))]
     (* Store bytes in big endian at [1:] *)
-    @ List.map (fun i -> IMov(Sized(QWORD_PTR, RegOffset(i * word_size + 8, heap_reg)), Const(Int64.of_int ((Bytes.get_int8 bytes i) * 2)))) bytes_index
+    @ List.map (fun i -> IMov(Sized(QWORD_PTR, RegOffset(i + 8, heap_reg)), Const(Int64.of_int (2 * (Bytes.get_int8 bytes i))))) bytes_index
     @ [
       (* Move result to result place *)
       IMov(Reg(RAX), Reg(heap_reg));

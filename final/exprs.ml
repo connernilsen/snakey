@@ -37,6 +37,7 @@ type prim2 =
   | LessEq
   | Eq
   | CheckSize
+  | Concat
 
 and 'a bind =
   | BBlank of 'a

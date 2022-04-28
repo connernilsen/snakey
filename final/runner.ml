@@ -207,14 +207,14 @@ let parse_args (argsfile: string) (opts: compile_opts) : string list =
     | None -> []
 ;;
 
-let test_run ?no_builtins:(no_builtins=false) ?args:(args=[]) ?std_input:(std_input="") alloc_strat program_str outfile expected ?cmp:(cmp=(=)) test_ctxt =
+let test_run ?no_builtins:(no_builtins=false) ?args:(args=[]) ?std_input:(std_input="") ?skip_newline:(skip_newline=false) alloc_strat program_str outfile expected ?cmp:(cmp=(=)) test_ctxt =
   let full_outfile = "output/" ^ outfile in
   let result =
     try
       let program = parse_string outfile program_str in
       run program full_outfile run_no_vg no_builtins args std_input alloc_strat
     with err -> Error(Printexc.to_string err) in
-  assert_equal (Ok(expected ^ "\n")) result ~cmp:cmp ~printer:result_printer
+  assert_equal (Ok(expected ^ (if skip_newline then "" else "\n"))) result ~cmp:cmp ~printer:result_printer
 
 let test_run_strats ?no_builtins:(no_builtins=false) ?args:(args=[]) ?std_input:(std_input="") program_str outfile expected ?cmp:(cmp=(=)) test_ctxt =
   let full_outfile = "output/" ^ outfile in
@@ -236,14 +236,14 @@ let test_run_anf ?args:(args=[]) ?std_input:(std_input="") program_anf outfile e
   let result = run_anf program_anf full_outfile run_no_vg args std_input in
   assert_equal (Ok(expected ^ "\n")) result ~cmp:cmp ~printer:result_printer
 
-let test_run_valgrind ?no_builtins:(no_builtins=false) ?args:(args=[]) ?std_input:(std_input="") alloc_strat program_str outfile expected ?cmp:(cmp=(=)) test_ctxt =
+let test_run_valgrind ?no_builtins:(no_builtins=false) ?args:(args=[]) ?std_input:(std_input="") ?skip_newline:(skip_newline=false) alloc_strat program_str outfile expected ?cmp:(cmp=(=)) test_ctxt =
   let full_outfile = "output/" ^ outfile in
   let result =
     try
       let program = parse_string outfile program_str in
       run program full_outfile run_vg no_builtins args std_input alloc_strat
     with err -> Error(Printexc.to_string err) in
-  assert_equal (Ok(expected ^ "\n")) result ~cmp:cmp ~printer:result_printer
+  assert_equal (Ok(expected ^ (if skip_newline then "" else "\n"))) result ~cmp:cmp ~printer:result_printer
 
 let test_err ?no_builtins:(no_builtins=false) ?args:(args=[]) ?std_input:(std_input="") alloc_strat program_str outfile errmsg ?vg:(vg=false) test_ctxt =
   let full_outfile = "output/" ^ outfile in
