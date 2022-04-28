@@ -292,6 +292,7 @@ SNAKEVAL input(uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
   char str[STRING_SIZE];
   scanf("%s", str);
   int str_len = 0;
+  // TODO: update to handle arbitrary input length
   for (int i = 0; i < STRING_SIZE; i++)
   {
     if (str[i] == 0)
@@ -331,24 +332,24 @@ SNAKEVAL tobool(SNAKEVAL val)
   else if ((val & STRING_TAG_MASK) == STRING_TAG)
   {
     uint64_t *addr = (uint64_t *)(val - STRING_TAG);
-    char *b_val;
+    uint8_t *b_val;
     int len = ((int)addr[0]) >> 1;
     if (len == 4 || len == 5)
     {
       if (len == 4)
       {
         char t[4] = {'t', 'r', 'u', 'e'};
-        b_val = t;
+        b_val = (uint8_t *)t;
       }
       else if (len == 5)
       {
         char f[5] = {'f', 'a', 'l', 's', 'e'};
-        b_val = f;
+        b_val = (uint8_t *)f;
       }
 
       for (int i = 0; i < len; i++)
       {
-        if ((((int)addr[i + 1]) >> 1) != b_val[i])
+        if (((((uint8_t *)addr)[i + 8]) >> 1) != b_val[i])
         {
           error(ERR_INVALID_CONVERSION, val);
         }
@@ -375,10 +376,11 @@ SNAKEVAL tonum(SNAKEVAL val)
   }
   else if ((val & STRING_TAG_MASK) == STRING_TAG)
   {
-    uint64_t *addr = (uint64_t *)(val - STRING_TAG);
-    int len = ((int)(addr[0])) >> 1;
-    int neg = addr[1] == ('-' * 2);
-    int offset = 1 + neg;
+    uint64_t *pre_addr = (uint64_t *)(val - STRING_TAG);
+    uint8_t *addr = (uint8_t *)pre_addr;
+    int len = ((int)(pre_addr[0])) >> 1;
+    int neg = addr[8] == ('-' * 2);
+    int offset = 8 + neg;
     len -= neg;
     uint64_t res = 0;
     for (int i = 0; i < len; i++)
@@ -440,45 +442,48 @@ SNAKEVAL tostr(SNAKEVAL val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *ol
         iter_num /= 10;
       }
     }
-    int space = ((num_digits + neg + 2) / 2) * 2;
-    int offset = 1;
+    int byte_length = (num_digits + neg + 8 - 1) / 8;
+    int space = ((byte_length + 2) / 2) * 2;
+    int offset = 8;
     offset += neg;
-    uint64_t *str = reserve_memory(heap_pos, space, old_rbp, old_rsp);
-    str[0] = (num_digits + neg) * 2;
+    uint64_t *pre_str = reserve_memory(heap_pos, space, old_rbp, old_rsp);
+    pre_str[0] = (num_digits + neg) * 2;
+    uint8_t *str = (uint8_t *)pre_str;
     if (neg)
     {
-      str[1] = (uint64_t)('-' * 2);
+      str[8] = (uint8_t)('-' * 2);
     }
     for (int i = 0; i < num_digits; i++)
     {
       int digit = num % 10;
-      str[num_digits + offset - i] = (uint64_t)((digit + '0') * 2);
+      str[num_digits + offset - i - 1] = (uint64_t)((digit + '0') * 2);
       num = (num - digit) / 10;
     }
-    return ((uint64_t)str) + STRING_TAG;
+    return ((uint64_t)pre_str) + STRING_TAG;
   }
   else if ((val & BOOL_TAG_MASK) == BOOL_TAG)
   {
-    uint64_t *str = reserve_memory(heap_pos, 6, old_rbp, old_rsp);
+    uint64_t *pre_str = reserve_memory(heap_pos, 6, old_rbp, old_rsp);
+    uint8_t *str = (uint8_t *)pre_str;
     if (val == BOOL_TRUE)
     {
-      str[0] = 8;
-      str[1] = 't' * 2;
-      str[2] = 'r' * 2;
-      str[3] = 'u' * 2;
-      str[4] = 'e' * 2;
-      str[5] = 62;
+      pre_str[0] = 8;
+      str[8] = 't' * 2;
+      str[9] = 'r' * 2;
+      str[10] = 'u' * 2;
+      str[11] = 'e' * 2;
+      str[12] = 62;
     }
     else
     {
-      str[0] = 10;
-      str[1] = 'f' * 2;
-      str[2] = 'a' * 2;
-      str[3] = 'l' * 2;
-      str[4] = 's' * 2;
-      str[5] = 'e' * 2;
+      pre_str[0] = 10;
+      str[8] = 'f' * 2;
+      str[9] = 'a' * 2;
+      str[10] = 'l' * 2;
+      str[11] = 's' * 2;
+      str[12] = 'e' * 2;
     }
-    return (uint64_t)str;
+    return ((uint64_t)pre_str) + STRING_TAG;
   }
   error(ERR_INVALID_CONVERSION, val);
   return -1;

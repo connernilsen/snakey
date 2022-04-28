@@ -111,13 +111,14 @@ let tis = [
   t "tostr_bool_f" "tostr(false)" "" "false";
   t "tostr_bool_t" "tostr(true)" "" "true";
   t "tostr_num" "tostr(5)" "" "5";
-  te "tostr_bool_f_err" "tostr(false) || false" "err";
-  te "tostr_bool_t_err" "tostr(true) || false" "err";
-  te "tostr_num_err" "tostr(5) + 0" "err";
+  te "tostr_bool_f_err" "tostr(false) || false" "Error 3: Error: expected a boolean, got false";
+  te "tostr_bool_t_err" "tostr(true) || false" "Error 3: Error: expected a boolean, got true";
+  te "tostr_num_err" "tostr(5) + 0" "Error 2: Error: arithmetic expected a number, got 5";
   t "tonum_str_neg" "tonum(\"-5\") * 1" "" "-5";
   t "tonum_str_neg_only" "tonum(\"-\")" "" "0";
   t "tostr_neg" "tostr(-5)" "" "-5";
-  te "tostr_neg_err" "tostr(-5) * 1" "error";
+  te "tostr_neg_err" "tostr(-5) * 1" "Error 2: Error: arithmetic expected a number, got -5";
+  t "streq" "equal(\"asdf\", \"asdf\")" "" "true"
 ]
 
 let tconcat = [
