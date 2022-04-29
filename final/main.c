@@ -20,7 +20,7 @@ extern uint64_t *HEAP asm("?HEAP");
 extern SNAKEVAL tobool(SNAKEVAL val) asm("?tobool");
 extern SNAKEVAL tonum(SNAKEVAL val) asm("?tonum");
 extern SNAKEVAL tostr(SNAKEVAL val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?tostr");
-extern SNAKEVAL concat(uint64_t *string_1, uint64_t *string_2, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?concat");
+extern SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?concat");
 extern SNAKEVAL substr(uint64_t *string, uint64_t start, uint64_t end, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?substr");
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001;
@@ -319,9 +319,7 @@ SNAKEVAL printStack(SNAKEVAL val, uint64_t *rsp, uint64_t *rbp, uint64_t args)
 
 uint64_t *reserve_memory(uint64_t *heap_pos, int size, uint64_t *old_rbp, uint64_t *old_rsp)
 {
-  // TODO: uncomment this when gc issue is fixed
-  // if (heap_pos + size >= HEAP_END)
-  if (heap_pos + size < HEAP_END)
+  if (heap_pos + size >= HEAP_END)
   {
     return try_gc(heap_pos, size, old_rbp, old_rsp);
   }
@@ -356,38 +354,29 @@ SNAKEVAL input(uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
   return ((uint64_t)ptr) + STRING_TAG;
 }
 
-SNAKEVAL concat(uint64_t *string_1, uint64_t *string_2, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
+SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
-  string_1 = (uint64_t *)(((uint64_t)string_1) - STRING_TAG);
-  string_2 = (uint64_t *)(((uint64_t)string_2) - STRING_TAG);
-  int str1_len = *string_1 >> 1;
-  int str2_len = *string_2 >> 1;
-
-  uint8_t str1[str1_len];
-  uint8_t str2[str2_len];
-
-  for (int i = 0; i < str1_len; i++)
-  {
-    str1[i] = ((uint8_t *)string_1)[i + 8];
-  }
-  for (int i = 0; i < str2_len; i++)
-  {
-    str2[i] = ((uint8_t *)string_2)[i + 8];
-  }
+  uint64_t *str1 = (uint64_t *)(strings_loc[1] - STRING_TAG);
+  uint64_t *str2 = (uint64_t *)(strings_loc[0] - STRING_TAG);
+  int str1_len = *str1 >> 1;
+  int str2_len = *str2 >> 1;
 
   int byte_length = (str1_len + str2_len + 8 - 1) / 8;
   int space_len = ((byte_length + 2) / 2) * 2;
 
   uint64_t *ptr = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
 
+  str1 = (uint64_t *)(strings_loc[1] - STRING_TAG);
+  str2 = (uint64_t *)(strings_loc[0] - STRING_TAG);
+
   *ptr = (str1_len + str2_len) << 1;
   for (int i = 0; i < str1_len; i++)
   {
-    ((uint8_t *)ptr)[i + 8] = str1[i];
+    ((uint8_t *)ptr)[i + 8] = ((uint8_t *)str1)[i + 8];
   }
   for (int i = 0; i < str2_len; i++)
   {
-    ((uint8_t *)ptr)[i + str1_len + 8] = str2[i];
+    ((uint8_t *)ptr)[i + str1_len + 8] = ((uint8_t *)str2)[i + 8];
   }
   return ((uint64_t)ptr) + STRING_TAG;
 }

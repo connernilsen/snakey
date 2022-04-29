@@ -1781,8 +1781,10 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
         [IPush(Reg(scratch_reg_2)); IMov(Reg(RAX), e1_reg)]
         @ (tag_check e1_reg label_NOT_STR str_tag_mask str_tag)
         @ IMov(Reg(RAX), e2_reg) :: (tag_check e2_reg label_NOT_STR str_tag_mask str_tag)
-        @ (setup_call_to_func env current_env [e1_reg; e2_reg; Reg(heap_reg); Reg(RBP); Reg(RSP)] (Label("?concat")) false)
+        @ [IPush(Sized(QWORD_PTR, e1_reg)); IPush(Sized(QWORD_PTR, e2_reg)); IMov(Reg(scratch_reg_2), Reg(RSP))]
+        @ (setup_call_to_func env current_env [Reg(scratch_reg_2); Reg(heap_reg); Reg(RBP); Reg(RSP)] (Label("?concat")) false)
         @ c_string_reserve_cleanup
+        @ [IPop(Reg(scratch_reg)); IPop(Reg(scratch_reg))]
     end
   | CApp(ImmId("?print_heap", _), _, Native, _) -> 
     let arg_regs = [Const(0L); Const(0L); LabelContents("?HEAP"); Reg(R15)] in
