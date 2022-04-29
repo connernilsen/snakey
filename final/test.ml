@@ -138,6 +138,7 @@ let tconcat = [
   t "concat_second" "\"\" ^ \"b\"" "" "b";
   t "concat_both" "\"a\" ^ \"b\"" "" "ab";
   t "concat_complex" "\"abc\" ^ \"def\" ^ \"ghijkl\"" "" "abcdefghijkl";
+  tgc "concat_gc" (builtins_size + 12) "let a = (lambda: \"123456\") in (print(a()); \"abc\" ^ \"def\")" "" "123456abcdef";
 ]
 
 let tsubstr = [

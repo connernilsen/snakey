@@ -145,7 +145,7 @@ uint64_t *copy_if_needed(uint64_t *val_addr, uint64_t *heap_top)
   }
   else
   {
-    length = memory_addr[0];
+    length = (memory_addr[0] + 8 - 1) / 4;
     metadata_length = 1;
   }
   length /= 2;
