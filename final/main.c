@@ -21,6 +21,7 @@ extern SNAKEVAL tobool(SNAKEVAL val) asm("?tobool");
 extern SNAKEVAL tonum(SNAKEVAL val) asm("?tonum");
 extern SNAKEVAL tostr(SNAKEVAL val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?tostr");
 extern SNAKEVAL concat(uint64_t *string_1, uint64_t *string_2, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?concat");
+extern SNAKEVAL substr(uint64_t *string, uint64_t start, uint64_t end, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?substr");
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001;
 const uint64_t BOOL_TAG_MASK = 0x000000000000000f;
@@ -56,6 +57,8 @@ const uint64_t ERR_CALL_ARITY_ERR = 15;
 const uint64_t ERR_GET_NOT_NUM = 16;
 const uint64_t ERR_NOT_STR = 17;
 const uint64_t ERR_INVALID_CONVERSION = 18;
+const uint64_t ERR_SUBSTRING_NOT_NUM = 19;
+const uint64_t ERR_SUBSTRING_OUT_OF_BOUNDS = 20;
 
 size_t HEAP_SIZE;
 uint64_t *STACK_BOTTOM;
@@ -389,6 +392,38 @@ SNAKEVAL concat(uint64_t *string_1, uint64_t *string_2, uint64_t *heap_pos, uint
   return ((uint64_t)ptr) + STRING_TAG;
 }
 
+SNAKEVAL substr(uint64_t *snake_str, uint64_t start, uint64_t finish, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
+{
+  uint64_t *string = (uint64_t *)(((uint64_t)snake_str) - STRING_TAG);
+  int str_len = *string >> 1;
+  start >>= 1;
+  finish >>= 1;
+  int new_str_len = finish - start;
+
+  if (start < 0 || start > str_len || finish < start || finish > str_len)
+  {
+    error(ERR_SUBSTRING_OUT_OF_BOUNDS, snake_str);
+  }
+
+  uint8_t str[new_str_len];
+  for (int i = 0; i < new_str_len; i++)
+  {
+    str[i] = ((uint8_t *)string)[i + 8 + start];
+  }
+
+  int byte_length = (new_str_len + 8 - 1) / 8;
+  int space_len = ((byte_length + 2) / 2) * 2;
+
+  uint64_t *ptr = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
+
+  *ptr = new_str_len << 1;
+  for (int i = 0; i < new_str_len; i++)
+  {
+    ((uint8_t *)ptr)[i + 8] = str[i];
+  }
+  return ((uint64_t)ptr) + STRING_TAG;
+}
+
 SNAKEVAL tobool(SNAKEVAL val)
 {
   if ((val & BOOL_TAG_MASK) == BOOL_TAG)
@@ -640,6 +675,14 @@ void error(uint64_t code, SNAKEVAL val)
     break;
   case ERR_INVALID_CONVERSION:
     fprintf(stderr, "Error: conversion function received invalid value, got ");
+    printHelp(stderr, val, 1);
+    break;
+  case ERR_SUBSTRING_NOT_NUM:
+    fprintf(stderr, "Error: substring expected num, got ");
+    printHelp(stderr, val, 1);
+    break;
+  case ERR_SUBSTRING_OUT_OF_BOUNDS:
+    fprintf(stderr, "Error: substring index out of bounds of string ");
     printHelp(stderr, val, 1);
     break;
   default:

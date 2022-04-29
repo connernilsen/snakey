@@ -104,6 +104,8 @@ binop_operand :
   // Tuples
   | tuple_expr { $1 }
   | binop_operand LBRACK expr RBRACK { EGetItem($1, $3, full_span()) }
+  // Strings 
+  | binop_operand LBRACK expr COLON expr RBRACK { ESubstring($1, $3, $5, full_span()) }
   // Function calls
   | binop_operand LPARENNOSPACE exprs RPAREN %prec LPARENNOSPACE { EApp($1, $3, Unknown, full_span()) }
   | binop_operand LPARENNOSPACE RPAREN %prec LPARENNOSPACE { EApp($1, [], Unknown, full_span()) }

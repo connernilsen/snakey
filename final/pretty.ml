@@ -99,6 +99,7 @@ and string_of_expr_with (depth : int) (print_a : 'a -> string) (e : 'a expr) : s
     | ETuple(exprs, a) -> "(" ^ (ExtString.String.join ", " (List.map string_of_expr exprs)) ^ ")"
     | EGetItem(e, idx, a) -> sprintf "%s[%s]%s" (string_of_expr e) (string_of_expr idx) (print_a a)
     | ESetItem(e, idx, newval, a) -> sprintf "%s[%s] := %s %s" (string_of_expr e) (string_of_expr idx) (string_of_expr newval) (print_a a)
+    | ESubstring(e, start, finish, a) -> sprintf "%s[%s:%s]%s" (string_of_expr e) (string_of_expr start) (string_of_expr finish) (print_a a)
     | ENumber(n, a) -> (Int64.to_string n) ^ (print_a a)
     | EBool(b, a) -> (string_of_bool b) ^ (print_a a)
     | ENil a -> "nil " ^ (print_a a)
@@ -180,6 +181,7 @@ and string_of_cexpr_with (depth : int) (print_a : 'a -> string) (c : 'a cexpr) :
     | CStr(s, a) -> sprintf "%s%s" s (print_a a)
     | CGetItem(e, idx, a) -> sprintf "%s[%s]%s" (string_of_immexpr e) (string_of_immexpr idx) (print_a a)
     | CSetItem(e, idx, newval, a) -> sprintf "%s[%s] := %s %s" (string_of_immexpr e) (string_of_immexpr idx) (string_of_immexpr newval) (print_a a)
+    | CSubstring(e, start, finish, a) -> sprintf "%s[%s:%s] %s" (string_of_immexpr e) (string_of_immexpr start) (string_of_immexpr finish) (print_a a)
     | CPrim1(op, e, a) ->
       sprintf "%s(%s)%s" (string_of_op1 op) (string_of_immexpr e) (print_a a)
     | CPrim2(op, left, right, a) ->
@@ -284,6 +286,9 @@ let rec format_expr (fmt : Format.formatter) (print_a : 'a -> string) (e : 'a ex
     open_label fmt "ESetItem" (print_a a);
     help e; print_comma_sep fmt; help idx; pp_print_string fmt " := "; help newval;
     close_paren fmt
+  | ESubstring(e, start, finish, a) ->
+    open_label fmt "ESubstring" (print_a a);
+    help e; print_comma_sep fmt; help start; pp_print_string fmt ":"; help finish;
   | ENumber(n, a) ->
     open_label fmt "ENumber" (print_a a);
     pp_print_string fmt (Int64.to_string n);

@@ -140,17 +140,31 @@ let tconcat = [
   t "concat_complex" "\"abc\" ^ \"def\" ^ \"ghijkl\"" "" "abcdefghijkl";
 ]
 
+let tsubstr = [
+  terr "substr_of_nonstring" "5[1:3]" "" "Value not a string, got 5";
+  terr "substr_of_backwards" "\"hi\"[1:0]" "" "substring index out of bounds of string \"hi\"";
+  terr "substr_oob_lower_low" "\"hi\"[-1:1]" "" "substring index out of bounds of string \"hi\"";
+  terr "substr_oob_lower_high" "\"hi\"[3:3]" "" "substring index out of bounds of string \"hi\"";
+  terr "substr_oob_higher_high" "\"hi\"[0:3]" "" "substring index out of bounds of string \"hi\"";
+  t "substr_same" "\"hi\"[0:2]" "" "hi";
+  t "substr_first" "\"hi\"[0:1]" "" "h";
+  t "substr_middle" "\"hello friends\"[1:5]" "" "ello";
+  t "substr_empty" "\"hello friends\"[1:1]" "" "";
+  t "substr_exprs" "\"hello friends\"[1 - 1:1 + 2]" "" "hel";
+]
+
 (* testing todos: ensure register allocation still works *)
 
 let suite =
   "unit_tests">:::
   lexing_and_parsing
   @ tstring
-  (* @ tis *)
+  @ tis
   @ tstring_wf
   @ tstring_complex
   @ tstring_gc
   @ tconcat
+  @ tsubstr
 
 let () =
   run_test_tt_main ("all_tests">:::[

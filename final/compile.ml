@@ -51,11 +51,14 @@ let err_CALL_ARITY_ERR   = 15L
 let err_GET_NOT_NUM      = 16L
 let err_NOT_STR          = 17L
 let err_INVALID_CONVERSION = 18L
+let err_SUBSTRING_NOT_NUM = 19L
+let err_SUBSTRING_OUT_OF_BOUNDS = 20L
 
 (* label names for errors *)
 let label_COMP_NOT_NUM         = "error_comp_not_num"
 let label_ARITH_NOT_NUM        = "error_arith_not_num"
 let label_TUPLE_ACCESS_NOT_NUM = "error_tuple_access_not_num"
+let label_SUBSTRING_NOT_NUM    = "error_substring_not_num"
 let label_NOT_BOOL             = "error_not_bool"
 let label_NOT_STR              = "error_not_str"
 let label_NOT_TUPLE            = "error_not_tuple"
@@ -206,6 +209,7 @@ let rec deepest_stack e (env: arg name_envt name_envt) current_env =
     | CTuple(vals, _) -> List.fold_left max 0 (List.map helpI vals)
     | CGetItem(t, _, _) -> helpI t
     | CSetItem(t, _, v, _) -> max (helpI t) (helpI v)
+    | CSubstring(t, _, f, _) -> max (helpI t) (helpI f)
     | CLambda(_, _, _) -> 1
     | CImmExpr i -> helpI i
     | CStr _ -> 0
@@ -236,6 +240,8 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
       wf_E e env @ wf_E idx env
     | ESetItem(e, idx, newval, pos) ->
       wf_E e env @ wf_E idx env @ wf_E newval env
+    | ESubstring(e, start, finish, pos) -> 
+      wf_E e env @ wf_E start env @ wf_E finish env
     | ENil _ -> []
     | EStr (s, pos) -> if String.exists (fun c -> ((Char.code c) > 127)) s then [(StringIllegalChar(s, pos))] else []
     | EBool _ -> []
@@ -506,6 +512,7 @@ let desugar (p : sourcespan program) : sourcespan program =
     | ETuple(exprs, tag) -> ETuple(List.map helpE exprs, tag)
     | EGetItem(e, idx, tag) -> EGetItem(helpE e, helpE idx, tag)
     | ESetItem(e, idx, newval, tag) -> ESetItem(helpE e, helpE idx, helpE newval, tag)
+    | ESubstring(e, start, finish, tag) -> ESubstring(helpE e, helpE start, helpE finish, tag)
     | EId(x, tag) -> EId(x, tag)
     | ENumber(n, tag) -> ENumber(n, tag)
     | EBool(b, tag) -> EBool(b, tag)
@@ -602,6 +609,7 @@ let rename_and_tag (p : tag program) : tag program =
     | ETuple(es, tag) -> ETuple(List.map (helpE env) es, tag)
     | EGetItem(e, idx, tag) -> EGetItem(helpE env e, helpE env idx, tag)
     | ESetItem(e, idx, newval, tag) -> ESetItem(helpE env e, helpE env idx, helpE env newval, tag)
+    | ESubstring(e, start, finish, tag) -> ESubstring(helpE env e, helpE env start, helpE env finish, tag)
     | EPrim1(op, arg, tag) -> EPrim1(op, helpE env arg, tag)
     | EPrim2(op, left, right, tag) -> EPrim2(op, helpE env left, helpE env right, tag)
     | EIf(c, t, f, tag) -> EIf(helpE env c, helpE env t, helpE env f, tag)
@@ -717,6 +725,11 @@ let anf (p : tag program) : unit aprogram =
       let (idx_imm, idx_setup) = helpI idx in
       let (new_imm, new_setup) = helpI newval in
       (CSetItem(tup_imm, idx_imm, new_imm, ()), tup_setup @ idx_setup @ new_setup)
+    | ESubstring(string, start, finish, _) ->
+      let (string_imm, string_setup) = helpI string in
+      let (start_imm, start_setup) = helpI start in
+      let (finish_imm, finish_setup) = helpI finish in
+      (CSubstring(string_imm, start_imm, finish_imm, ()), string_setup @ start_setup @ finish_setup)
     | EStr(s, _) -> (CStr(s, ()), [])
     | _ -> let (imm, setup) = helpI e in (CImmExpr imm, setup)
 
@@ -748,6 +761,12 @@ let anf (p : tag program) : unit aprogram =
       let (idx_imm, idx_setup) = helpI idx in
       let (new_imm, new_setup) = helpI newval in
       (ImmId(tmp, ()), tup_setup @ idx_setup @ new_setup @ [BLet (tmp, CSetItem(tup_imm, idx_imm, new_imm,()))])
+    | ESubstring(string, start, finish, tag) ->
+      let tmp = sprintf "substr_%d" tag in
+      let (string_imm, string_setup) = helpI string in
+      let (start_imm, start_setup) = helpI start in
+      let (finish_imm, finish_setup) = helpI finish in
+      (ImmId(tmp, ()), string_setup @ start_setup @ finish_setup @ [BLet (tmp, CSetItem(string_imm, start_imm, finish_imm, ()))])
     | EPrim1(op, arg, tag) ->
       let tmp = sprintf "unary_%d" tag in
       let (arg_imm, arg_setup) = helpI arg in
@@ -850,6 +869,9 @@ let free_vars (e: 'a aexpr) (args : string list) : string list =
     | CSetItem(tuple, pos, value, _) ->
       StringSet.(union (help_imm tuple env) (help_imm pos env)
                  |> union (help_imm value env))
+    | CSubstring(string, start, finish, _) ->
+      StringSet.(union (help_imm string env) (help_imm start env)
+                 |> union (help_imm finish env))
     | CLambda(args, body, _) ->
       let newenv = StringSet.union (stringset_of_list args) env in 
       help_aexpr body newenv 
@@ -945,6 +967,12 @@ let free_vars_cache (prog: 'a aprogram) : (StringSet.t * tag) aprogram =
       let value, value_frees = help_imm value in 
       let frees = StringSet.(union tuple_frees pos_frees |> union value_frees) in 
       CSetItem(tuple, pos, value, (frees, tag)), frees
+    | CSubstring(string, start, finish, tag) ->
+      let string, string_frees = help_imm string in
+      let start, start_frees = help_imm start in
+      let finish, finish_frees = help_imm finish in 
+      let frees = StringSet.(union string_frees start_frees |> union finish_frees) in 
+      CSubstring(string, start, finish, (frees, tag)), frees
     | CLambda(args, body, tag) ->
       let body, body_frees = help_aexpr body (StringSet.union env (stringset_of_list args)) in 
       let frees = StringSet.inter body_frees env in
@@ -1056,7 +1084,7 @@ let naive_stack_allocation (prog: tag aprogram) : tag aprogram * arg name_envt n
       let frees = free_vars body binds in
       (get_func_call_params binds frees tag)
       @ get_aexpr_envt body (1 + List.length frees) tag
-    | CPrim1(_) | CPrim2(_) | CApp(_) | CImmExpr(_) | CTuple(_) | CGetItem(_) | CSetItem(_) | CStr(_) -> []
+    | CPrim1(_) | CPrim2(_) | CApp(_) | CImmExpr(_) | CTuple(_) | CGetItem(_) | CSetItem(_) | CSubstring(_) | CStr(_) -> []
   in
   match prog with 
   | AProgram(expr, tag) ->
@@ -1082,6 +1110,7 @@ and extract_frees_cexpr (e : (StringSet.t * 'a) cexpr) =
   | CTuple(exprs, (frees, _)) ->frees
   | CGetItem(tuple, pos, (frees, _)) -> frees
   | CSetItem(tuple, pos, value, (frees, _)) -> frees
+  | CSubstring(string, start, finish, (frees, _)) -> frees
   | CLambda(args, body, (frees, _)) -> frees
   | CStr(s, (frees, _)) -> frees
 and extract_frees_immexpr (e : (StringSet.t * 'a) immexpr) = 
@@ -1148,6 +1177,9 @@ let rec interfere (e : (StringSet.t * 'a) aexpr) (start_live : StringSet.t) : gr
       let interferes = StringSet.inter live frees in 
       connect_all empty interferes
     | CSetItem(tuple, pos, value, (frees, _)) -> 
+      let interferes = StringSet.inter live frees in 
+      connect_all empty interferes
+    | CSubstring(string, start, finish, (frees, _)) -> 
       let interferes = StringSet.inter live frees in 
       connect_all empty interferes
     | CLambda(args, body, (frees, _)) -> 
@@ -1853,6 +1885,15 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
        IMov(Reg(scratch_reg_2), set);
        IMov(Sized(QWORD_PTR, RegOffsetReg(RAX, scratch_reg, word_size, word_size)), Reg(scratch_reg_2));
        IMov(Reg(RAX), set)])
+  | CSubstring(string, start, finish, _) -> 
+    let string = compile_imm string env current_env 
+    and start = compile_imm start env current_env 
+    and finish = compile_imm finish env current_env 
+    in IMov(Reg(RAX), string)::(tag_check string label_NOT_STR str_tag_mask str_tag)
+       @ IMov(Reg(RAX), start)::(num_tag_check label_SUBSTRING_NOT_NUM)
+       @ IMov(Reg(RAX), finish)::(num_tag_check label_SUBSTRING_NOT_NUM)
+       @ (setup_call_to_func env current_env [string; start; finish; Reg(heap_reg); Reg(RBP); Reg(RSP)] (Label("?substr")) false)
+       @ c_string_reserve_cleanup
   | CLambda(_) -> compile_lambda e env true current_env
   | CStr(s, tag) -> 
     let bytes = Bytes.of_string s in 
@@ -1989,6 +2030,7 @@ extern ?tostr
 extern ?try_gc
 extern ?print_heap
 extern ?concat
+extern ?substr
 extern ?HEAP
 extern ?HEAP_END
 extern ?set_stack_bottom
@@ -2008,6 +2050,7 @@ global ?our_code_starts_here" in
       (label_ARITY, err_CALL_ARITY_ERR);
       (label_NOT_STR, err_NOT_STR);
       (label_INVALID_CONVERSION, err_INVALID_CONVERSION);
+      (label_SUBSTRING_NOT_NUM, err_SUBSTRING_NOT_NUM);
     ]))
   in
   match anfed with

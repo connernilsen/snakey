@@ -53,6 +53,7 @@ and 'a expr =
   | ETuple of 'a expr list * 'a
   | EGetItem of 'a expr * 'a expr * 'a
   | ESetItem of 'a expr * 'a expr * 'a expr * 'a
+  | ESubstring of 'a expr * 'a expr * 'a expr * 'a
   | ELet of 'a binding list * 'a expr * 'a
   | EPrim1 of prim1 * 'a expr * 'a
   | EPrim2 of prim2 * 'a expr * 'a expr * 'a
@@ -86,6 +87,7 @@ and 'a cexpr = (* compound expressions *)
   | CTuple of 'a immexpr list * 'a
   | CGetItem of 'a immexpr * 'a immexpr * 'a
   | CSetItem of 'a immexpr * 'a immexpr * 'a immexpr * 'a
+  | CSubstring of 'a immexpr * 'a immexpr * 'a immexpr * 'a
   | CLambda of string list * 'a aexpr * 'a
   | CStr of string * 'a
 and 'a aexpr = (* anf expressions *)
@@ -122,6 +124,7 @@ let get_tag_E e = match e with
   | EStr(_, t) -> t
   | EGetItem(_, _, t) -> t
   | ESetItem(_, _, _, t) -> t
+  | ESubstring(_, _, _, t) -> t
   | ESeq(_, _, t) -> t
   | ELambda(_, _, t) -> t
 ;;
@@ -137,6 +140,7 @@ let rec map_tag_E (f : 'a -> 'b) (e : 'a expr) =
   | ETuple(exprs, a) -> ETuple(List.map (map_tag_E f) exprs, f a)
   | EGetItem(e, idx, a) -> EGetItem(map_tag_E f e, map_tag_E f idx, f a)
   | ESetItem(e, idx, newval, a) -> ESetItem(map_tag_E f e, map_tag_E f idx, map_tag_E f newval, f a)
+  | ESubstring(e, start, finish, a) -> ESubstring(map_tag_E f e, map_tag_E f start, map_tag_E f finish, f a)
   | EId(x, a) -> EId(x, f a)
   | ENumber(n, a) -> ENumber(n, f a)
   | EBool(b, a) -> EBool(b, f a)
@@ -239,6 +243,7 @@ and untagE e =
   | ETuple(exprs, _) -> ETuple(List.map untagE exprs, ())
   | EGetItem(e, idx, _) -> EGetItem(untagE e, untagE idx, ())
   | ESetItem(e, idx, newval, _) -> ESetItem(untagE e, untagE idx, untagE newval, ())
+  | ESubstring(e, start, finish, _) -> ESubstring(untagE e, untagE start, untagE finish, ())
   | EId(x, _) -> EId(x, ())
   | ENumber(n, _) -> ENumber(n, ())
   | EBool(b, _) -> EBool(b, ())
@@ -312,6 +317,9 @@ let atag (p : 'a aprogram) : tag aprogram =
     | CSetItem(e, idx, newval, _) ->
       let set_tag = tag() in
       CSetItem(helpI e, helpI idx, helpI newval, set_tag)
+    | CSubstring(e, start, finish, _) ->
+      let set_tag = tag() in
+      CSubstring(helpI e, helpI start, helpI finish, set_tag)
     | CLambda(args, body, _) ->
       let lam_tag = tag() in
       CLambda(args, helpA body, lam_tag)
