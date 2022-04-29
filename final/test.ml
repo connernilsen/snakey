@@ -151,6 +151,9 @@ let tsubstr = [
   t "substr_middle" "\"hello friends\"[1:5]" "" "ello";
   t "substr_empty" "\"hello friends\"[1:1]" "" "";
   t "substr_exprs" "\"hello friends\"[1 - 1:1 + 2]" "" "hel";
+  t "substr_let" "let a = \"hello friends\" in a[1 - 1: 1 + 2]" "" "hel";
+  te "substr_tuple_access" "\"hello\"[3]" "get expected tuple";
+  te "tuple_substr_access" "(1, 2, 3)[0:1]" "Value not a string"
 ]
 
 (* testing todos: ensure register allocation still works *)
