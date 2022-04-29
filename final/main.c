@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <math.h>
 #include "gc.h"
 
 typedef uint64_t SNAKEVAL;
@@ -22,6 +21,7 @@ extern SNAKEVAL tonum(SNAKEVAL val) asm("?tonum");
 extern SNAKEVAL tostr(SNAKEVAL val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?tostr");
 extern SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?concat");
 extern SNAKEVAL substr(uint64_t *string, uint64_t start, uint64_t end, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?substr");
+extern SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?format");
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001;
 const uint64_t BOOL_TAG_MASK = 0x000000000000000f;
@@ -411,6 +411,80 @@ SNAKEVAL substr(uint64_t *snake_str, uint64_t start, uint64_t finish, uint64_t *
     ((uint8_t *)ptr)[i + 8] = str[i];
   }
   return ((uint64_t)ptr) + STRING_TAG;
+}
+
+SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
+{
+  if (((uint64_t)values & TUPLE_TAG_MASK) != TUPLE_TAG)
+  {
+    error(ERR_INVALID_CONVERSION, values);
+  }
+  uint64_t *addr = (uint64_t *)(values[0] - TUPLE_TAG);
+  int len = addr[0] / 2;
+  int final_length = 2;
+  for (int i = 1; i <= len; i++)
+  {
+    if ((addr[i] & STRING_TAG_MASK) != STRING_TAG)
+    {
+      error(ERR_INVALID_CONVERSION, addr[i]);
+    }
+    else
+    {
+      final_length += (((uint64_t *)(addr[i] - STRING_TAG))[0] / 2) - 2;
+    }
+  }
+  if (len == 0)
+  {
+    uint64_t *res = reserve_memory(heap_pos, 2, old_rbp, old_rsp);
+    return ((uint64_t)res) + STRING_SIZE;
+  }
+  if (len == 1)
+  {
+    return addr[1];
+  }
+
+  int byte_length = (final_length + 8 - 1) / 8;
+  int space_len = ((byte_length + 2) / 2) * 2;
+  uint64_t *res = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
+  res[0] = (uint64_t)final_length;
+  addr = (uint64_t *)(values[0] - TUPLE_TAG);
+
+  int curr_pos = 0;
+  int curr_subst = 2;
+  int format_str_len = ((uint64_t *)(((uint64_t)addr[1]) - STRING_TAG))[0] / 2;
+  uint8_t *format_str = (uint8_t *)addr[1];
+  for (int i = 0; i < format_str_len / 2; i++)
+  {
+    if (format_str[8 + i] == '{' && i < format_str_len - 1 && format_str[9 + i] == '}' && (i == 0 || format_str[7 + i] != '\\'))
+    {
+      if (curr_subst == len - 1)
+      {
+        error(ERR_INVALID_CONVERSION, values);
+      }
+      uint64_t *pre_subst = (uint64_t *)(addr[curr_subst] - STRING_TAG);
+      int subst_len = pre_subst[0] / 2;
+      uint8_t *subst = (uint8_t *)pre_subst;
+      for (int j = 0; j < subst_len; j++)
+      {
+        ((uint8_t *)res)[curr_pos + 8] = subst[j + 8];
+        curr_pos++;
+      }
+      curr_subst++;
+      // increment to skip over the closing }
+      i++;
+    }
+    else
+    {
+      ((uint8_t *)res)[curr_pos + 8] = format_str[i + 8];
+      curr_pos++;
+    }
+  }
+  if (curr_subst != len - 1)
+  {
+    error(ERR_INVALID_CONVERSION, values);
+  }
+
+  return ((uint64_t)format_str) + STRING_TAG;
 }
 
 SNAKEVAL tobool(SNAKEVAL val)

@@ -110,6 +110,7 @@ let native_fun_bindings = [
   ("input", (Native, 0));
   ("equal", (Native, 2));
   ("print_heap", (Native, 0));
+  ("format", (Native, 2));
 ];;
 
 let initial_fun_env = prim_bindings @ native_fun_bindings;;
@@ -297,6 +298,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
     | EApp(func, args, native, loc) ->
       let rec_errors = List.concat (List.map (fun e -> wf_E e env) (func :: args)) in
       (match func with
+       | EId("?format", _) -> []
        | EId(funname, _) -> 
          (match (find_opt env funname) with
           | Some(_, _, Some arg_arity) ->
@@ -552,6 +554,9 @@ let desugar (p : sourcespan program) : sourcespan program =
       ELetRec(newbinds, helpE body, tag)
     | EIf(cond, thn, els, tag) ->
       EIf(helpE cond, helpE thn, helpE els, tag)
+    | EApp(EId("?format", id_tag), args, native, tag) ->
+      let new_args = List.map (fun arg -> EPrim1(ToStr, arg, tag)) args in
+      EApp(EId("?format", id_tag), [helpE (ETuple(new_args, tag))], native, tag)
     | EApp(name, args, native, tag) ->
       EApp(helpE name, List.map helpE args, native, tag)
     | ELambda(binds, body, tag) ->
@@ -1793,6 +1798,17 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
     let arg_regs = [Reg(heap_reg); Reg(RBP); Reg(RSP)] in
     (setup_call_to_func env current_env arg_regs (Label("?input")) false)
     @ c_string_reserve_cleanup
+  | CApp(ImmId("?format", _), args, Native, _) ->
+    let arg_regs = [Reg(scratch_reg_2); Reg(heap_reg); Reg(RBP); Reg(RSP)] in
+    IPush(stack_filler)
+    :: begin match args with 
+      | arg :: [] -> IPush(Sized(QWORD_PTR, compile_imm arg env current_env))
+      | _ -> raise (InternalCompilerError "Format should only have 1 tuple arg") 
+    end
+    :: IMov(Reg(scratch_reg_2), Reg(RSP))
+    :: (setup_call_to_func env current_env arg_regs (Label("?format")) false)
+    @ c_string_reserve_cleanup
+    @ [IPop(Reg(scratch_reg)); IPop(Reg(scratch_reg))]
   | CApp(func, args, Native, _) -> 
     let arg_regs = (List.map (fun (a) -> (compile_imm a env current_env)) args) in 
     (setup_call_to_func env current_env arg_regs (Label(get_func_name_imm func)) false)
@@ -2033,6 +2049,7 @@ extern ?try_gc
 extern ?print_heap
 extern ?concat
 extern ?substr
+extern ?format
 extern ?HEAP
 extern ?HEAP_END
 extern ?set_stack_bottom
