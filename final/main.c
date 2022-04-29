@@ -381,9 +381,9 @@ SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_rbp, ui
   return ((uint64_t)ptr) + STRING_TAG;
 }
 
-SNAKEVAL substr(uint64_t *snake_str, uint64_t start, uint64_t finish, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
+SNAKEVAL substr(uint64_t *string_loc, uint64_t start, uint64_t finish, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
-  uint64_t *string = (uint64_t *)(((uint64_t)snake_str) - STRING_TAG);
+  uint64_t *string = (uint64_t *)(string_loc[0] - STRING_TAG);
   int str_len = *string >> 1;
   start >>= 1;
   finish >>= 1;
@@ -391,24 +391,19 @@ SNAKEVAL substr(uint64_t *snake_str, uint64_t start, uint64_t finish, uint64_t *
 
   if (start < 0 || start > str_len || finish < start || finish > str_len)
   {
-    error(ERR_SUBSTRING_OUT_OF_BOUNDS, snake_str);
-  }
-
-  uint8_t str[new_str_len];
-  for (int i = 0; i < new_str_len; i++)
-  {
-    str[i] = ((uint8_t *)string)[i + 8 + start];
+    error(ERR_SUBSTRING_OUT_OF_BOUNDS, string_loc[0]);
   }
 
   int byte_length = (new_str_len + 8 - 1) / 8;
   int space_len = ((byte_length + 2) / 2) * 2;
 
   uint64_t *ptr = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
+  string = (uint64_t *)(string_loc[0] - STRING_TAG);
 
   *ptr = new_str_len << 1;
   for (int i = 0; i < new_str_len; i++)
   {
-    ((uint8_t *)ptr)[i + 8] = str[i];
+    ((uint8_t *)ptr)[i + 8] = ((uint8_t *)string)[i + 8 + start];
   }
   return ((uint64_t)ptr) + STRING_TAG;
 }

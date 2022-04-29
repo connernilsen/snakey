@@ -1910,8 +1910,10 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
     in IMov(Reg(RAX), string)::(tag_check string label_NOT_STR str_tag_mask str_tag)
        @ IMov(Reg(RAX), start)::(num_tag_check label_SUBSTRING_NOT_NUM)
        @ IMov(Reg(RAX), finish)::(num_tag_check label_SUBSTRING_NOT_NUM)
-       @ (setup_call_to_func env current_env [string; start; finish; Reg(heap_reg); Reg(RBP); Reg(RSP)] (Label("?substr")) false)
+       @ [IPush(stack_filler); IPush(Sized(QWORD_PTR, string)); IMov(Reg(scratch_reg_2), Reg(RSP))]
+       @ (setup_call_to_func env current_env [Reg(scratch_reg_2); start; finish; Reg(heap_reg); Reg(RBP); Reg(RSP)] (Label("?substr")) false)
        @ c_string_reserve_cleanup
+       @ [IPop(Reg(scratch_reg)); IPop(Reg(scratch_reg))]
   | CLambda(_) -> compile_lambda e env true current_env
   | CStr(s, tag) -> 
     let bytes = Bytes.of_string s in 
