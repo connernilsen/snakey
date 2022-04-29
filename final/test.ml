@@ -137,6 +137,7 @@ let tconcat = [
   t "concat_first" "\"a\" ^ \"\"" "" "a";
   t "concat_second" "\"\" ^ \"b\"" "" "b";
   t "concat_both" "\"a\" ^ \"b\"" "" "ab";
+  t "concat_complex" "\"abc\" ^ \"def\" ^ \"ghijkl\"" "" "abcdefghijkl";
 ]
 
 (* testing todos: ensure register allocation still works *)
