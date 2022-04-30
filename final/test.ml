@@ -36,21 +36,21 @@ let lexing_and_parsing = [
   terr "unmatched_parens_second" "\"hello\"; \"" "" "Unterminated string";
 ]
 let tstring = [
-  t "tstring_simple" "\"test\"" "" "test";
-  t "tstring_complex" "\"\"\"test
-  test\"\"\"" "" "test\n  test";
-  t "tstring_quotes" "\"test\\\"\"" ""
-    "test\"";
-  t "tstring_newline" "\"test\ntest\"" ""
-    "test\ntest";
-  t "tstring_newline" "\"test\ntest\"" ""
-    "test\ntest";
-  t "tstring_carriage_return" "\"test\rtest\"" ""
-    "test\rtest";
-  t "tstring_tag" "\"test\ttest\"" ""
-    "test\ttest";
-  t "tstring_question" "\"test?\"" ""
-    "test?";
+  t "tstring_simple" "\"aa\"" "" "aa";
+  t "tstring_complex" "\"\"\"aaaa
+  aaaa\"\"\"" "" "aaaa\n  aaaa";
+  t "tstring_quotes" "\"aaaa\\\"\"" ""
+    "aaaa\"";
+  t "tstring_newline" "\"aaaa\naaaa\"" ""
+    "aaaa\naaaa";
+  t "tstring_newline" "\"aaaa\naaaa\"" ""
+    "aaaa\naaaa";
+  t "tstring_carriage_return" "\"aaaa\raaaa\"" ""
+    "aaaa\raaaa";
+  t "tstring_tag" "\"aaaa\taaaa\"" ""
+    "aaaa\taaaa";
+  t "tstring_question" "\"aaaa?\"" ""
+    "aaaa?";
   t "input_test" "input()" "hello" "hello";
 ]
 let tstring_wf = [
