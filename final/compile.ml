@@ -1570,7 +1570,6 @@ and get_env_callee_save_regs env =
 
 (* Gets big endian int64 of up to 8 characters encoded as a snake num *)
 and get_snake_int64_be (bytes : bytes) (index : int): int64 = 
-  (* (Int64.shift_left  *)
   (List.fold_right 
      (fun x acc -> (Int64.logor acc x))
      (List.init 8 (fun i -> 
@@ -1578,7 +1577,6 @@ and get_snake_int64_be (bytes : bytes) (index : int): int64 =
           then Int64.shift_left (Int64.of_int (2 * (Bytes.get_int8 bytes (index + i)))) (i * 8)
           else 0L))
      0L)
-(* (max 0 (8 * (8 - (Bytes.length bytes) - index)))) *)
 
 (* IMPLEMENT THIS FROM YOUR PREVIOUS ASSIGNMENT *)
 (* Additionally, you are provided an initial environment of values that you may want to
