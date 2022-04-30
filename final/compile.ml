@@ -1729,6 +1729,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
         @ c_string_reserve_cleanup
       | ToBool -> (setup_call_to_func env current_env [e_reg] (Label("?tobool")) false)
       | ToNum -> (setup_call_to_func env current_env [e_reg] (Label("?tonum")) false)
+      | Len -> (setup_call_to_func env current_env [e_reg] (Label("?len")) false)
     end
   | CPrim2(op, l, r, tag) ->
     let e1_reg = (compile_imm l env current_env) in
@@ -2054,6 +2055,7 @@ extern ?try_gc
 extern ?print_heap
 extern ?concat
 extern ?substr
+extern ?len
 extern ?format
 extern ?HEAP
 extern ?HEAP_END

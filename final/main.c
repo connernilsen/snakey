@@ -22,6 +22,7 @@ extern SNAKEVAL tostr(SNAKEVAL val, uint64_t *heap_pos, uint64_t *old_rbp, uint6
 extern SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?concat");
 extern SNAKEVAL substr(uint64_t *string, uint64_t start, uint64_t end, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?substr");
 extern SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?format");
+extern SNAKEVAL len(uint64_t val) asm("?len");
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001;
 const uint64_t BOOL_TAG_MASK = 0x000000000000000f;
@@ -59,6 +60,7 @@ const uint64_t ERR_NOT_STR = 17;
 const uint64_t ERR_INVALID_CONVERSION = 18;
 const uint64_t ERR_SUBSTRING_NOT_NUM = 19;
 const uint64_t ERR_SUBSTRING_OUT_OF_BOUNDS = 20;
+const uint64_t ERR_LEN_NOT_TUPLE_NUM = 21;
 
 size_t HEAP_SIZE;
 uint64_t *STACK_BOTTOM;
@@ -326,6 +328,22 @@ uint64_t *reserve_memory(uint64_t *heap_pos, int size, uint64_t *old_rbp, uint64
   else
   {
     return heap_pos;
+  }
+}
+
+SNAKEVAL len(uint64_t val)
+{
+  if ((val & STRING_TAG_MASK) == STRING_TAG)
+  {
+    return ((uint64_t *)(val - STRING_TAG))[0];
+  }
+  else if ((val & TUPLE_TAG_MASK) == TUPLE_TAG)
+  {
+    return ((uint64_t *)(val - TUPLE_TAG))[0];
+  }
+  else
+  {
+    error(ERR_LEN_NOT_TUPLE_NUM, val);
   }
 }
 
@@ -739,6 +757,9 @@ void error(uint64_t code, SNAKEVAL val)
     fprintf(stderr, "Error: substring index out of bounds of string ");
     printHelp(stderr, val, 1);
     break;
+  case ERR_LEN_NOT_TUPLE_NUM:
+    fprintf(stderr, "Error: len expected tuple or num, got ");
+    printHelp(stderr, val, 1);
   default:
     fprintf(stderr, "Error: Unknown error code: %ld, val: ", code);
     printHelp(stderr, val, 1);

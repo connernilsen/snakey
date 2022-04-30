@@ -168,6 +168,16 @@ let format = [
   te "format_error_high" "format(\"abcd\", 1)" "conversion function received invalid value";
 ]
 
+let len = [
+  t "str_len_empty" "len(\"\")" "" "0";
+  t "tuple_len_1" "len((5, ))" "" "1";
+  t "str_len_1" "len(\"a\")" "" "1";
+  t "tuple_len_2" "len((5, 4))" "" "2";
+  t "str_len_2" "len(\"ab\")" "" "2";
+  te "len_bool" "len(true)" "error";
+  te "len_num" "len(5)" "error";
+]
+
 (* testing todos: ensure register allocation still works *)
 
 let suite =
@@ -181,6 +191,7 @@ let suite =
   @ tconcat
   @ tsubstr
   @ format
+  @ len
 
 let () =
   run_test_tt_main ("all_tests">:::[

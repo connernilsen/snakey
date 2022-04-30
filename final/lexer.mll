@@ -55,6 +55,7 @@ rule token = parse
   | "add1" { ADD1 }
   | "sub1" { SUB1 }
   | "lambda" { LAMBDA }
+  | "len" { LEN }
   | "λ" { LAMBDA }
   | "if" { IF }
   | ":" { COLON }
