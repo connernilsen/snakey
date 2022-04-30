@@ -110,7 +110,7 @@ let native_fun_bindings = [
   ("input", (Native, 0));
   ("equal", (Native, 2));
   ("print_heap", (Native, 0));
-  ("format", (Native, 2));
+  ("format", (Native, 1));
 ];;
 
 let initial_fun_env = prim_bindings @ native_fun_bindings;;
@@ -298,7 +298,7 @@ let is_well_formed (p : sourcespan program) : (sourcespan program) fallible =
     | EApp(func, args, native, loc) ->
       let rec_errors = List.concat (List.map (fun e -> wf_E e env) (func :: args)) in
       (match func with
-       | EId("?format", _) -> []
+       | EId("format", _) -> []
        | EId(funname, _) -> 
          (match (find_opt env funname) with
           | Some(_, _, Some arg_arity) ->
@@ -554,9 +554,9 @@ let desugar (p : sourcespan program) : sourcespan program =
       ELetRec(newbinds, helpE body, tag)
     | EIf(cond, thn, els, tag) ->
       EIf(helpE cond, helpE thn, helpE els, tag)
-    | EApp(EId("?format", id_tag), args, native, tag) ->
+    | EApp(EId("format", id_tag), args, native, tag) ->
       let new_args = List.map (fun arg -> EPrim1(ToStr, arg, tag)) args in
-      EApp(EId("?format", id_tag), [helpE (ETuple(new_args, tag))], native, tag)
+      EApp(EId("format", id_tag), [helpE (ETuple(new_args, tag))], native, tag)
     | EApp(name, args, native, tag) ->
       EApp(helpE name, List.map helpE args, native, tag)
     | ELambda(binds, body, tag) ->
@@ -1472,6 +1472,8 @@ let byte_align_16 (words : int) : int64 =
 let c_string_reserve_cleanup =
   [
     ILineComment("Cleaning up string reserve and updating to new R15");
+    IMov(Reg(scratch_reg_2), Sized(QWORD_PTR, Const(str_tag)));
+    ISub(Reg(RAX), Reg(scratch_reg_2));
     IMov(Reg(heap_reg), Reg(RAX));
     IMov(Reg(scratch_reg), RegOffset(0, RAX));
     IAdd(Reg(heap_reg), Reg(scratch_reg));
@@ -1480,6 +1482,7 @@ let c_string_reserve_cleanup =
     IAdd(Sized(QWORD_PTR, Reg(heap_reg)), Const(15L));
     IMov(Reg scratch_reg, HexConst(0xFFFFFFFFFFFFFFF0L));
     IAnd(Sized(QWORD_PTR, Reg(heap_reg)), Reg scratch_reg);
+    IAdd(Reg(RAX), Reg(scratch_reg_2));
   ]
 ;;
 

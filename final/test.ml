@@ -157,6 +157,17 @@ let tsubstr = [
   te "tuple_substr_access" "(1, 2, 3)[0:1]" "Value not a string"
 ]
 
+let format = [
+  t "format_empty" "format()" "" "";
+  t "format_no_subst" "format(\"hello world\")" "" "hello world";
+  t "format_one_subst" "format(\"my name is {}\", \"conner nilsen\")" "" "my name is conner nilsen";
+  t "format_two_subst" "format(\"my name is {} {}\", \"kyle\", \"into\")" "" "my name is kyle into";
+  t "format_other_types" "format(\"{} {} {} {}\", true, false, 5, -3)" "" "true false 5 -3";
+  te "format_error_low" "format(\"{}\")" "conversion function received invalid value";
+  te "format_error_low_2" "format(\"{}{}\", 5)" "conversion function received invalid value";
+  te "format_error_high" "format(\"abcd\", 1)" "conversion function received invalid value";
+]
+
 (* testing todos: ensure register allocation still works *)
 
 let suite =
@@ -169,6 +180,7 @@ let suite =
   @ tstring_gc
   @ tconcat
   @ tsubstr
+  @ format
 
 let () =
   run_test_tt_main ("all_tests">:::[
