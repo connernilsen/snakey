@@ -165,6 +165,12 @@ let conversions_and_istype = [
   t "string_edit" "let str = print(\"hello!\"), tup = print(str_to_ascii_tuple(str)), _ = tup[0] := 97, res = ascii_tuple_to_str(print(tup)) in res" "" 
     "hello!(104, 101, 108, 108, 111, 33)(97, 101, 108, 108, 111, 33)aello!";
   t "many_conversions" "ascii_tuple_to_str(str_to_ascii_tuple(tostr(tobool(tonum(len(str_to_ascii_tuple(\"hello\" ^ \"world\")))))))" "" "true";
+  t "get_char" "get_ascii_char(\"a\", 0)" "" "97";
+  te "get_char_high" "get_ascii_char(\"a\", 1)" "index too large to get";
+  te "get_char_low" "get_ascii_char(\"a\", -1)" "index too small to get";
+  t "get_char_long" "get_ascii_char(\"abcd\", 3)" "" "100";
+  te "get_char_not_str" "get_ascii_char(false, 3)" "Value not a string";
+  te "get_char_not_num" "get_ascii_char(\"false\", \"a\")" "substring expected num";
 ]
 
 let tconcat = [

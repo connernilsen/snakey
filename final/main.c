@@ -26,6 +26,7 @@ extern SNAKEVAL len(uint64_t val) asm("?len");
 extern SNAKEVAL tuple(uint64_t value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?tuple");
 extern SNAKEVAL str_to_ascii_tuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?str_to_ascii_tuple");
 extern SNAKEVAL ascii_tuple_to_str(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?ascii_tuple_to_str");
+extern SNAKEVAL get_ascii_char(uint64_t *str, uint64_t off) asm("?get_ascii_char");
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001;
 const uint64_t BOOL_TAG_MASK = 0x000000000000000f;
@@ -779,6 +780,28 @@ SNAKEVAL str_to_ascii_tuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_r
     tuple[i + 1] = (uint64_t)(((uint8_t *)addr)[i + 8]);
   }
   return ((uint64_t)tuple) + TUPLE_TAG;
+}
+
+SNAKEVAL get_ascii_char(uint64_t *str, uint64_t offset)
+{
+  if (((uint64_t)str & STRING_TAG_MASK) != STRING_TAG)
+  {
+    error(ERR_NOT_STR, str);
+  }
+  if ((offset & NUM_TAG_MASK) != NUM_TAG)
+  {
+    error(ERR_SUBSTRING_NOT_NUM, offset);
+  }
+  if (((int64_t)offset) < 0)
+  {
+    error(ERR_GET_LOW_INDEX, offset);
+  }
+  uint64_t *addr = (uint64_t *)((uint64_t)str - STRING_TAG);
+  if (offset >= addr[0])
+  {
+    error(ERR_GET_HIGH_INDEX, offset);
+  }
+  return ((uint8_t *)addr)[(offset >> 1) + 8];
 }
 
 SNAKEVAL print(SNAKEVAL val)

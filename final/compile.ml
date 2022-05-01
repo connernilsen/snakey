@@ -113,6 +113,7 @@ let native_fun_bindings = [
   ("format", (Native, 1));
   ("ascii_tuple_to_str", (Native, 1));
   ("str_to_ascii_tuple", (Native, 1));
+  ("get_ascii_char", (Native, 2));
 ];;
 
 let initial_fun_env = prim_bindings @ native_fun_bindings;;
@@ -2099,6 +2100,7 @@ extern ?tostr
 extern ?tuple
 extern ?ascii_tuple_to_str
 extern ?str_to_ascii_tuple
+extern ?get_ascii_char
 extern ?try_gc
 extern ?print_heap
 extern ?concat
