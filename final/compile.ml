@@ -1470,14 +1470,16 @@ let byte_align_16 (words : int) : int64 =
 ;;
 
 let c_reserve_cleanup tag = 
+  let offset_multiplier = if tag = str_tag then 1L else 8L in
   [
     ILineComment("Cleaning up string reserve and updating to new R15");
     IMov(Reg(scratch_reg_2), Sized(QWORD_PTR, Const(tag)));
     ISub(Reg(RAX), Reg(scratch_reg_2));
     IMov(Reg(heap_reg), Reg(RAX));
     IMov(Reg(scratch_reg), RegOffset(0, RAX));
+    IMul(Reg(scratch_reg), Sized(QWORD_PTR, Const(offset_multiplier)));
+    IAdd(Reg(scratch_reg), Sized(QWORD_PTR, Const(Int64.of_int word_size)));
     IAdd(Reg(heap_reg), Reg(scratch_reg));
-    IAdd(Reg(heap_reg), Const(Int64.of_int word_size));
     (* Stack align *)
     IAdd(Sized(QWORD_PTR, Reg(heap_reg)), Const(15L));
     IMov(Reg scratch_reg, HexConst(0xFFFFFFFFFFFFFFF0L));
@@ -1754,6 +1756,8 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
       | ToBool -> (setup_call_to_func env current_env [e_reg] (Label("?tobool")) false)
       | ToNum -> (setup_call_to_func env current_env [e_reg] (Label("?tonum")) false)
       | Len -> (setup_call_to_func env current_env [e_reg] (Label("?len")) false)
+      | ToTuple -> 
+        c_call_arg_indirection "?totuple" [e_reg] [Reg(heap_reg); Reg(RBP); Reg(RSP)] tuple_tag env current_env
     end
   | CPrim2(op, l, r, tag) ->
     let e1_reg = (compile_imm l env current_env) in
@@ -2065,6 +2069,7 @@ extern ?equal
 extern ?tobool
 extern ?tonum
 extern ?tostr
+extern ?totuple
 extern ?try_gc
 extern ?print_heap
 extern ?concat

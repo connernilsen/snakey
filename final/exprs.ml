@@ -25,6 +25,7 @@ type prim1 =
   | ToBool
   | ToNum
   | Len
+  | ToTuple
 
 type prim2 =
   | Plus

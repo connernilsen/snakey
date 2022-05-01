@@ -108,6 +108,8 @@ let tis = [
   t "tobool_str_f" "tobool(\"false\") || false" "" "false";
   t "tobool_other_str" "tobool(\"a\")" "" "true";
   t "tobool_empty_str" "tobool(\"\")" "" "false";
+  t "tobool_tuple_empty" "tobool(totuple(0))" "" "false";
+  t "tobool_tuple_not_empty" "tobool((1,))" "" "true";
   t "tostr_str" "tostr(\"hello\")" "" "hello";
   t "tostr_bool_f" "tostr(false)" "" "false";
   t "tostr_bool_t" "tostr(true)" "" "true";
@@ -116,9 +118,23 @@ let tis = [
   te "tostr_bool_t_err" "tostr(true) || false" "Error 3: Error: expected a boolean, got \"true\"";
   te "tostr_num_err" "tostr(5) + 0" "Error 2: Error: arithmetic expected a number, got \"5\"";
   t "tonum_str_neg" "tonum(\"-5\") * 1" "" "-5";
+  te "tonum_tuple" "tonum((1, 2))" "conversion function received invalid value";
   t "tonum_str_neg_only" "tonum(\"-\")" "" "0";
   t "tostr_neg" "tostr(-5)" "" "-5";
   te "tostr_neg_err" "tostr(-5) * 1" "Error 2: Error: arithmetic expected a number, got \"-5\"";
+  t "totuple_num_0" "totuple(0)" "" "()";
+  t "len_totuple_0" "len(totuple(0))" "" "0";
+  t "totuple_num_5" "totuple(5)" "" "(0, 0, 0, 0, 0)";
+  t "len_totuple_5" "len(totuple(5))" "" "5";
+  te "totuple_bool" "totuple(false)" "conversion function received invalid value";
+  t "totuple_str_empty" "totuple(\"\")" "" "()";
+  t "totuple_str" "totuple(\"hey\")" "" "(104, 101, 121)";
+  t "tostr_tuple" "tostr((97, 98, 99, 100))" "" "abcd";
+  te "tostr_invalid_tuple" "tostr((128, ))" "conversion function received invalid value";
+  te "tostr_invalid_tuple_neg" "tostr((-1, ))" "conversion function received invalid value";
+  te "tostr_invalid_tuple_bool" "tostr((97, false))" "conversion function received invalid value";
+  te "tostr_invalid_tuple_nested_str" "tostr((97, \"hello\"))" "conversion function received invalid value";
+  te "tostr_invalid_tuple_nested_tuple" "tostr((97, (1, 2, 3)))" "conversion function received invalid value";
   t "streq_1" "equal(\"asdf\", \"asdf\")" "" "true";
   t "streq_2" "equal(\"asdf\", \"asdh\")" "" "false";
   t "streq_3" "equal(5, \"a\")" "" "false";
@@ -128,6 +144,8 @@ let tis = [
   t "streq_7" "equal((0, 1), \"a\")" "" "false";
   t "streq_8" "equal(\"a\", (0, 1))" "" "false";
   t "streq_9" "equal(\"a\", \"b\")" "" "false";
+  t "string_edit" "let str = print(\"hello!\"), tup = print(totuple(str)), _ = tup[0] := 97, res = tostr(print(tup)) in res" "" 
+    "hello!(104, 101, 108, 108, 111, 33)(97, 101, 108, 108, 111, 33)aello!";
 ]
 
 let tconcat = [

@@ -23,6 +23,7 @@ extern SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_
 extern SNAKEVAL substr(uint64_t *string, uint64_t start, uint64_t end, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?substr");
 extern SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?format");
 extern SNAKEVAL len(uint64_t val) asm("?len");
+extern SNAKEVAL totuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?totuple");
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001;
 const uint64_t BOOL_TAG_MASK = 0x000000000000000f;
@@ -546,6 +547,19 @@ SNAKEVAL tobool(SNAKEVAL val)
       return BOOL_FALSE;
     }
   }
+  else if ((val & TUPLE_TAG_MASK) == TUPLE_TAG)
+  {
+    uint64_t *addr = (uint64_t *)(val - TUPLE_TAG);
+    int len = ((int)addr[0]) >> 1;
+    if (len)
+    {
+      return BOOL_TRUE;
+    }
+    else
+    {
+      return BOOL_FALSE;
+    }
+  }
   error(ERR_INVALID_CONVERSION, val);
   return -1;
 }
@@ -668,8 +682,61 @@ SNAKEVAL tostr(SNAKEVAL *val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *o
     }
     return ((uint64_t)pre_str) + STRING_TAG;
   }
-  error(ERR_INVALID_CONVERSION, val);
+  else if ((*val & TUPLE_TAG_MASK) == TUPLE_TAG)
+  {
+    uint64_t *addr = (uint64_t *)(*val - TUPLE_TAG);
+    uint64_t len = addr[0] >> 1;
+    int byte_length = (len + 8 - 1) / 8;
+    int space = ((byte_length + 2) / 2) * 2;
+    uint64_t *str = reserve_memory(heap_pos, space, old_rbp, old_rsp);
+    addr = (uint64_t *)(*val - TUPLE_TAG);
+
+    str[0] = addr[0];
+    for (int i = 0; i < len; i++)
+    {
+      if ((addr[i + 1] & NUM_TAG_MASK) != NUM_TAG || addr[i + 1] > 255)
+      {
+        error(ERR_INVALID_CONVERSION, *val);
+      }
+      ((uint8_t *)str)[i + 8] = (uint8_t)(addr[i + 1]);
+    }
+    return ((uint64_t)str) + STRING_TAG;
+  }
+  error(ERR_INVALID_CONVERSION, *val);
   return -1;
+}
+
+SNAKEVAL totuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
+{
+  if ((*value & TUPLE_TAG_MASK) == TUPLE_TAG)
+  {
+    return *value;
+  }
+  if ((*value & NUM_TAG_MASK) == NUM_TAG)
+  {
+    // returns tuple with 0 values
+    int space = (((*value >> 1) + 2) / 2) * 2;
+    uint64_t *tuple = reserve_memory(heap_pos, space, old_rbp, old_rsp);
+    tuple[0] = *value;
+    return ((uint64_t)tuple) + TUPLE_TAG;
+  }
+  if ((*value & STRING_TAG_MASK) != STRING_TAG)
+  {
+    error(ERR_INVALID_CONVERSION, *value);
+  }
+  uint64_t *addr = (uint64_t *)(*value - STRING_TAG);
+  uint64_t len = addr[0] >> 1;
+
+  int space = ((len + 2) / 2) * 2;
+  uint64_t *tuple = reserve_memory(heap_pos, space, old_rbp, old_rsp);
+  addr = (uint64_t *)(*value - STRING_TAG);
+
+  tuple[0] = addr[0];
+  for (int i = 0; i < len; i++)
+  {
+    tuple[i + 1] = (uint64_t)(((uint8_t *)addr)[i + 8]);
+  }
+  return ((uint64_t)tuple) + TUPLE_TAG;
 }
 
 SNAKEVAL print(SNAKEVAL val)

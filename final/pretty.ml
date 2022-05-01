@@ -27,6 +27,7 @@ let string_of_op1 op =
   | ToBool -> "tobool"
   | ToNum -> "tonum"
   | Len -> "len"
+  | ToTuple -> "totuple"
 
 let name_of_op1 op =
   match op with
@@ -43,6 +44,7 @@ let name_of_op1 op =
   | ToBool -> "ToBool"
   | ToNum -> "ToNum"
   | Len -> "Len"
+  | ToTuple -> "ToTuple"
 
 let string_of_op2 op =
   match op with
