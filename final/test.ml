@@ -41,17 +41,26 @@ let tstring = [
   aaaa\"\"\"" "" "aaaa\n  aaaa";
   t "tstring_quotes" "\"aaaa\\\"\"" ""
     "aaaa\"";
-  t "tstring_newline" "\"aaaa\naaaa\"" ""
-    "aaaa\naaaa";
-  t "tstring_newline" "\"aaaa\naaaa\"" ""
+  t "tstring_encoded_newline" "\"aaaa\\naaaa\"" ""
     "aaaa\naaaa";
   t "tstring_carriage_return" "\"aaaa\raaaa\"" ""
+    "aaaa\raaaa";
+  t "tstring_encoded_carriage_return" "\"aaaa\\raaaa\"" ""
     "aaaa\raaaa";
   t "tstring_tag" "\"aaaa\taaaa\"" ""
     "aaaa\taaaa";
   t "tstring_question" "\"aaaa?\"" ""
     "aaaa?";
   t "input_test" "input()" "hello" "hello";
+  t "herestring" "let multiline = \"\"\"
+\\t\"   \"
+  this is a string
+abcd
+      \"\"\" in multiline" ""
+    "\n\t\"   \"\n  this is a string\nabcd\n      ";
+  te "herestring_in_string" "\" hello \"\"\" \"" "Herestring terminated in non-herestring literal";
+  t "escaped_herestring_in_string" "\" hello \\\"\\\"\\\" \"" "" " hello \"\"\" ";
+  te "broken_string" "\" \n \"" "Non-terminated string literal";
 ]
 let tstring_wf = [
   terr "tstring_illegal" "\"é\"" "" "String é at tstring_illegal, 1:3-1:4 contains at least one illegal character.";
@@ -70,7 +79,7 @@ let tstring_complex = [
   hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
   hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
   hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello"
-   in t "very_long" ("\"" ^ long ^ "\"") "" long);
+   in t "very_long" ("\"\"\"" ^ long ^ "\"\"\"") "" long);
   (* todo: string overflow? concat overflow? *)
   t "empty" "let s = \"\" in s" "" "";
   t "big" "let s = \"~\" in s" "" "~";
@@ -84,7 +93,7 @@ let tstring_gc = [
   tgc "tstring_gc_odd" (builtins_size + 6) "let a = \"a\" in let b = \"b\";\"c\" in let c = \"c\" in a" "" "a";
   tgc "tstring_gc_lambda" (builtins_size + 12) "let a = \"a\" in let b = (lambda: \"ccccc\") in print(b()); print(\"aaaaa\"); a" "" "cccccaaaaaa";
 ]
-let tis = [
+let conversions_and_istype = [
   t "isstr_str" "isstr(\"hello\")" "" "true";
   t "isstr_num" "isstr(5)" "" "false";
   t "isstr_bool_t" "isstr(true)" "" "false";
@@ -204,7 +213,7 @@ let suite =
   "unit_tests">:::
   lexing_and_parsing
   @ tstring
-  @ tis
+  @ conversions_and_istype
   @ tstring_wf
   @ tstring_complex
   @ tstring_gc
