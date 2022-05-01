@@ -72,6 +72,7 @@ const uint64_t ERR_INCORRECT_FORMAT_ARITY = 23;
 const uint64_t ERR_TUPLE_CREATE_LEN = 24;
 const uint64_t ERR_JOIN_NOT_TUPLE = 25;
 const uint64_t ERR_JOIN_NOT_STR = 26;
+const uint64_t ERR_SPLIT_NOT_STR = 27;
 
 size_t HEAP_SIZE;
 uint64_t *STACK_BOTTOM;
@@ -786,9 +787,76 @@ SNAKEVAL str_to_ascii_tuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_r
   return ((uint64_t)tuple) + TUPLE_TAG;
 }
 
+/**
+ * @brief turns pointer to snake string (untagged) into char*
+ *
+ * @param str untagged snake string pointer
+ * @return char* string
+ */
+char *snake_to_char_pointer(uint64_t *str)
+{
+  int len = *str;
+  char result[len + 1];
+  for (int i = 0; i < len; i++)
+  {
+    result[i] = ((uint8_t *)str)[8 + i] >> 1;
+  }
+  result[len] = '\0';
+  return &result;
+}
+
+int align_16(int size)
+{
+  return (size + 15) / 16;
+}
+
 SNAKEVAL split(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
-  return args;
+  uint64_t delim = args[0];
+  uint64_t original = args[1];
+  if ((original & STRING_TAG_MASK) != STRING_TAG)
+  {
+    error(ERR_SPLIT_NOT_STR, original);
+  }
+  if ((delim & STRING_TAG_MASK) != STRING_TAG)
+  {
+    error(ERR_SPLIT_NOT_STR, delim);
+  }
+
+  char *original_as_string = snake_to_char_pointer(original - STRING_TAG);
+  char *delim_as_string = snake_to_char_pointer(delim - STRING_TAG);
+
+  int tuple_len = 0;
+  int len = 0;
+
+  char *split = strtok(original_as_string, delim_as_string);
+  while (split != NULL)
+  {
+    tuple_len++;
+    len += align_16(((8 + strlen(split)) + 7) / 8);
+    split = strtok(original_as_string, delim_as_string);
+  }
+  int tuple_byte_size = starting_align_16(tuple_len + 1);
+
+  uint64_t *reserved = reserve_memory(heap_pos, len + tuple_byte_size, old_rbp, old_rsp);
+
+  // set first spot to tuple
+  reserved[0] = tuple_len << 1;
+  int next_string_spot = tuple_byte_size;
+
+  for (int i = 0; i < tuple_len; i++)
+  {
+    reserved[i + 1] = ((uint64_t)reserved) + next_string_spot;
+    int str_len = strlen(original_as_string[i]);
+    ((uint8_t *)reserved)[next_string_spot * 8] = str_len << 1;
+    for (int j = 0; j < str_len; j++)
+    {
+      ((uint8_t *)reserved)[next_string_spot * 8 + 8 + j] = ((uint64_t *)(original_as_string[i]))[j] << 1;
+    }
+    next_string_spot = align_16(next_string_spot + str_len);
+  }
+
+  return reserved;
 }
 
 SNAKEVAL join(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
@@ -825,8 +893,8 @@ SNAKEVAL join(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *o
     length += delim_len * (strs_len - 1);
   }
 
-  // add space for length (8 bytes) then round up (add 7 divide by 8)
-  int space = ((length + 15) / 8);
+  // add space for length
+  int space = align_16(length + 8);
   uint64_t *result_str = reserve_memory(heap_pos, space, old_rbp, old_rsp);
 
   result_str[0] = length << 1;
@@ -975,6 +1043,10 @@ void error(uint64_t code, SNAKEVAL val)
     break;
   case ERR_JOIN_NOT_STR:
     fprintf(stderr, "Error: unable to join non-string ");
+    printHelp(stderr, val, 1);
+    break;
+  case ERR_SPLIT_NOT_STR:
+    fprintf(stderr, "Error: unable to split non-string ");
     printHelp(stderr, val, 1);
     break;
   case ERR_INVALID_FORMAT_VALUES:

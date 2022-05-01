@@ -247,16 +247,16 @@ let join_tests = [
 let suite =
   "unit_tests">:::
   lexing_and_parsing
-  @ tstring
-  @ conversions_and_istype
-  @ tstring_wf
-  @ tstring_complex
-  @ tstring_gc
-  @ tconcat
-  @ tsubstr
-  @ format
-  @ len
-  (* @ split_tests *)
+  (* @ tstring
+     @ conversions_and_istype
+     @ tstring_wf
+     @ tstring_complex
+     @ tstring_gc
+     @ tconcat
+     @ tsubstr
+     @ format
+     @ len *)
+  @ split_tests
   @ join_tests
 
 let () =
