@@ -1595,6 +1595,16 @@ and get_env_callee_save_regs env =
   in 
   help env [] 
 
+(* Gets big endian int64 of up to 8 characters encoded as a snake num *)
+and get_snake_int64_be (bytes : bytes) (index : int): int64 = 
+  (List.fold_right 
+     (fun x acc -> (Int64.logor acc x))
+     (List.init 8 (fun i -> 
+          if i + index < (Bytes.length bytes)
+          then Int64.shift_left (Int64.of_int (2 * (Bytes.get_int8 bytes (index + i)))) (i * 8)
+          else 0L))
+     0L)
+
 (* IMPLEMENT THIS FROM YOUR PREVIOUS ASSIGNMENT *)
 (* Additionally, you are provided an initial environment of values that you may want to
    assume should take up the first few stack slots.  See the compiliation of Programs
@@ -1940,17 +1950,17 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
   | CStr(s, tag) -> 
     let bytes = Bytes.of_string s in 
     let length = Bytes.length bytes in 
-    let length_8 = (length + 8 - 1) / 8 in 
-    let size = (align_stack_by_words (length_8 + 1)) in 
+    let length_roundup = (length + 8 - 1) / 8 in 
+    let size = (align_stack_by_words (length_roundup + 1)) in 
     (* list of all the multiples of 8 from 0-size *)
-    let bytes_index = (List.init length (fun i -> i)) in
+    let bytes_index = (List.init length_roundup (fun i -> i * 8)) in
     (reserve size tag env current_env)
     (* Store snake byte length in [0] *)
     @ [
       ILineComment("Create string");
       IMov(Sized(QWORD_PTR, RegOffset(0, heap_reg)), Const(Int64.of_int (length * 2)))]
     (* Store bytes in big endian at [1:] *)
-    @ List.map (fun i -> IMov(Sized(QWORD_PTR, RegOffset(i + 8, heap_reg)), Const(Int64.of_int (2 * (Bytes.get_int8 bytes i))))) bytes_index
+    @ List.flatten (List.map (fun i -> [(IMov(Reg(scratch_reg), HexConst(get_snake_int64_be bytes i))); IMov(RegOffset(i + word_size, heap_reg), Reg(scratch_reg))]) bytes_index)
     @ [
       (* Move result to result place *)
       IMov(Reg(RAX), Reg(heap_reg));
