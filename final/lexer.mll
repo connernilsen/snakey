@@ -51,6 +51,8 @@ rule token = parse
   | "isstr" { ISSTR }
   | "tonum" { TONUM }
   | "totuple" { TOTUPLE }
+  | "split" {SPLIT}
+  | "join" {JOIN}
   | "tostr" { TOSTR }
   | "tobool" { TOBOOL }
   | "add1" { ADD1 }
@@ -86,6 +88,7 @@ rule token = parse
   | "end" { END }
   | "rec" { REC }
   | "shadow" { SHADOW }
+  | "." { DOT }
   | ident as x { if x = "_" then UNDERSCORE else ID x }
   | eof { EOF }
   | _ as c { failwith (sprintf "Unrecognized character: %c" c) }

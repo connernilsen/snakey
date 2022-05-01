@@ -1829,6 +1829,10 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
         @ (tag_check e1_reg label_NOT_STR str_tag_mask str_tag)
         @ IMov(Reg(RAX), e2_reg) :: (tag_check e2_reg label_NOT_STR str_tag_mask str_tag)
         @ c_call_arg_indirection "?concat" [e1_reg; e2_reg] [Reg(heap_reg); Reg(RBP); Reg(RSP)] str_tag env current_env
+      | Split ->
+        c_call_arg_indirection "?split" [e1_reg; e2_reg] [Reg(heap_reg); Reg(RBP); Reg(RSP)] tuple_tag env current_env
+      | Join ->
+        c_call_arg_indirection "?join" [e1_reg; e2_reg] [Reg(heap_reg); Reg(RBP); Reg(RSP)] str_tag env current_env
     end
   | CApp(ImmId("?print_heap", _), _, Native, _) -> 
     let arg_regs = [Const(0L); Const(0L); LabelContents("?HEAP"); Reg(R15)] in
@@ -2080,6 +2084,8 @@ extern ?tobool
 extern ?tonum
 extern ?tostr
 extern ?totuple
+extern ?split
+extern ?join
 extern ?try_gc
 extern ?print_heap
 extern ?concat

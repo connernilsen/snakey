@@ -194,8 +194,28 @@ let len = [
   t "str_len_1" "len(\"a\")" "" "1";
   t "tuple_len_2" "len((5, 4))" "" "2";
   t "str_len_2" "len(\"ab\")" "" "2";
-  te "len_bool" "len(true)" "error";
-  te "len_num" "len(5)" "error";
+  te "len_bool" "len(true)" "len expected tuple or num, got true";
+  te "len_num" "len(5)" "len expected tuple or num, got 5";
+]
+
+let split_tests = [
+  t "split_empty_empty"  "\"\".split(\"\")" "" "";
+  t "split_empty_not_there"  "\"\".split(\"f\")" "" "";
+  t "split_miss"  "\"hi\".split(\"f\")" "" "(\"hi\")";
+  t "split_empty"  "\"hi\".split(\"\")" "" "(\"h\", \"i\")";
+  t "split_space"  "\"hi friends i'm kyle\".split(\" \")" "" "(\"hi\", \"friends\", \"i'm\", \"kyle\",)";
+]
+let join_tests = [
+  t "join_empty_empty"  "\"\".join(())" "" "";
+  t "join_delim_empty"  "\"f\".join(())" "" "";
+  t "join_empty_delim"  "\"\".join((\"hello\", \"hi\"))" "" "hellohi";
+  t "join_single"  "\" \".join((\"hello\", ))" "" "hello";
+  t "join_space"  "\" \".join((\"hello\", \"hi\"))" "" "hello hi";
+  t "join_long"  "\" \".join((\"hello\", \"hi\",\"hello\", \"hi\",\"hello\", \"hi\",\"hello\", \"hi\"))" "" "hello hi hello hi hello hi hello hi";
+  t "join_newline"  "\"\n\".join((\"hello\", \"hi\"))" "" "hello\nhi";
+  terr "join_nonstring"  "5.join((\"hello\", \"hi\"))" "" "unable to join non-string 5";
+  terr "join_nonstring_2"  "5.join((5, ))" "" "unable to join non-string 5";
+  terr "join_nontuple"  "\"\".join(5)" "" "unable to join non-tuple 5";
 ]
 
 (* testing todos: ensure register allocation still works *)
@@ -212,6 +232,8 @@ let suite =
   @ tsubstr
   @ format
   @ len
+  (* @ split_tests *)
+  @ join_tests
 
 let () =
   run_test_tt_main ("all_tests">:::[

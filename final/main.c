@@ -24,6 +24,8 @@ extern SNAKEVAL substr(uint64_t *string, uint64_t start, uint64_t end, uint64_t 
 extern SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?format");
 extern SNAKEVAL len(uint64_t val) asm("?len");
 extern SNAKEVAL totuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?totuple");
+extern SNAKEVAL split(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?split");
+extern SNAKEVAL join(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?join");
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001;
 const uint64_t BOOL_TAG_MASK = 0x000000000000000f;
@@ -62,6 +64,8 @@ const uint64_t ERR_INVALID_CONVERSION = 18;
 const uint64_t ERR_SUBSTRING_NOT_NUM = 19;
 const uint64_t ERR_SUBSTRING_OUT_OF_BOUNDS = 20;
 const uint64_t ERR_LEN_NOT_TUPLE_NUM = 21;
+const uint64_t ERR_JOIN_NOT_TUPLE = 22;
+const uint64_t ERR_JOIN_NOT_STR = 23;
 
 size_t HEAP_SIZE;
 uint64_t *STACK_BOTTOM;
@@ -739,6 +743,79 @@ SNAKEVAL totuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_
   return ((uint64_t)tuple) + TUPLE_TAG;
 }
 
+SNAKEVAL split(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
+{
+  return args;
+}
+
+SNAKEVAL join(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
+{
+  uint64_t strs = args[0];
+  uint64_t delim = args[1];
+  if ((strs & TUPLE_TAG_MASK) != TUPLE_TAG)
+  {
+    error(ERR_JOIN_NOT_TUPLE, strs);
+  }
+  if ((delim & STRING_TAG_MASK) != STRING_TAG)
+  {
+    error(ERR_JOIN_NOT_STR, delim);
+  }
+  uint64_t *strs_untagged = (uint64_t *)(strs - TUPLE_TAG);
+  uint64_t strs_len = strs_untagged[0] >> 1;
+  uint64_t *delim_untagged = (uint64_t *)(delim - STRING_TAG);
+  uint64_t delim_len = delim_untagged[0] >> 1;
+
+  int length = 0;
+  // calculate length
+  for (int i = 1; i <= strs_len; i++)
+  {
+    uint64_t str_tagged = strs_untagged[i];
+    if ((((uint64_t)str_tagged) & STRING_TAG_MASK) != STRING_TAG)
+    {
+      error(ERR_JOIN_NOT_STR, delim);
+    }
+    uint64_t *str_untagged = (uint64_t *)(str_tagged - STRING_TAG);
+    length += str_untagged[0] >> 1;
+  }
+  if (strs_len > 1)
+  {
+    length += delim_len * (strs_len - 1);
+  }
+
+  // add space for length (8 bytes) then round up (add 7 divide by 8)
+  int space = ((length + 15) / 8);
+  uint64_t *result_str = reserve_memory(heap_pos, space, old_rbp, old_rsp);
+
+  result_str[0] = length << 1;
+  // characters of strs we have already placed in string
+  int str_chars = 0;
+  while (str_chars < length)
+  {
+    for (int i = 1; i <= strs_len; i++)
+    {
+      uint64_t *str_untagged = (uint64_t *)(strs_untagged[i] - STRING_TAG);
+      int str_len = str_untagged[0] >> 1;
+      // while we still have chars from this string to copy...
+      int str_len_idx = 0;
+      while (str_chars < length && str_len_idx < str_len)
+      {
+        ((uint8_t *)result_str)[8 + str_chars] = ((uint8_t *)str_untagged)[8 + str_len_idx];
+        str_chars++;
+        str_len_idx++;
+      }
+      if (str_chars < length)
+      {
+        for (int i = 0; i < delim_len; i++)
+        {
+          ((uint8_t *)result_str)[8 + str_chars] = ((uint8_t *)delim_untagged)[8 + i];
+          str_chars++;
+        }
+      }
+    }
+  }
+  return ((uint64_t)result_str) + STRING_TAG;
+}
+
 SNAKEVAL print(SNAKEVAL val)
 {
   printHelp(stdout, val, 0);
@@ -826,6 +903,15 @@ void error(uint64_t code, SNAKEVAL val)
   case ERR_LEN_NOT_TUPLE_NUM:
     fprintf(stderr, "Error: len expected tuple or num, got ");
     printHelp(stderr, val, 1);
+    break;
+  case ERR_JOIN_NOT_TUPLE:
+    fprintf(stderr, "Error: unable to join non-tuple ");
+    printHelp(stderr, val, 1);
+    break;
+  case ERR_JOIN_NOT_STR:
+    fprintf(stderr, "Error: unable to join non-string ");
+    printHelp(stderr, val, 1);
+    break;
   default:
     fprintf(stderr, "Error: Unknown error code: %ld, val: ", code);
     printHelp(stderr, val, 1);

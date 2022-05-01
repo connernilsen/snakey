@@ -40,6 +40,8 @@ type prim2 =
   | Eq
   | CheckSize
   | Concat
+  | Split
+  | Join
 
 and 'a bind =
   | BBlank of 'a

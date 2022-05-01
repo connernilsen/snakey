@@ -9,7 +9,7 @@ let tok_span(start, endtok) = (Parsing.rhs_start_pos start, Parsing.rhs_end_pos 
 %token <int64> NUM
 %token <string> ID
 %token <string> STR
-%token DEF ANDDEF ADD1 SUB1 LPARENSPACE LPARENNOSPACE RPAREN LBRACK RBRACK LET IN EQUAL COMMA PLUS MINUS TIMES IF COLON ELSECOLON EOF PRINT PRINTSTACK TRUE FALSE ISBOOL ISNUM ISTUPLE ISSTR EQEQ LESSSPACE GREATER LESSEQ GREATEREQ AND OR NOT COLONEQ SEMI NIL LAMBDA BEGIN END SHADOW REC UNDERSCORE TONUM TOSTR TOBOOL CONCAT LEN TOTUPLE
+%token DEF ANDDEF ADD1 SUB1 LPARENSPACE LPARENNOSPACE RPAREN LBRACK RBRACK LET IN EQUAL COMMA PLUS MINUS TIMES IF COLON ELSECOLON EOF PRINT PRINTSTACK TRUE FALSE ISBOOL ISNUM ISTUPLE ISSTR EQEQ LESSSPACE GREATER LESSEQ GREATEREQ AND OR NOT COLONEQ SEMI NIL LAMBDA BEGIN END SHADOW REC UNDERSCORE TONUM TOSTR TOBOOL CONCAT LEN TOTUPLE SPLIT JOIN DOT
 
 %right SEMI
 %left COLON COLONEQ
@@ -91,6 +91,10 @@ prim2 :
   | EQEQ { Eq }
   | CONCAT { Concat }
 
+str_method :
+  | SPLIT { Split }
+  | JOIN { Join }
+
 binop_expr :
   | binop_expr prim2 binop_operand %prec PLUS { EPrim2($2, $1, $3, full_span()) }
   | binop_operand COLONEQ binop_expr %prec COLONEQ {
@@ -108,6 +112,7 @@ binop_operand :
   | binop_operand LBRACK expr RBRACK { EGetItem($1, $3, full_span()) }
   // Strings 
   | binop_operand LBRACK expr COLON expr RBRACK { ESubstring($1, $3, $5, full_span()) }
+  | binop_operand DOT str_method LPARENNOSPACE expr RPAREN { EPrim2($3, $1, $5, full_span()) }
   // Function calls
   | binop_operand LPARENNOSPACE exprs RPAREN %prec LPARENNOSPACE { EApp($1, $3, Unknown, full_span()) }
   | binop_operand LPARENNOSPACE RPAREN %prec LPARENNOSPACE { EApp($1, [], Unknown, full_span()) }
