@@ -326,7 +326,7 @@ SNAKEVAL printStack(SNAKEVAL val, uint64_t *rsp, uint64_t *rbp, uint64_t args)
   return val;
 }
 
-uint64_t *reserve_memory(uint64_t *heap_pos, int size, uint64_t *old_rbp, uint64_t *old_rsp)
+uint64_t *reserve_memory(uint64_t *heap_pos, uint64_t size, uint64_t *old_rbp, uint64_t *old_rsp)
 {
   if (heap_pos + size >= HEAP_END)
   {
@@ -363,9 +363,9 @@ SNAKEVAL input(uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
   char str[STRING_SIZE];
   scanf("%s", str);
-  int str_len = 0;
+  uint64_t str_len = 0;
   // TODO: update to handle arbitrary input length
-  for (int i = 0; i < STRING_SIZE; i++)
+  for (uint64_t i = 0; i < STRING_SIZE; i++)
   {
     if (str[i] == 0)
     {
@@ -373,11 +373,11 @@ SNAKEVAL input(uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
       break;
     }
   }
-  int byte_length = (str_len + 8 - 1) / 8;
-  int space_len = ((byte_length + 2) / 2) * 2;
+  uint64_t byte_length = (str_len + 8 - 1) / 8;
+  uint64_t space_len = ((byte_length + 2) / 2) * 2;
   uint64_t *ptr = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
   ptr[0] = str_len * 2;
-  for (int i = 0; i < str_len; i++)
+  for (uint64_t i = 0; i < str_len; i++)
   {
     ((uint8_t *)ptr)[i + 8] = (uint8_t)(str[i] << 1);
   }
@@ -388,11 +388,11 @@ SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_rbp, ui
 {
   uint64_t *str1 = (uint64_t *)(strings_loc[1] - STRING_TAG);
   uint64_t *str2 = (uint64_t *)(strings_loc[0] - STRING_TAG);
-  int str1_len = *str1 >> 1;
-  int str2_len = *str2 >> 1;
+  uint64_t str1_len = *str1 >> 1;
+  uint64_t str2_len = *str2 >> 1;
 
-  int byte_length = (str1_len + str2_len + 8 - 1) / 8;
-  int space_len = ((byte_length + 2) / 2) * 2;
+  uint64_t byte_length = (str1_len + str2_len + 8 - 1) / 8;
+  uint64_t space_len = ((byte_length + 2) / 2) * 2;
 
   uint64_t *ptr = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
 
@@ -400,11 +400,11 @@ SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_rbp, ui
   str2 = (uint64_t *)(strings_loc[0] - STRING_TAG);
 
   *ptr = (str1_len + str2_len) << 1;
-  for (int i = 0; i < str1_len; i++)
+  for (uint64_t i = 0; i < str1_len; i++)
   {
     ((uint8_t *)ptr)[i + 8] = ((uint8_t *)str1)[i + 8];
   }
-  for (int i = 0; i < str2_len; i++)
+  for (uint64_t i = 0; i < str2_len; i++)
   {
     ((uint8_t *)ptr)[i + str1_len + 8] = ((uint8_t *)str2)[i + 8];
   }
@@ -414,24 +414,24 @@ SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_rbp, ui
 SNAKEVAL substr(uint64_t *string_loc, uint64_t start, uint64_t finish, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
   uint64_t *string = (uint64_t *)(string_loc[0] - STRING_TAG);
-  int str_len = *string >> 1;
+  uint64_t str_len = *string >> 1;
   start >>= 1;
   finish >>= 1;
-  int new_str_len = finish - start;
+  uint64_t new_str_len = finish - start;
 
   if (start < 0 || start > str_len || finish < start || finish > str_len)
   {
     error(ERR_SUBSTRING_OUT_OF_BOUNDS, string_loc[0]);
   }
 
-  int byte_length = (new_str_len + 8 - 1) / 8;
-  int space_len = ((byte_length + 2) / 2) * 2;
+  uint64_t byte_length = (new_str_len + 8 - 1) / 8;
+  uint64_t space_len = ((byte_length + 2) / 2) * 2;
 
   uint64_t *ptr = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
   string = (uint64_t *)(string_loc[0] - STRING_TAG);
 
   *ptr = new_str_len << 1;
-  for (int i = 0; i < new_str_len; i++)
+  for (uint64_t i = 0; i < new_str_len; i++)
   {
     ((uint8_t *)ptr)[i + 8] = ((uint8_t *)string)[i + 8 + start];
   }
@@ -445,9 +445,9 @@ SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_
     error(ERR_INVALID_FORMAT_VALUES, *values);
   }
   uint64_t *addr = (uint64_t *)(*values - TUPLE_TAG);
-  int len = addr[0] >> 1;
-  int final_length = 2;
-  for (int i = 1; i <= len; i++)
+  uint64_t len = addr[0] >> 1;
+  uint64_t final_length = 2;
+  for (uint64_t i = 1; i <= len; i++)
   {
     if ((addr[i] & STRING_TAG_MASK) != STRING_TAG)
     {
@@ -464,17 +464,17 @@ SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_
     return ((uint64_t)res) + STRING_TAG;
   }
 
-  int byte_length = (final_length + 8 - 1) / 8;
-  int space_len = ((byte_length + 2) / 2) * 2;
+  uint64_t byte_length = (final_length + 8 - 1) / 8;
+  uint64_t space_len = ((byte_length + 2) / 2) * 2;
   uint64_t *res = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
   res[0] = (uint64_t)final_length << 1;
   addr = (uint64_t *)(*values - TUPLE_TAG);
 
-  int curr_pos = 0;
-  int curr_subst = 2;
-  int format_str_len = ((uint64_t *)(((uint64_t)addr[1]) - STRING_TAG))[0] / 2;
+  uint64_t curr_pos = 0;
+  uint64_t curr_subst = 2;
+  uint64_t format_str_len = ((uint64_t *)(((uint64_t)addr[1]) - STRING_TAG))[0] / 2;
   uint8_t *format_str = (uint8_t *)((uint64_t)addr[1] - STRING_TAG);
-  for (int i = 0; i < format_str_len; i++)
+  for (uint64_t i = 0; i < format_str_len; i++)
   {
     if (format_str[8 + i] / 2 == '{' && i < format_str_len - 1 && format_str[9 + i] / 2 == '}' && (i == 0 || format_str[7 + i] / 2 != '\\'))
     {
@@ -483,9 +483,9 @@ SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_
         error(ERR_INCORRECT_FORMAT_ARITY, *values);
       }
       uint64_t *pre_subst = (uint64_t *)((uint64_t)addr[curr_subst] - STRING_TAG);
-      int subst_len = pre_subst[0] >> 1;
+      uint64_t subst_len = pre_subst[0] >> 1;
       uint8_t *subst = (uint8_t *)pre_subst;
-      for (int j = 0; j < subst_len; j++)
+      for (uint64_t j = 0; j < subst_len; j++)
       {
         ((uint8_t *)res)[curr_pos + 8] = subst[j + 8];
         curr_pos++;
@@ -528,14 +528,14 @@ SNAKEVAL tobool(SNAKEVAL val)
   else if ((val & STRING_TAG_MASK) == STRING_TAG)
   {
     uint64_t *addr = (uint64_t *)(val - STRING_TAG);
-    int len = ((int)addr[0]) >> 1;
-    int bool_value = 0;
+    uint64_t len = addr[0] >> 1;
+    uint64_t bool_value = 0;
     if (len == 5)
     {
       char f[5] = {'f', 'a', 'l', 's', 'e'};
       uint8_t *b_val = (uint8_t *)f;
 
-      for (int i = 0; i < len; i++)
+      for (uint64_t i = 0; i < len; i++)
       {
         if (((((uint8_t *)addr)[i + 8]) >> 1) != b_val[i])
         {
@@ -564,7 +564,7 @@ SNAKEVAL tobool(SNAKEVAL val)
   else if ((val & TUPLE_TAG_MASK) == TUPLE_TAG)
   {
     uint64_t *addr = (uint64_t *)(val - TUPLE_TAG);
-    int len = ((int)addr[0]) >> 1;
+    uint64_t len = addr[0] >> 1;
     if (len)
     {
       return BOOL_TRUE;
@@ -588,12 +588,12 @@ SNAKEVAL tonum(SNAKEVAL val)
   {
     uint64_t *pre_addr = (uint64_t *)(val - STRING_TAG);
     uint8_t *addr = (uint8_t *)pre_addr;
-    int len = ((int)(pre_addr[0])) >> 1;
-    int neg = addr[8] == ('-' * 2);
-    int offset = 8 + neg;
+    uint64_t len = ((int)(pre_addr[0])) >> 1;
+    uint64_t neg = addr[8] == ('-' * 2);
+    uint64_t offset = 8 + neg;
     len -= neg;
     uint64_t res = 0;
-    for (int i = 0; i < len; i++)
+    for (uint64_t i = 0; i < len; i++)
     {
       res *= 10;
       char num = addr[i + offset] >> 1;
@@ -726,7 +726,7 @@ SNAKEVAL tuple(uint64_t value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *
 {
   if ((value & NUM_TAG_MASK) == NUM_TAG && ((int64_t)value) > 0)
   {
-    int space = (((value >> 1) + 2) / 2) * 2;
+    uint64_t space = (((value >> 1) + 2) / 2) * 2;
     uint64_t *tuple = reserve_memory(heap_pos, space, old_rbp, old_rsp);
     tuple[0] = value;
     return ((uint64_t)tuple) + TUPLE_TAG;
@@ -741,13 +741,13 @@ SNAKEVAL ascii_tuple_to_str(uint64_t *value, uint64_t *heap_pos, uint64_t *old_r
   {
     uint64_t *addr = (uint64_t *)(*value - TUPLE_TAG);
     uint64_t len = addr[0] >> 1;
-    int byte_length = (len + 8 - 1) / 8;
-    int space = ((byte_length + 2) / 2) * 2;
+    uint64_t byte_length = (len + 8 - 1) / 8;
+    uint64_t space = ((byte_length + 2) / 2) * 2;
     uint64_t *str = reserve_memory(heap_pos, space, old_rbp, old_rsp);
     addr = (uint64_t *)(*value - TUPLE_TAG);
 
     str[0] = addr[0];
-    for (int i = 0; i < len; i++)
+    for (uint64_t i = 0; i < len; i++)
     {
       if ((addr[i + 1] & NUM_TAG_MASK) != NUM_TAG || addr[i + 1] > 255)
       {
@@ -770,12 +770,12 @@ SNAKEVAL str_to_ascii_tuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_r
   uint64_t *addr = (uint64_t *)(*value - STRING_TAG);
   uint64_t len = addr[0] >> 1;
 
-  int space = ((len + 2) / 2) * 2;
+  uint64_t space = ((len + 2) / 2) * 2;
   uint64_t *tuple = reserve_memory(heap_pos, space, old_rbp, old_rsp);
   addr = (uint64_t *)(*value - STRING_TAG);
 
   tuple[0] = addr[0];
-  for (int i = 0; i < len; i++)
+  for (uint64_t i = 0; i < len; i++)
   {
     tuple[i + 1] = (uint64_t)(((uint8_t *)addr)[i + 8]);
   }
