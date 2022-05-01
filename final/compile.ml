@@ -111,6 +111,10 @@ let native_fun_bindings = [
   ("equal", (Native, 2));
   ("print_heap", (Native, 0));
   ("format", (Native, 1));
+  ("ascii_tuple_to_str", (Native, 1));
+  ("str_to_ascii_tuple", (Native, 1));
+  ("get_ascii_char", (Native, 2));
+  ("len", (Native, 1));
 ];;
 
 let initial_fun_env = prim_bindings @ native_fun_bindings;;
@@ -1765,9 +1769,9 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
         c_call_arg_indirection "?tostr" [e_reg] [Reg(heap_reg); Reg(RBP); Reg(RSP)] str_tag env current_env
       | ToBool -> (setup_call_to_func env current_env [e_reg] (Label("?tobool")) false)
       | ToNum -> (setup_call_to_func env current_env [e_reg] (Label("?tonum")) false)
-      | Len -> (setup_call_to_func env current_env [e_reg] (Label("?len")) false)
-      | ToTuple -> 
-        c_call_arg_indirection "?totuple" [e_reg] [Reg(heap_reg); Reg(RBP); Reg(RSP)] tuple_tag env current_env
+      | Tuple -> 
+        (setup_call_to_func env current_env [e_reg; Reg(heap_reg); Reg(RBP); Reg(RSP)] (Label("?tuple")) false)
+        @ c_reserve_cleanup tuple_tag
     end
   | CPrim2(op, l, r, tag) ->
     let e1_reg = (compile_imm l env current_env) in
@@ -1848,6 +1852,20 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
     end
     in
     c_call_arg_indirection "?format" [item] [Reg(heap_reg); Reg(RBP); Reg(RSP)] str_tag env current_env
+  | CApp(ImmId("?str_to_ascii_tuple", _), args, Native, _) ->
+    let item = begin match args with 
+      | arg :: [] -> compile_imm arg env current_env
+      | _ -> raise (InternalCompilerError "str_to_ascii_tuple should only have 1 tuple arg") 
+    end
+    in
+    c_call_arg_indirection "?str_to_ascii_tuple" [item] [Reg(heap_reg); Reg(RBP); Reg(RSP)] tuple_tag env current_env
+  | CApp(ImmId("?ascii_tuple_to_str", _), args, Native, _) ->
+    let item = begin match args with 
+      | arg :: [] -> compile_imm arg env current_env
+      | _ -> raise (InternalCompilerError "str_to_ascii_tuple should only have 1 tuple arg") 
+    end
+    in
+    c_call_arg_indirection "?ascii_tuple_to_str" [item] [Reg(heap_reg); Reg(RBP); Reg(RSP)] tuple_tag env current_env
   | CApp(func, args, Native, _) -> 
     let arg_regs = (List.map (fun (a) -> (compile_imm a env current_env)) args) in 
     (setup_call_to_func env current_env arg_regs (Label(get_func_name_imm func)) false)
@@ -2083,9 +2101,12 @@ extern ?equal
 extern ?tobool
 extern ?tonum
 extern ?tostr
-extern ?totuple
 extern ?split
 extern ?join
+extern ?tuple
+extern ?ascii_tuple_to_str
+extern ?str_to_ascii_tuple
+extern ?get_ascii_char
 extern ?try_gc
 extern ?print_heap
 extern ?concat

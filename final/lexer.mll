@@ -50,15 +50,14 @@ rule token = parse
   | "isnum" { ISNUM }
   | "isstr" { ISSTR }
   | "tonum" { TONUM }
-  | "totuple" { TOTUPLE }
   | "split" {SPLIT}
   | "join" {JOIN}
+  | "tuple" { TUPLE }
   | "tostr" { TOSTR }
   | "tobool" { TOBOOL }
   | "add1" { ADD1 }
   | "sub1" { SUB1 }
   | "lambda" { LAMBDA }
-  | "len" { LEN }
   | "λ" { LAMBDA }
   | "if" { IF }
   | ":" { COLON }
@@ -105,6 +104,15 @@ and parse_string str is_herestring =
     else (STR (Buffer.contents str))
   }
   | '\\' '"' { Buffer.add_char str '"'; parse_string str is_herestring lexbuf }
+  | '\\' 'r' { Buffer.add_char str '\r'; parse_string str is_herestring lexbuf }
+  | '\\' 'n' { Buffer.add_char str '\n'; parse_string str is_herestring lexbuf }
+  | '\\' 't' { Buffer.add_char str '\t'; parse_string str is_herestring lexbuf }
+  | '\\' '\\' { Buffer.add_char str '\\'; parse_string str is_herestring lexbuf }
+  | '\n' { 
+    if is_herestring
+    then (Buffer.add_char str '\n'; parse_string str is_herestring lexbuf)
+    else (failwith "Unterminated string literal")
+  }
   | _ as c { Buffer.add_char str c; parse_string str is_herestring lexbuf }
   | eof { failwith "Unterminated string" }
 

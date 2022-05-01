@@ -41,17 +41,28 @@ let tstring = [
   aaaa\"\"\"" "" "aaaa\n  aaaa";
   t "tstring_quotes" "\"aaaa\\\"\"" ""
     "aaaa\"";
-  t "tstring_newline" "\"aaaa\naaaa\"" ""
-    "aaaa\naaaa";
-  t "tstring_newline" "\"aaaa\naaaa\"" ""
+  t "tstring_encoded_newline" "\"aaaa\\naaaa\"" ""
     "aaaa\naaaa";
   t "tstring_carriage_return" "\"aaaa\raaaa\"" ""
+    "aaaa\raaaa";
+  t "tstring_encoded_carriage_return" "\"aaaa\\raaaa\"" ""
     "aaaa\raaaa";
   t "tstring_tag" "\"aaaa\taaaa\"" ""
     "aaaa\taaaa";
   t "tstring_question" "\"aaaa?\"" ""
     "aaaa?";
   t "input_test" "input()" "hello" "hello";
+  t "herestring" "let multiline = \"\"\"
+\\t\"   \"
+  this is a string
+abcd
+      \"\"\" in multiline" ""
+    "\n\t\"   \"\n  this is a string\nabcd\n      ";
+  te "herestring_in_string" "\" hello \"\"\" \"" "Herestring terminated in non-herestring literal";
+  t "escaped_herestring_in_string" "\" hello \\\"\\\"\\\" \"" "" " hello \"\"\" ";
+  te "broken_string" "\" \n \"" "Unterminated string literal";
+  te "unterminated_string" "\"" "Unterminated string";
+  te "unterminated_herestring" "\"\"\"" "Unterminated string";
 ]
 let tstring_wf = [
   terr "tstring_illegal" "\"é\"" "" "String é at tstring_illegal, 1:3-1:4 contains at least one illegal character.";
@@ -70,7 +81,7 @@ let tstring_complex = [
   hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
   hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
   hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello"
-   in t "very_long" ("\"" ^ long ^ "\"") "" long);
+   in t "very_long" ("\"\"\"" ^ long ^ "\"\"\"") "" long);
   (* todo: string overflow? concat overflow? *)
   t "empty" "let s = \"\" in s" "" "";
   t "big" "let s = \"~\" in s" "" "~";
@@ -84,7 +95,7 @@ let tstring_gc = [
   tgc "tstring_gc_odd" (builtins_size + 6) "let a = \"a\" in let b = \"b\";\"c\" in let c = \"c\" in a" "" "a";
   tgc "tstring_gc_lambda" (builtins_size + 12) "let a = \"a\" in let b = (lambda: \"ccccc\") in print(b()); print(\"aaaaa\"); a" "" "cccccaaaaaa";
 ]
-let tis = [
+let conversions_and_istype = [
   t "isstr_str" "isstr(\"hello\")" "" "true";
   t "isstr_num" "isstr(5)" "" "false";
   t "isstr_bool_t" "isstr(true)" "" "false";
@@ -93,13 +104,19 @@ let tis = [
   t "isnum_str" "isnum(\"1\")" "" "false";
   t "isbool_str" "isnum(\"true\")" "" "false";
   t "istuple_str" "istuple(\"1\")" "" "false";
+  t "istuple_nil" "istuple(nil)" "" "true";
+  t "isstr_nil" "isstr(nil)" "" "false";
+  t "isnum_nil" "isnum(nil)" "" "false";
+  t "isbool_nil" "isbool(nil)" "" "false";
   t "tonum_int" "tonum(1) + 0" "" "1";
   t "tonum_str" "tonum(\"1\") + 0" "" "1";
   t "tonum_bool_f" "tonum(false) + 0" "" "0";
   t "tonum_bool_t" "tonum(true) + 0" "" "1";
+  te "tonum_nil" "tonum(nil)" "conversion function received invalid value";
   te "tonum_invalid_str" "tonum(\"a\")" "Error 18: Error: conversion function received invalid value";
   t "tonum_empty_str" "tonum(\"\") + 0" "" "0";
   t "tobool_bool_f" "tobool(false) && false" "" "false";
+  t "tobool_nil" "tobool(nil)" "" "false";
   t "tobool_bool_t" "tobool(true) || false" "" "true";
   t "tobool_num_0" "tobool(0) || false" "" "false";
   t "tobool_num_1" "tobool(1) || false" "" "true";
@@ -108,33 +125,34 @@ let tis = [
   t "tobool_str_f" "tobool(\"false\") || false" "" "false";
   t "tobool_other_str" "tobool(\"a\")" "" "true";
   t "tobool_empty_str" "tobool(\"\")" "" "false";
-  t "tobool_tuple_empty" "tobool(totuple(0))" "" "false";
+  t "tobool_tuple_empty" "tobool(nil)" "" "false";
   t "tobool_tuple_not_empty" "tobool((1,))" "" "true";
   t "tostr_str" "tostr(\"hello\")" "" "hello";
+  t "tostr_nil" "tostr(nil)" "" "nil";
   t "tostr_bool_f" "tostr(false)" "" "false";
   t "tostr_bool_t" "tostr(true)" "" "true";
   t "tostr_num" "tostr(5)" "" "5";
   te "tostr_bool_f_err" "tostr(false) || false" "Error 3: Error: expected a boolean, got \"false\"";
   te "tostr_bool_t_err" "tostr(true) || false" "Error 3: Error: expected a boolean, got \"true\"";
   te "tostr_num_err" "tostr(5) + 0" "Error 2: Error: arithmetic expected a number, got \"5\"";
+  t "tostr_tuple" "tostr((1, 2, 3))" "" "<tuple>";
   t "tonum_str_neg" "tonum(\"-5\") * 1" "" "-5";
   te "tonum_tuple" "tonum((1, 2))" "conversion function received invalid value";
   t "tonum_str_neg_only" "tonum(\"-\")" "" "0";
   t "tostr_neg" "tostr(-5)" "" "-5";
   te "tostr_neg_err" "tostr(-5) * 1" "Error 2: Error: arithmetic expected a number, got \"-5\"";
-  t "totuple_num_0" "totuple(0)" "" "()";
-  t "len_totuple_0" "len(totuple(0))" "" "0";
-  t "totuple_num_5" "totuple(5)" "" "(0, 0, 0, 0, 0)";
-  t "len_totuple_5" "len(totuple(5))" "" "5";
-  te "totuple_bool" "totuple(false)" "conversion function received invalid value";
-  t "totuple_str_empty" "totuple(\"\")" "" "()";
-  t "totuple_str" "totuple(\"hey\")" "" "(104, 101, 121)";
-  t "tostr_tuple" "tostr((97, 98, 99, 100))" "" "abcd";
-  te "tostr_invalid_tuple" "tostr((128, ))" "conversion function received invalid value";
-  te "tostr_invalid_tuple_neg" "tostr((-1, ))" "conversion function received invalid value";
-  te "tostr_invalid_tuple_bool" "tostr((97, false))" "conversion function received invalid value";
-  te "tostr_invalid_tuple_nested_str" "tostr((97, \"hello\"))" "conversion function received invalid value";
-  te "tostr_invalid_tuple_nested_tuple" "tostr((97, (1, 2, 3)))" "conversion function received invalid value";
+  t "totuple_num_1" "tuple(1)" "" "(0, )";
+  t "len_nil" "len(nil)" "" "0";
+  t "len_one" "len(tuple(1))" "" "1";
+  t "totuple_num_5" "tuple(5)" "" "(0, 0, 0, 0, 0)";
+  t "len_totuple_5" "len(tuple(5))" "" "5";
+  te "totuple_bool" "tuple(false)" "Tuple creation expected num";
+  te "totuple_str_empty" "tuple(\"\")" "Tuple creation expected num";
+  te "ascii_tuple_to_str_invalid_tuple" "ascii_tuple_to_str((128, ))" "conversion function received invalid value";
+  te "ascii_tuple_to_str_invalid_tuple_neg" "ascii_tuple_to_str((-1, ))" "conversion function received invalid value";
+  te "ascii_tuple_to_str_invalid_tuple_bool" "ascii_tuple_to_str((97, false))" "conversion function received invalid value";
+  te "ascii_tuple_to_str_invalid_tuple_nested_str" "ascii_tuple_to_str((97, \"hello\"))" "conversion function received invalid value";
+  te "ascii_tuple_to_str_invalid_tuple_nested_tuple" "ascii_tuple_to_str((97, (1, 2, 3)))" "conversion function received invalid value";
   t "streq_1" "equal(\"asdf\", \"asdf\")" "" "true";
   t "streq_2" "equal(\"asdf\", \"asdh\")" "" "false";
   t "streq_3" "equal(5, \"a\")" "" "false";
@@ -144,9 +162,15 @@ let tis = [
   t "streq_7" "equal((0, 1), \"a\")" "" "false";
   t "streq_8" "equal(\"a\", (0, 1))" "" "false";
   t "streq_9" "equal(\"a\", \"b\")" "" "false";
-  t "string_edit" "let str = print(\"hello!\"), tup = print(totuple(str)), _ = tup[0] := 97, res = tostr(print(tup)) in res" "" 
+  t "string_edit" "let str = print(\"hello!\"), tup = print(str_to_ascii_tuple(str)), _ = tup[0] := 97, res = ascii_tuple_to_str(print(tup)) in res" "" 
     "hello!(104, 101, 108, 108, 111, 33)(97, 101, 108, 108, 111, 33)aello!";
-  t "many_conversions" "tostr(totuple(tostr(tobool(tonum(len(totuple(\"hello\" ^ \"world\")))))))" "" "true";
+  t "many_conversions" "ascii_tuple_to_str(str_to_ascii_tuple(tostr(tobool(tonum(len(str_to_ascii_tuple(\"hello\" ^ \"world\")))))))" "" "true";
+  t "get_char" "get_ascii_char(\"a\", 0)" "" "97";
+  te "get_char_high" "get_ascii_char(\"a\", 1)" "index too large to get";
+  te "get_char_low" "get_ascii_char(\"a\", -1)" "index too small to get";
+  t "get_char_long" "get_ascii_char(\"abcd\", 3)" "" "100";
+  te "get_char_not_str" "get_ascii_char(false, 3)" "Value not a string";
+  te "get_char_not_num" "get_ascii_char(\"false\", \"a\")" "substring expected num";
 ]
 
 let tconcat = [
@@ -183,9 +207,9 @@ let format = [
   t "format_one_subst" "format(\"my name is {}\", \"conner nilsen\")" "" "my name is conner nilsen";
   t "format_two_subst" "format(\"my name is {} {}\", \"kyle\", \"into\")" "" "my name is kyle into";
   t "format_other_types" "format(\"{} {} {} {}\", true, false, 5, -3)" "" "true false 5 -3";
-  te "format_error_low" "format(\"{}\")" "conversion function received invalid value";
-  te "format_error_low_2" "format(\"{}{}\", 5)" "conversion function received invalid value";
-  te "format_error_high" "format(\"abcd\", 1)" "conversion function received invalid value";
+  te "format_error_low" "format(\"{}\")" "incorrect arity for format replacement values";
+  te "format_error_low_2" "format(\"{}{}\", 5)" "incorrect arity for format replacement values";
+  te "format_error_high" "format(\"abcd\", 1)" "incorrect arity for format replacement values";
 ]
 
 let len = [
@@ -212,7 +236,7 @@ let join_tests = [
   t "join_single"  "\" \".join((\"hello\", ))" "" "hello";
   t "join_space"  "\" \".join((\"hello\", \"hi\"))" "" "hello hi";
   t "join_long"  "\" \".join((\"hello\", \"hi\",\"hello\", \"hi\",\"hello\", \"hi\",\"hello\", \"hi\"))" "" "hello hi hello hi hello hi hello hi";
-  t "join_newline"  "\"\n\".join((\"hello\", \"hi\"))" "" "hello\nhi";
+  t "join_newline"  "\"\\n\".join((\"hello\", \"hi\"))" "" "hello\nhi";
   terr "join_nonstring"  "5.join((\"hello\", \"hi\"))" "" "unable to join non-string 5";
   terr "join_nonstring_2"  "5.join((5, ))" "" "unable to join non-string 5";
   terr "join_nontuple"  "\"\".join(5)" "" "unable to join non-tuple 5";
@@ -224,7 +248,7 @@ let suite =
   "unit_tests">:::
   lexing_and_parsing
   @ tstring
-  @ tis
+  @ conversions_and_istype
   @ tstring_wf
   @ tstring_complex
   @ tstring_gc
