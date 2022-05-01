@@ -23,7 +23,9 @@ extern SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_
 extern SNAKEVAL substr(uint64_t *string, uint64_t start, uint64_t end, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?substr");
 extern SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?format");
 extern SNAKEVAL len(uint64_t val) asm("?len");
-extern SNAKEVAL totuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?totuple");
+extern SNAKEVAL tuple(uint64_t value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?tuple");
+extern SNAKEVAL str_to_ascii_tuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?str_to_ascii_tuple");
+extern SNAKEVAL ascii_tuple_to_str(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?ascii_tuple_to_str");
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001;
 const uint64_t BOOL_TAG_MASK = 0x000000000000000f;
@@ -62,6 +64,9 @@ const uint64_t ERR_INVALID_CONVERSION = 18;
 const uint64_t ERR_SUBSTRING_NOT_NUM = 19;
 const uint64_t ERR_SUBSTRING_OUT_OF_BOUNDS = 20;
 const uint64_t ERR_LEN_NOT_TUPLE_NUM = 21;
+const uint64_t ERR_INVALID_FORMAT_VALUES = 22;
+const uint64_t ERR_INCORRECT_FORMAT_ARITY = 23;
+const uint64_t ERR_TUPLE_CREATE_LEN = 24;
 
 size_t HEAP_SIZE;
 uint64_t *STACK_BOTTOM;
@@ -338,6 +343,10 @@ SNAKEVAL len(uint64_t val)
   {
     return ((uint64_t *)(val - STRING_TAG))[0];
   }
+  else if (val == NIL)
+  {
+    return 0;
+  }
   else if ((val & TUPLE_TAG_MASK) == TUPLE_TAG)
   {
     return ((uint64_t *)(val - TUPLE_TAG))[0];
@@ -432,7 +441,7 @@ SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_
 {
   if ((*values & TUPLE_TAG_MASK) != TUPLE_TAG)
   {
-    error(ERR_INVALID_CONVERSION, *values);
+    error(ERR_INVALID_FORMAT_VALUES, *values);
   }
   uint64_t *addr = (uint64_t *)(*values - TUPLE_TAG);
   int len = addr[0] >> 1;
@@ -441,7 +450,7 @@ SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_
   {
     if ((addr[i] & STRING_TAG_MASK) != STRING_TAG)
     {
-      error(ERR_INVALID_CONVERSION, addr[i]);
+      error(ERR_INVALID_FORMAT_VALUES, addr[i]);
     }
     else
     {
@@ -470,7 +479,7 @@ SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_
     {
       if (curr_subst > len)
       {
-        error(ERR_INVALID_CONVERSION, *values);
+        error(ERR_INCORRECT_FORMAT_ARITY, *values);
       }
       uint64_t *pre_subst = (uint64_t *)((uint64_t)addr[curr_subst] - STRING_TAG);
       int subst_len = pre_subst[0] >> 1;
@@ -492,7 +501,7 @@ SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_
   }
   if (curr_subst != len + 1)
   {
-    error(ERR_INVALID_CONVERSION, *values);
+    error(ERR_INCORRECT_FORMAT_ARITY, *values);
   }
 
   return ((uint64_t)res) + STRING_TAG;
@@ -546,6 +555,10 @@ SNAKEVAL tobool(SNAKEVAL val)
     {
       return BOOL_FALSE;
     }
+  }
+  else if (val == NIL)
+  {
+    return BOOL_FALSE;
   }
   else if ((val & TUPLE_TAG_MASK) == TUPLE_TAG)
   {
@@ -613,7 +626,6 @@ SNAKEVAL tostr(SNAKEVAL *val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *o
 {
   if ((*val & STRING_TAG_MASK) == STRING_TAG)
   {
-    // TODO: should this do string copy?
     return *val;
   }
   else if ((*val & NUM_TAG_MASK) == NUM_TAG)
@@ -682,44 +694,74 @@ SNAKEVAL tostr(SNAKEVAL *val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *o
     }
     return ((uint64_t)pre_str) + STRING_TAG;
   }
+  else if (*val == NIL)
+  {
+    uint64_t *str = reserve_memory(heap_pos, 2, old_rbp, old_rsp);
+    str[0] = 6;
+    ((uint8_t *)str)[8] = 'n' << 1;
+    ((uint8_t *)str)[9] = 'i' << 1;
+    ((uint8_t *)str)[10] = 'l' << 1;
+    return ((uint64_t)str) + STRING_TAG;
+  }
   else if ((*val & TUPLE_TAG_MASK) == TUPLE_TAG)
   {
-    uint64_t *addr = (uint64_t *)(*val - TUPLE_TAG);
-    uint64_t len = addr[0] >> 1;
-    int byte_length = (len + 8 - 1) / 8;
-    int space = ((byte_length + 2) / 2) * 2;
-    uint64_t *str = reserve_memory(heap_pos, space, old_rbp, old_rsp);
-    addr = (uint64_t *)(*val - TUPLE_TAG);
+    uint64_t *str = reserve_memory(heap_pos, 2, old_rbp, old_rsp);
 
-    str[0] = addr[0];
-    for (int i = 0; i < len; i++)
-    {
-      if ((addr[i + 1] & NUM_TAG_MASK) != NUM_TAG || addr[i + 1] > 255)
-      {
-        error(ERR_INVALID_CONVERSION, *val);
-      }
-      ((uint8_t *)str)[i + 8] = (uint8_t)(addr[i + 1]);
-    }
+    str[0] = 14;
+    ((uint8_t *)str)[8] = '<' << 1;
+    ((uint8_t *)str)[9] = 't' << 1;
+    ((uint8_t *)str)[10] = 'u' << 1;
+    ((uint8_t *)str)[11] = 'p' << 1;
+    ((uint8_t *)str)[12] = 'l' << 1;
+    ((uint8_t *)str)[13] = 'e' << 1;
+    ((uint8_t *)str)[14] = '>' << 1;
     return ((uint64_t)str) + STRING_TAG;
   }
   error(ERR_INVALID_CONVERSION, *val);
   return -1;
 }
 
-SNAKEVAL totuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
+SNAKEVAL tuple(uint64_t value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
+{
+  if ((value & NUM_TAG_MASK) == NUM_TAG && ((int64_t)value) > 0)
+  {
+    int space = (((value >> 1) + 2) / 2) * 2;
+    uint64_t *tuple = reserve_memory(heap_pos, space, old_rbp, old_rsp);
+    tuple[0] = value;
+    return ((uint64_t)tuple) + TUPLE_TAG;
+  }
+  error(ERR_TUPLE_CREATE_LEN, value);
+  return -1;
+}
+
+SNAKEVAL ascii_tuple_to_str(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
   if ((*value & TUPLE_TAG_MASK) == TUPLE_TAG)
   {
-    return *value;
+    uint64_t *addr = (uint64_t *)(*value - TUPLE_TAG);
+    uint64_t len = addr[0] >> 1;
+    int byte_length = (len + 8 - 1) / 8;
+    int space = ((byte_length + 2) / 2) * 2;
+    uint64_t *str = reserve_memory(heap_pos, space, old_rbp, old_rsp);
+    addr = (uint64_t *)(*value - TUPLE_TAG);
+
+    str[0] = addr[0];
+    for (int i = 0; i < len; i++)
+    {
+      if ((addr[i + 1] & NUM_TAG_MASK) != NUM_TAG || addr[i + 1] > 255)
+      {
+        error(ERR_INVALID_CONVERSION, *value);
+      }
+      ((uint8_t *)str)[i + 8] = (uint8_t)(addr[i + 1]);
+    }
+    return ((uint64_t)str) + STRING_TAG;
   }
-  if ((*value & NUM_TAG_MASK) == NUM_TAG)
-  {
-    // returns tuple with 0 values
-    int space = (((*value >> 1) + 2) / 2) * 2;
-    uint64_t *tuple = reserve_memory(heap_pos, space, old_rbp, old_rsp);
-    tuple[0] = *value;
-    return ((uint64_t)tuple) + TUPLE_TAG;
-  }
+  error(ERR_INVALID_CONVERSION, *value);
+  return -1;
+}
+
+SNAKEVAL str_to_ascii_tuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
+{
   if ((*value & STRING_TAG_MASK) != STRING_TAG)
   {
     error(ERR_INVALID_CONVERSION, *value);
@@ -826,6 +868,19 @@ void error(uint64_t code, SNAKEVAL val)
   case ERR_LEN_NOT_TUPLE_NUM:
     fprintf(stderr, "Error: len expected tuple or num, got ");
     printHelp(stderr, val, 1);
+    break;
+  case ERR_INVALID_FORMAT_VALUES:
+    fprintf(stderr, "Error: incorrect value types for format, got ");
+    printHelp(stderr, val, 1);
+    break;
+  case ERR_INCORRECT_FORMAT_ARITY:
+    fprintf(stderr, "Error: incorrect arity for format replacement values, got ");
+    printHelp(stderr, val, 1);
+    break;
+  case ERR_TUPLE_CREATE_LEN:
+    fprintf(stderr, "Tuple creation expected num, got ");
+    printHelp(stderr, val, 1);
+    break;
   default:
     fprintf(stderr, "Error: Unknown error code: %ld, val: ", code);
     printHelp(stderr, val, 1);

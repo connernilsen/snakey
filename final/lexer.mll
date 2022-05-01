@@ -50,7 +50,7 @@ rule token = parse
   | "isnum" { ISNUM }
   | "isstr" { ISSTR }
   | "tonum" { TONUM }
-  | "totuple" { TOTUPLE }
+  | "tuple" { TUPLE }
   | "tostr" { TOSTR }
   | "tobool" { TOBOOL }
   | "add1" { ADD1 }
