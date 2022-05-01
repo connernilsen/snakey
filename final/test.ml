@@ -146,6 +146,7 @@ let tis = [
   t "streq_9" "equal(\"a\", \"b\")" "" "false";
   t "string_edit" "let str = print(\"hello!\"), tup = print(totuple(str)), _ = tup[0] := 97, res = tostr(print(tup)) in res" "" 
     "hello!(104, 101, 108, 108, 111, 33)(97, 101, 108, 108, 111, 33)aello!";
+  t "many_conversions" "tostr(totuple(tostr(tobool(tonum(len(totuple(\"hello\" ^ \"world\")))))))" "" "true";
 ]
 
 let tconcat = [
