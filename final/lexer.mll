@@ -109,7 +109,7 @@ and parse_string str is_herestring =
   | '\n' { 
     if is_herestring
     then (Buffer.add_char str '\n'; parse_string str is_herestring lexbuf)
-    else (failwith "Non-terminated string literal")
+    else (failwith "Unterminated string literal")
   }
   | _ as c { Buffer.add_char str c; parse_string str is_herestring lexbuf }
   | eof { failwith "Unterminated string" }

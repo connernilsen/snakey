@@ -60,7 +60,9 @@ abcd
     "\n\t\"   \"\n  this is a string\nabcd\n      ";
   te "herestring_in_string" "\" hello \"\"\" \"" "Herestring terminated in non-herestring literal";
   t "escaped_herestring_in_string" "\" hello \\\"\\\"\\\" \"" "" " hello \"\"\" ";
-  te "broken_string" "\" \n \"" "Non-terminated string literal";
+  te "broken_string" "\" \n \"" "Unterminated string literal";
+  te "unterminated_string" "\"" "Unterminated string";
+  te "unterminated_herestring" "\"\"\"" "Unterminated string";
 ]
 let tstring_wf = [
   terr "tstring_illegal" "\"é\"" "" "String é at tstring_illegal, 1:3-1:4 contains at least one illegal character.";
