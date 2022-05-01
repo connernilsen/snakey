@@ -106,7 +106,8 @@ let tis = [
   t "tobool_num_5" "tobool(5) || false" "" "true";
   t "tobool_str_t" "tobool(\"true\") || false" "" "true";
   t "tobool_str_f" "tobool(\"false\") || false" "" "false";
-  te "tobool_invalid_str" "tobool(\"truee\")" "Error: conversion function received invalid value, got \"truee\"";
+  t "tobool_other_str" "tobool(\"a\")" "" "true";
+  t "tobool_empty_str" "tobool(\"\")" "" "false";
   t "tostr_str" "tostr(\"hello\")" "" "hello";
   t "tostr_bool_f" "tostr(false)" "" "false";
   t "tostr_bool_t" "tostr(true)" "" "true";

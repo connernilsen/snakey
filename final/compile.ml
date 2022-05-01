@@ -1469,10 +1469,10 @@ let byte_align_16 (words : int) : int64 =
   Int64.of_int (word_size * (align_stack_by_words words))
 ;;
 
-let c_string_reserve_cleanup =
+let c_reserve_cleanup tag = 
   [
     ILineComment("Cleaning up string reserve and updating to new R15");
-    IMov(Reg(scratch_reg_2), Sized(QWORD_PTR, Const(str_tag)));
+    IMov(Reg(scratch_reg_2), Sized(QWORD_PTR, Const(tag)));
     ISub(Reg(RAX), Reg(scratch_reg_2));
     IMov(Reg(heap_reg), Reg(RAX));
     IMov(Reg(scratch_reg), RegOffset(0, RAX));
@@ -1484,6 +1484,31 @@ let c_string_reserve_cleanup =
     IAnd(Sized(QWORD_PTR, Reg(heap_reg)), Reg scratch_reg);
     IAdd(Reg(RAX), Reg(scratch_reg_2));
   ]
+;;
+
+let c_call_arg_indirection call_label indirected_args normal_args tag env current_env =
+  let indirected_args_len = List.length indirected_args in 
+  let stack_align = 
+    if (indirected_args_len mod 2) = 0 
+    then []
+    else [IPush(Sized(QWORD_PTR, stack_filler))]
+  in
+  let setup_indirected_args = 
+    List.flatten 
+      (List.map (fun arg -> [IMov(Reg(scratch_reg_2), arg); IPush(Sized(QWORD_PTR, Reg(scratch_reg_2)))]) indirected_args) 
+  in
+  let cleanup_indirected_args = 
+    List.init indirected_args_len (fun i -> IPop(Reg(scratch_reg))) 
+    @ if (indirected_args_len mod 2) = 0
+    then []
+    else [IPop(Reg(scratch_reg))]
+  in 
+  stack_align
+  @ setup_indirected_args
+  @ [IMov(Reg(scratch_reg_2), Reg(RSP))]
+  @ (setup_call_to_func env current_env ([Reg(scratch_reg_2)] @ normal_args) (Label(call_label)) false)
+  @ c_reserve_cleanup tag
+  @ cleanup_indirected_args
 ;;
 
 let rec replicate x i =
@@ -1725,8 +1750,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
           ILabel(label_done);
         ]
       | ToStr -> 
-        (setup_call_to_func env current_env [e_reg; Reg(heap_reg); Reg(RBP); Reg(RSP)] (Label("?tostr")) false)
-        @ c_string_reserve_cleanup
+        c_call_arg_indirection "?tostr" [e_reg] [Reg(heap_reg); Reg(RBP); Reg(RSP)] str_tag env current_env
       | ToBool -> (setup_call_to_func env current_env [e_reg] (Label("?tobool")) false)
       | ToNum -> (setup_call_to_func env current_env [e_reg] (Label("?tonum")) false)
       | Len -> (setup_call_to_func env current_env [e_reg] (Label("?len")) false)
@@ -1790,10 +1814,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
         [IPush(Reg(scratch_reg_2)); IMov(Reg(RAX), e1_reg)]
         @ (tag_check e1_reg label_NOT_STR str_tag_mask str_tag)
         @ IMov(Reg(RAX), e2_reg) :: (tag_check e2_reg label_NOT_STR str_tag_mask str_tag)
-        @ [IPush(Sized(QWORD_PTR, e1_reg)); IPush(Sized(QWORD_PTR, e2_reg)); IMov(Reg(scratch_reg_2), Reg(RSP))]
-        @ (setup_call_to_func env current_env [Reg(scratch_reg_2); Reg(heap_reg); Reg(RBP); Reg(RSP)] (Label("?concat")) false)
-        @ c_string_reserve_cleanup
-        @ [IPop(Reg(scratch_reg)); IPop(Reg(scratch_reg))]
+        @ c_call_arg_indirection "?concat" [e1_reg; e2_reg] [Reg(heap_reg); Reg(RBP); Reg(RSP)] str_tag env current_env
     end
   | CApp(ImmId("?print_heap", _), _, Native, _) -> 
     let arg_regs = [Const(0L); Const(0L); LabelContents("?HEAP"); Reg(R15)] in
@@ -1801,18 +1822,14 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
   | CApp(ImmId("?input", _), _, Native, _) -> 
     let arg_regs = [Reg(heap_reg); Reg(RBP); Reg(RSP)] in
     (setup_call_to_func env current_env arg_regs (Label("?input")) false)
-    @ c_string_reserve_cleanup
+    @ c_reserve_cleanup str_tag
   | CApp(ImmId("?format", _), args, Native, _) ->
-    let arg_regs = [Reg(scratch_reg_2); Reg(heap_reg); Reg(RBP); Reg(RSP)] in
-    IPush(stack_filler)
-    :: begin match args with 
-      | arg :: [] -> IPush(Sized(QWORD_PTR, compile_imm arg env current_env))
+    let item = begin match args with 
+      | arg :: [] -> compile_imm arg env current_env
       | _ -> raise (InternalCompilerError "Format should only have 1 tuple arg") 
     end
-    :: IMov(Reg(scratch_reg_2), Reg(RSP))
-    :: (setup_call_to_func env current_env arg_regs (Label("?format")) false)
-    @ c_string_reserve_cleanup
-    @ [IPop(Reg(scratch_reg)); IPop(Reg(scratch_reg))]
+    in
+    c_call_arg_indirection "?format" [item] [Reg(heap_reg); Reg(RBP); Reg(RSP)] str_tag env current_env
   | CApp(func, args, Native, _) -> 
     let arg_regs = (List.map (fun (a) -> (compile_imm a env current_env)) args) in 
     (setup_call_to_func env current_env arg_regs (Label(get_func_name_imm func)) false)
@@ -1914,10 +1931,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
     in IMov(Reg(RAX), string)::(tag_check string label_NOT_STR str_tag_mask str_tag)
        @ IMov(Reg(RAX), start)::(num_tag_check label_SUBSTRING_NOT_NUM)
        @ IMov(Reg(RAX), finish)::(num_tag_check label_SUBSTRING_NOT_NUM)
-       @ [IPush(stack_filler); IPush(Sized(QWORD_PTR, string)); IMov(Reg(scratch_reg_2), Reg(RSP))]
-       @ (setup_call_to_func env current_env [Reg(scratch_reg_2); start; finish; Reg(heap_reg); Reg(RBP); Reg(RSP)] (Label("?substr")) false)
-       @ c_string_reserve_cleanup
-       @ [IPop(Reg(scratch_reg)); IPop(Reg(scratch_reg))]
+       @ c_call_arg_indirection "?substr" [string] [start; finish; Reg(heap_reg); Reg(RBP); Reg(RSP)] str_tag env current_env
   | CLambda(_) -> compile_lambda e env true current_env
   | CStr(s, tag) -> 
     let bytes = Bytes.of_string s in 

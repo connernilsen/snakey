@@ -18,7 +18,7 @@ extern uint64_t *HEAP_END asm("?HEAP_END");
 extern uint64_t *HEAP asm("?HEAP");
 extern SNAKEVAL tobool(SNAKEVAL val) asm("?tobool");
 extern SNAKEVAL tonum(SNAKEVAL val) asm("?tonum");
-extern SNAKEVAL tostr(SNAKEVAL val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?tostr");
+extern SNAKEVAL tostr(SNAKEVAL *val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?tostr");
 extern SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?concat");
 extern SNAKEVAL substr(uint64_t *string, uint64_t start, uint64_t end, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?substr");
 extern SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?format");
@@ -344,6 +344,7 @@ SNAKEVAL len(uint64_t val)
   else
   {
     error(ERR_LEN_NOT_TUPLE_NUM, val);
+    return -1;
   }
 }
 
@@ -516,36 +517,33 @@ SNAKEVAL tobool(SNAKEVAL val)
   else if ((val & STRING_TAG_MASK) == STRING_TAG)
   {
     uint64_t *addr = (uint64_t *)(val - STRING_TAG);
-    uint8_t *b_val;
     int len = ((int)addr[0]) >> 1;
-    if (len == 4 || len == 5)
+    int bool_value = 0;
+    if (len == 5)
     {
-      if (len == 4)
-      {
-        char t[4] = {'t', 'r', 'u', 'e'};
-        b_val = (uint8_t *)t;
-      }
-      else if (len == 5)
-      {
-        char f[5] = {'f', 'a', 'l', 's', 'e'};
-        b_val = (uint8_t *)f;
-      }
+      char f[5] = {'f', 'a', 'l', 's', 'e'};
+      uint8_t *b_val = (uint8_t *)f;
 
       for (int i = 0; i < len; i++)
       {
         if (((((uint8_t *)addr)[i + 8]) >> 1) != b_val[i])
         {
-          error(ERR_INVALID_CONVERSION, val);
+          bool_value = 1;
+          break;
         }
       }
-      if (len == 4)
-      {
-        return BOOL_TRUE;
-      }
-      else
-      {
-        return BOOL_FALSE;
-      }
+    }
+    else if (len != 0)
+    {
+      bool_value = 1;
+    }
+    if (bool_value)
+    {
+      return BOOL_TRUE;
+    }
+    else
+    {
+      return BOOL_FALSE;
     }
   }
   error(ERR_INVALID_CONVERSION, val);
@@ -597,16 +595,16 @@ SNAKEVAL tonum(SNAKEVAL val)
   return -1;
 }
 
-SNAKEVAL tostr(SNAKEVAL val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
+SNAKEVAL tostr(SNAKEVAL *val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
-  if ((val & STRING_TAG_MASK) == STRING_TAG)
+  if ((*val & STRING_TAG_MASK) == STRING_TAG)
   {
     // TODO: should this do string copy?
-    return val;
+    return *val;
   }
-  else if ((val & NUM_TAG_MASK) == NUM_TAG)
+  else if ((*val & NUM_TAG_MASK) == NUM_TAG)
   {
-    int64_t num = (int64_t)(val - NUM_TAG) / 2;
+    int64_t num = (int64_t)(*val - NUM_TAG) / 2;
     int neg = num < 0;
     if (neg)
     {
@@ -645,11 +643,12 @@ SNAKEVAL tostr(SNAKEVAL val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *ol
     }
     return ((uint64_t)pre_str) + STRING_TAG;
   }
-  else if ((val & BOOL_TAG_MASK) == BOOL_TAG)
+  else if ((*val & BOOL_TAG_MASK) == BOOL_TAG)
   {
+    uint64_t bool_val = *val;
     uint64_t *pre_str = reserve_memory(heap_pos, 6, old_rbp, old_rsp);
     uint8_t *str = (uint8_t *)pre_str;
-    if (val == BOOL_TRUE)
+    if (bool_val == BOOL_TRUE)
     {
       pre_str[0] = 8;
       str[8] = 't' * 2;
