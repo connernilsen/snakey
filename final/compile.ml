@@ -114,6 +114,7 @@ let native_fun_bindings = [
   ("ascii_tuple_to_str", (Native, 1));
   ("str_to_ascii_tuple", (Native, 1));
   ("get_ascii_char", (Native, 2));
+  ("len", (Native, 1));
 ];;
 
 let initial_fun_env = prim_bindings @ native_fun_bindings;;
@@ -1768,7 +1769,6 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
         c_call_arg_indirection "?tostr" [e_reg] [Reg(heap_reg); Reg(RBP); Reg(RSP)] str_tag env current_env
       | ToBool -> (setup_call_to_func env current_env [e_reg] (Label("?tobool")) false)
       | ToNum -> (setup_call_to_func env current_env [e_reg] (Label("?tonum")) false)
-      | Len -> (setup_call_to_func env current_env [e_reg] (Label("?len")) false)
       | Tuple -> 
         (setup_call_to_func env current_env [e_reg; Reg(heap_reg); Reg(RBP); Reg(RSP)] (Label("?tuple")) false)
         @ c_reserve_cleanup tuple_tag

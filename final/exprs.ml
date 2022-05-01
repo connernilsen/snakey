@@ -24,7 +24,6 @@ type prim1 =
   | ToStr
   | ToBool
   | ToNum
-  | Len
   | Tuple
 
 type prim2 =
