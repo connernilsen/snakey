@@ -239,6 +239,7 @@ let split_tests = [
   t "split_space"  "\"hi friends i'm kyle\".split(\" \")" "" "(hi, friends, i'm, kyle)";
   t "split_multiple"  "\"hi friends.i'mzkyle\".split(\" .z\")" "" "(hi, friends, i'm, kyle)";
   t "split_lets"  "let s1 = \"hi friends.i'mzkyle\", s2 = \" .z\" in s1.split(s2)" "" "(hi, friends, i'm, kyle)";
+  t "split_empty_char"  "\"no\".split(\"n\")" "" "(o, )";
   terr "split_nonstring" "5.split(\" .z\")" "" "unable to split non-string 5";
   terr "split_nonstring_2" "\"\".split(5)" "" "unable to split non-string 5";
 ]
