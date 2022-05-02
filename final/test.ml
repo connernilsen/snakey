@@ -223,11 +223,15 @@ let len = [
 ]
 
 let split_tests = [
-  t "split_empty_empty"  "\"\".split(\"\")" "" "";
-  t "split_empty_not_there"  "\"\".split(\"f\")" "" "";
-  t "split_miss"  "\"hi\".split(\"f\")" "" "(\"hi\")";
-  t "split_empty"  "\"hi\".split(\"\")" "" "(\"h\", \"i\")";
-  t "split_space"  "\"hi friends i'm kyle\".split(\" \")" "" "(\"hi\", \"friends\", \"i'm\", \"kyle\",)";
+  t "split_empty_empty"  "\"\".split(\"\")" "" "()";
+  t "split_empty_not_there"  "\"\".split(\"f\")" "" "()";
+  t "split_miss"  "\"hi\".split(\"f\")" "" "(hi, )";
+  t "split_empty"  "\"hi\".split(\"\")" "" "(hi, )";
+  t "split_space"  "\"hi friends i'm kyle\".split(\" \")" "" "(hi, friends, i'm, kyle)";
+  t "split_multiple"  "\"hi friends.i'mzkyle\".split(\" .z\")" "" "(hi, friends, i'm, kyle)";
+  t "split_lets"  "let s1 = \"hi friends.i'mzkyle\", s2 = \" .z\" in s1.split(s2)" "" "(hi, friends, i'm, kyle)";
+  terr "split_nonstring" "5.split(\" .z\")" "" "unable to split non-string 5";
+  terr "split_nonstring_2" "\"\".split(5)" "" "unable to split non-string 5";
 ]
 let join_tests = [
   t "join_empty_empty"  "\"\".join(())" "" "";
@@ -237,6 +241,7 @@ let join_tests = [
   t "join_space"  "\" \".join((\"hello\", \"hi\"))" "" "hello hi";
   t "join_long"  "\" \".join((\"hello\", \"hi\",\"hello\", \"hi\",\"hello\", \"hi\",\"hello\", \"hi\"))" "" "hello hi hello hi hello hi hello hi";
   t "join_newline"  "\"\\n\".join((\"hello\", \"hi\"))" "" "hello\nhi";
+  t "join_lets"  "let delim = \" \", tuple = (\"hello\", \"hi\") in delim.join(tuple)" "" "hello hi";
   terr "join_nonstring"  "5.join((\"hello\", \"hi\"))" "" "unable to join non-string 5";
   terr "join_nonstring_2"  "5.join((5, ))" "" "unable to join non-string 5";
   terr "join_nontuple"  "\"\".join(5)" "" "unable to join non-tuple 5";
@@ -246,7 +251,7 @@ let join_tests = [
 
 let suite =
   "unit_tests">:::
-  lexing_and_parsing
+  (* lexing_and_parsing *)
   (* @ tstring
      @ conversions_and_istype
      @ tstring_wf
@@ -256,8 +261,8 @@ let suite =
      @ tsubstr
      @ format
      @ len *)
-  @ split_tests
-  @ join_tests
+  split_tests
+(* @ join_tests *)
 
 let () =
   run_test_tt_main ("all_tests">:::[
