@@ -73,6 +73,7 @@ const uint64_t ERR_TUPLE_CREATE_LEN = 24;
 const uint64_t ERR_JOIN_NOT_TUPLE = 25;
 const uint64_t ERR_JOIN_NOT_STR = 26;
 const uint64_t ERR_SPLIT_NOT_STR = 27;
+const uint64_t ERR_INVALID_CHAR = 28;
 
 size_t HEAP_SIZE;
 uint64_t *STACK_BOTTOM;
@@ -372,6 +373,10 @@ SNAKEVAL input(uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
   // TODO: update to handle arbitrary input length
   for (uint64_t i = 0; i < STRING_SIZE; i++)
   {
+    if (str[i] > 127)
+    {
+      error(ERR_INVALID_CHAR, str[i] << 1);
+    }
     if (str[i] == 0)
     {
       str_len = i;
@@ -756,7 +761,7 @@ SNAKEVAL ascii_tuple_to_str(uint64_t *value, uint64_t *heap_pos, uint64_t *old_r
     {
       if ((addr[i + 1] & NUM_TAG_MASK) != NUM_TAG || addr[i + 1] > 255)
       {
-        error(ERR_INVALID_CONVERSION, *value);
+        error(ERR_INVALID_CHAR, addr[i + 1]);
       }
       ((uint8_t *)str)[i + 8] = (uint8_t)(addr[i + 1]);
     }
@@ -1069,6 +1074,10 @@ void error(uint64_t code, SNAKEVAL val)
     break;
   case ERR_TUPLE_CREATE_LEN:
     fprintf(stderr, "Tuple creation expected num, got ");
+    printHelp(stderr, val, 1);
+    break;
+  case ERR_INVALID_CHAR:
+    fprintf(stderr, "Given char ascii value is invalid, got ");
     printHelp(stderr, val, 1);
     break;
   default:

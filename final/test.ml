@@ -11,7 +11,7 @@ open Assembly
 open Pretty
 open Graph
 
-let te name program expected_err = name>::test_err ~vg:false Naive program name expected_err;;
+let te ?input:(input="") name program expected_err = name>::test_err ~std_input:input ~vg:false Naive program name expected_err;;
 let t name program input expected = name>::test_run ~args:[] ~std_input:input ~skip_newline:true Naive program name expected;;
 let tr name program input expected = name>::test_run ~args:[] ~std_input:input ~skip_newline:true Register program name expected;;
 let ta name program input expected = name>::test_run_anf ~args:[] ~std_input:input program name expected;;
@@ -148,11 +148,12 @@ let conversions_and_istype = [
   t "len_totuple_5" "len(tuple(5))" "" "5";
   te "totuple_bool" "tuple(false)" "Tuple creation expected num";
   te "totuple_str_empty" "tuple(\"\")" "Tuple creation expected num";
-  te "ascii_tuple_to_str_invalid_tuple" "ascii_tuple_to_str((128, ))" "conversion function received invalid value";
-  te "ascii_tuple_to_str_invalid_tuple_neg" "ascii_tuple_to_str((-1, ))" "conversion function received invalid value";
-  te "ascii_tuple_to_str_invalid_tuple_bool" "ascii_tuple_to_str((97, false))" "conversion function received invalid value";
-  te "ascii_tuple_to_str_invalid_tuple_nested_str" "ascii_tuple_to_str((97, \"hello\"))" "conversion function received invalid value";
-  te "ascii_tuple_to_str_invalid_tuple_nested_tuple" "ascii_tuple_to_str((97, (1, 2, 3)))" "conversion function received invalid value";
+  te "ascii_tuple_to_str_invalid_tuple" "ascii_tuple_to_str((128, ))" "Given char ascii value is invalid";
+  te "ascii_tuple_to_str_invalid_tuple_neg" "ascii_tuple_to_str((-1, ))" "Given char ascii value is invalid";
+  te "ascii_tuple_to_str_invalid_tuple_bool" "ascii_tuple_to_str((97, false))" "Given char ascii value is invalid";
+  te "ascii_tuple_to_str_invalid_tuple_nested_str" "ascii_tuple_to_str((97, \"hello\"))" "Given char ascii value is invalid";
+  te "ascii_tuple_to_str_invalid_tuple_nested_tuple" "ascii_tuple_to_str((97, (1, 2, 3)))" "Given char ascii value is invalid";
+  t "input_invalid_char" "input()" "é" "C)";
   t "streqeqf" "\"asdf\" == \"asdf\"" "" "false";
   t "streqeqt" "let a = \"asdf\" in a == a" "" "true";
   t "streqeqt_2" "let a = \"asdf\" in 5 == a" "" "false";
