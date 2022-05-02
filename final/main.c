@@ -636,12 +636,7 @@ SNAKEVAL tonum(SNAKEVAL val)
 
 SNAKEVAL tostr(SNAKEVAL *val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
-  if ((*val & STRING_TAG_MASK) == STRING_TAG)
-  {
-    // TODO: this either needs to copy the string or signify that the heap ptr should not be updated
-    return *val;
-  }
-  else if ((*val & NUM_TAG_MASK) == NUM_TAG)
+  if ((*val & NUM_TAG_MASK) == NUM_TAG)
   {
     int64_t num = (int64_t)(*val - NUM_TAG) / 2;
     int neg = num < 0;

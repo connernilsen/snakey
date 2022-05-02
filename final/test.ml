@@ -63,6 +63,7 @@ abcd
   te "broken_string" "\" \n \"" "Unterminated string literal";
   te "unterminated_string" "\"" "Unterminated string";
   te "unterminated_herestring" "\"\"\"" "Unterminated string";
+  t "tostring_return_fail" "let a = \"abcd\", b = \"efgh\", c = tostr(a), d = \"hijk\" in b" "" "efgh";
 ]
 let tstring_wf = [
   terr "tstring_illegal" "\"é\"" "" "String é at tstring_illegal, 1:3-1:4 contains at least one illegal character.";

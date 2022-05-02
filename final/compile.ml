@@ -1733,7 +1733,16 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
           ILabel(label_done);
         ]
       | ToStr -> 
-        c_call_arg_indirection "?tostr" [e_reg] [Reg(heap_reg); Reg(RBP); Reg(RSP)] str_tag env current_env
+        let label_not_str = sprintf "%s%n" label_NOT_STR tag in 
+        let label_done = sprintf "%s%n_to_str" label_DONE tag in
+        IMov(Reg(RAX), e_reg)
+        :: tag_check e_reg label_not_str str_tag_mask str_tag
+        @ [
+          IJmp(Label(label_done)); 
+          ILabel(label_not_str);
+        ]
+        @ c_call_arg_indirection "?tostr" [e_reg] [Reg(heap_reg); Reg(RBP); Reg(RSP)] str_tag env current_env
+        @ [ILabel(label_done)]
       | ToBool -> (setup_call_to_func env current_env [e_reg] (Label("?tobool")) false)
       | ToNum -> (setup_call_to_func env current_env [e_reg] (Label("?tonum")) false)
       | Tuple -> 
