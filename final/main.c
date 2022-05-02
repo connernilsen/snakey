@@ -29,6 +29,7 @@ extern SNAKEVAL tuple(uint64_t value, uint64_t *heap_pos, uint64_t *old_rbp, uin
 extern SNAKEVAL str_to_ascii_tuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?str_to_ascii_tuple");
 extern SNAKEVAL ascii_tuple_to_str(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp) asm("?ascii_tuple_to_str");
 extern SNAKEVAL get_ascii_char(uint64_t *str, uint64_t off) asm("?get_ascii_char");
+extern SNAKEVAL contains(uint64_t *pre_body, uint64_t *pre_val) asm("?contains");
 
 const uint64_t NUM_TAG_MASK = 0x0000000000000001;
 const uint64_t BOOL_TAG_MASK = 0x000000000000000f;
@@ -834,8 +835,8 @@ SNAKEVAL split(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *
   strcpy(original_as_string2, original_as_string);
   char *delim_as_string = snake_to_char_pointer((uint64_t *)delim);
 
-  int tuple_len = 0;
-  int len = 0;
+  uint64_t tuple_len = 0;
+  uint64_t len = 0;
 
   char *split = strtok(original_as_string, delim_as_string);
   while (split != NULL)
@@ -844,22 +845,22 @@ SNAKEVAL split(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *
     len += align_16(8 + strlen(split));
     split = strtok(NULL, delim_as_string);
   }
-  int tuple_byte_size = align_16(tuple_len * 8 + 8);
+  uint64_t tuple_byte_size = align_16(tuple_len * 8 + 8);
 
   uint64_t *reserved = reserve_memory(heap_pos, len + tuple_byte_size, old_rbp, old_rsp);
 
   // set first spot to tuple
   reserved[0] = tuple_len << 1;
-  int next_string_spot = tuple_byte_size;
+  uint64_t next_string_spot = tuple_byte_size;
 
   char *split2 = strtok(original_as_string2, delim_as_string);
-  int i = 0;
+  uint64_t i = 0;
   while (split2 != NULL)
   {
     reserved[i + 1] = ((uint64_t)reserved) + next_string_spot + STRING_TAG;
-    int str_len = strlen(split2);
+    uint64_t str_len = strlen(split2);
     ((uint8_t *)reserved)[next_string_spot] = str_len << 1;
-    for (int j = 0; j < str_len; j++)
+    for (uint64_t j = 0; j < str_len; j++)
     {
       ((uint8_t *)reserved)[next_string_spot + 8 + j] = split2[j] << 1;
     }
@@ -871,7 +872,7 @@ SNAKEVAL split(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *
   free(original_as_string);
   free(delim_as_string);
 
-  return (uint64_t *)((uint64_t)reserved + TUPLE_TAG);
+  return (uint64_t)reserved + TUPLE_TAG;
 }
 
 SNAKEVAL join(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
@@ -940,6 +941,54 @@ SNAKEVAL join(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *o
     }
   }
   return ((uint64_t)result_str) + STRING_TAG;
+}
+
+SNAKEVAL contains(uint64_t *pre_body, uint64_t *pre_val)
+{
+  if (((uint64_t)pre_body & STRING_TAG_MASK) != STRING_TAG)
+  {
+    error(ERR_NOT_STR, pre_body);
+  }
+  if (((uint64_t)pre_val & STRING_TAG_MASK) != STRING_TAG)
+  {
+    error(ERR_NOT_STR, pre_val);
+  }
+  uint64_t body_len = ((uint64_t *)(((uint64_t)pre_body) - STRING_TAG))[0] >> 1;
+  uint64_t val_len = ((uint64_t *)(((uint64_t)pre_val) - STRING_TAG))[0] >> 1;
+  uint8_t *body = (uint8_t *)((uint64_t)pre_body - STRING_TAG);
+  uint8_t *val = (uint8_t *)((uint64_t)pre_val - STRING_TAG);
+
+  if (val_len == 0)
+  {
+    return BOOL_TRUE;
+  }
+
+  for (uint64_t i = 0; i < body_len; i++)
+  {
+    if (i + val_len > body_len)
+    {
+      break;
+    }
+    if (body[i + 8] != val[8])
+    {
+      continue;
+    }
+    int failed = 0;
+    for (uint64_t j = 0; j < val_len; j++)
+    {
+      if (body[8 + i + j] != val[8 + j])
+      {
+        failed = 1;
+        break;
+      }
+    }
+    if (!failed)
+    {
+      return BOOL_TRUE;
+    }
+  }
+
+  return BOOL_FALSE;
 }
 
 SNAKEVAL get_ascii_char(uint64_t *str, uint64_t offset)

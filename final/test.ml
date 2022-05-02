@@ -270,6 +270,19 @@ let integration_tests = [
   terr "add1_strings" "add1(\"hello\")" "" "arithmetic expected a number";
   terr "sub1_strings" "sub1(\"hello\")" "" "arithmetic expected a number";
 ]
+
+let contains_tests = [
+  te "contains_invalid_body" "contains(5, \"\")" "not a string";
+  te "contains_invalid_val" "contains(\"\", 5)" "not a string";
+  t "contains_empty" "contains(\"\", \"\")" "" "true";
+  t "contains_empty_2" "contains(\"\", \"a\")" "" "false";
+  t "contains_empty_3" "contains(\"abcd\", \"\")" "" "true";
+  t "contains_full" "contains(\"hello\", \"hello\")" "" "true";
+  t "contains_part" "contains(\"hello\", \"lo\")" "" "true";
+  t "contains_part_2" "contains(\"hello\", \"lll\")" "" "false";
+  t "contains_incr" "contains(\"a aa aaa aaaa aaaaa\", \"aaaaa\")" "" "true";
+  t "contains_incr_2" "contains(\"a aa aaa aaaa aaaaa\", \"aaaaaa\")" "" "false";
+]
 (* testing todos: ensure register allocation still works *)
 
 let suite =
@@ -287,6 +300,7 @@ let suite =
   @ split_tests
   @ join_tests
   @ integration_tests
+  @ contains_tests
 
 let () =
   run_test_tt_main ("all_tests">:::[

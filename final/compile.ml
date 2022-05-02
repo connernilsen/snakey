@@ -115,6 +115,7 @@ let native_fun_bindings = [
   ("str_to_ascii_tuple", (Native, 1));
   ("get_ascii_char", (Native, 2));
   ("len", (Native, 1));
+  ("contains", (Native, 2));
 ];;
 
 let initial_fun_env = prim_bindings @ native_fun_bindings;;
@@ -2111,6 +2112,7 @@ extern ?try_gc
 extern ?print_heap
 extern ?concat
 extern ?substr
+extern ?contains
 extern ?len
 extern ?format
 extern ?HEAP
