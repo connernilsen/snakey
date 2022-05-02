@@ -153,8 +153,9 @@ let conversions_and_istype = [
   te "ascii_tuple_to_str_invalid_tuple_bool" "ascii_tuple_to_str((97, false))" "conversion function received invalid value";
   te "ascii_tuple_to_str_invalid_tuple_nested_str" "ascii_tuple_to_str((97, \"hello\"))" "conversion function received invalid value";
   te "ascii_tuple_to_str_invalid_tuple_nested_tuple" "ascii_tuple_to_str((97, (1, 2, 3)))" "conversion function received invalid value";
-  t "str==f" "\"asdf\" == \"asdf\"" "" "false";
-  t "str==t" "let a = \"asdf\" in a == a" "" "true";
+  t "streqeqf" "\"asdf\" == \"asdf\"" "" "false";
+  t "streqeqt" "let a = \"asdf\" in a == a" "" "true";
+  t "streqeqt_2" "let a = \"asdf\" in 5 == a" "" "false";
   t "streq_1" "equal(\"asdf\", \"asdf\")" "" "true";
   t "streq_2" "equal(\"asdf\", \"asdh\")" "" "false";
   t "streq_3" "equal(5, \"a\")" "" "false";
@@ -204,7 +205,7 @@ let tsubstr = [
   t "substr_exprs" "\"hello friends\"[1 - 1:1 + 2]" "" "hel";
   t "substr_let" "let a = \"hello friends\" in a[1 - 1: 1 + 2]" "" "hel";
   t "substr_equality" "let a = \"hello friends\" in equal(a[0:2], a[0:2])" "" "true";
-  t "substr_==" "let a = \"hello friends\" in a[0: 2] == a[0: 2]" "" "false";
+  t "substr_eqeq" "let a = \"hello friends\" in a[0: 2] == a[0: 2]" "" "false";
   te "substr_tuple_access" "\"hello\"[3]" "get expected tuple";
   te "tuple_substr_access" "(1, 2, 3)[0:1]" "Value not a string"
 ]
@@ -255,6 +256,18 @@ let join_tests = [
   terr "join_nontuple"  "\"\".join(5)" "" "unable to join non-tuple 5";
 ]
 
+let integration_tests = [
+  terr "plus_string"  "\"hello\" + 6" "" "arithmetic expected a number";
+  terr "plus_strings"  "\"hello\" + \"hi\"" "" "arithmetic expected a number";
+  terr "g_strings"  "\"hello\" > \"hi\"" "" "comparison expected a number";
+  terr "le_strings"  "\"hello\" <= \"hi\"" "" "comparison expected a number";
+  terr "ge_strings"  "\"hello\" >= \"hi\"" "" "comparison expected a number";
+  terr "l_strings"  "\"hello\" < \"hi\"" "" "comparison expected a number";
+  terr "minus_strings"  "\"hello\" - \"hi\"" "" "arithmetic expected a number";
+  terr "times_strings"  "\"hello\" * \"hi\"" "" "arithmetic expected a number";
+  terr "add1_strings" "add1(\"hello\")" "" "arithmetic expected a number";
+  terr "sub1_strings" "sub1(\"hello\")" "" "arithmetic expected a number";
+]
 (* testing todos: ensure register allocation still works *)
 
 let suite =
@@ -271,6 +284,7 @@ let suite =
   @ len
   @ split_tests
   @ join_tests
+  @ integration_tests
 
 let () =
   run_test_tt_main ("all_tests">:::[
