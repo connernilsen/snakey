@@ -241,7 +241,7 @@ let join_tests = [
   t "join_space"  "\" \".join((\"hello\", \"hi\"))" "" "hello hi";
   t "join_long"  "\" \".join((\"hello\", \"hi\",\"hello\", \"hi\",\"hello\", \"hi\",\"hello\", \"hi\"))" "" "hello hi hello hi hello hi hello hi";
   t "join_newline"  "\"\\n\".join((\"hello\", \"hi\"))" "" "hello\nhi";
-  t "join_lets"  "let delim = \" \", tuple = (\"hello\", \"hi\") in delim.join(tuple)" "" "hello hi";
+  t "join_lets"  "let delim = \" \", t = (\"hello\", \"hi\") in delim.join(t)" "" "hello hi";
   terr "join_nonstring"  "5.join((\"hello\", \"hi\"))" "" "unable to join non-string 5";
   terr "join_nonstring_2"  "5.join((5, ))" "" "unable to join non-string 5";
   terr "join_nontuple"  "\"\".join(5)" "" "unable to join non-tuple 5";
@@ -251,18 +251,18 @@ let join_tests = [
 
 let suite =
   "unit_tests">:::
-  (* lexing_and_parsing *)
-  (* @ tstring
-     @ conversions_and_istype
-     @ tstring_wf
-     @ tstring_complex
-     @ tstring_gc
-     @ tconcat
-     @ tsubstr
-     @ format
-     @ len *)
-  split_tests
-(* @ join_tests *)
+  lexing_and_parsing
+  @ tstring
+  @ conversions_and_istype
+  @ tstring_wf
+  @ tstring_complex
+  @ tstring_gc
+  @ tconcat
+  @ tsubstr
+  @ format
+  @ len
+  @ split_tests
+  @ join_tests
 
 let () =
   run_test_tt_main ("all_tests">:::[
