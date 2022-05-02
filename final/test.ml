@@ -153,6 +153,8 @@ let conversions_and_istype = [
   te "ascii_tuple_to_str_invalid_tuple_bool" "ascii_tuple_to_str((97, false))" "conversion function received invalid value";
   te "ascii_tuple_to_str_invalid_tuple_nested_str" "ascii_tuple_to_str((97, \"hello\"))" "conversion function received invalid value";
   te "ascii_tuple_to_str_invalid_tuple_nested_tuple" "ascii_tuple_to_str((97, (1, 2, 3)))" "conversion function received invalid value";
+  t "str==f" "\"asdf\" == \"asdf\"" "" "false";
+  t "str==t" "let a = \"asdf\" in a == a" "" "true";
   t "streq_1" "equal(\"asdf\", \"asdf\")" "" "true";
   t "streq_2" "equal(\"asdf\", \"asdh\")" "" "false";
   t "streq_3" "equal(5, \"a\")" "" "false";
@@ -182,6 +184,10 @@ let tconcat = [
   t "concat_second" "\"\" ^ \"b\"" "" "b";
   t "concat_both" "\"a\" ^ \"b\"" "" "ab";
   t "concat_complex" "\"abc\" ^ \"def\" ^ \"ghijkl\"" "" "abcdefghijkl";
+  t "concat_let" "let a = \"abc\", b = \"def\", c = \"ghijkl\" in a ^ b ^ c" "" "abcdefghijkl";
+  t "concat_let_2" "let a = \"abc\", b = \"def\", c = \"ghijkl\" in let d = a ^ b ^ c in d ^ a" "" "abcdefghijklabc";
+  t "concat_equality" "let a = \"abc\" in equal(a ^ a, a ^ a)" "" "true";
+  t "concat_equality_2" "let a = \"abc\", b = \"abc\" in equal(a ^ b, b ^ a)" "" "true";
   tgc "concat_gc" (builtins_size + 12) "let a = (lambda: \"123456\") in (print(a()); \"abc\" ^ \"def\")" "" "123456abcdef";
 ]
 
@@ -197,6 +203,8 @@ let tsubstr = [
   t "substr_empty" "\"hello friends\"[1:1]" "" "";
   t "substr_exprs" "\"hello friends\"[1 - 1:1 + 2]" "" "hel";
   t "substr_let" "let a = \"hello friends\" in a[1 - 1: 1 + 2]" "" "hel";
+  t "substr_equality" "let a = \"hello friends\" in equal(a[0:2], a[0:2])" "" "true";
+  t "substr_==" "let a = \"hello friends\" in a[0: 2] == a[0: 2]" "" "false";
   te "substr_tuple_access" "\"hello\"[3]" "get expected tuple";
   te "tuple_substr_access" "(1, 2, 3)[0:1]" "Value not a string"
 ]

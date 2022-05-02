@@ -775,7 +775,7 @@ let anf (p : tag program) : unit aprogram =
       let (string_imm, string_setup) = helpI string in
       let (start_imm, start_setup) = helpI start in
       let (finish_imm, finish_setup) = helpI finish in
-      (ImmId(tmp, ()), string_setup @ start_setup @ finish_setup @ [BLet (tmp, CSetItem(string_imm, start_imm, finish_imm, ()))])
+      (ImmId(tmp, ()), string_setup @ start_setup @ finish_setup @ [BLet (tmp, CSubstring(string_imm, start_imm, finish_imm, ()))])
     | EPrim1(op, arg, tag) ->
       let tmp = sprintf "unary_%d" tag in
       let (arg_imm, arg_setup) = helpI arg in
