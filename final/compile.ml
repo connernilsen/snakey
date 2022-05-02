@@ -1555,40 +1555,6 @@ and reserve size tag (env : arg name_envt name_envt) curr_env =
     ILabel(ok);
   ]
 
-and reserve_reg (size: Assembly.arg) tag (env : arg name_envt name_envt) curr_env =
-  let ok = sprintf "$memcheck_%d" tag in
-  let callee_saved_regs = 
-    if List.exists (fun (_, sub_ls) ->
-        List.exists (fun (_, reg) -> 
-            List.exists (fun callee_reg -> reg = callee_reg)
-              callee_saved_regs)
-          sub_ls) env
-    then callee_saved_regs
-    else []
-  in 
-  [
-    IMul(size, Const(Int64.of_int word_size));
-    IInstrComment(IMov(Reg(RAX), LabelContents("?HEAP_END")),
-                  sprintf "Reserving %s words" (arg_to_asm size));
-    ISub(Reg(RAX), size);
-    ICmp(Reg(RAX), Reg(heap_reg));
-    IJge(Label ok);
-  ]
-  (* Save callee saved regisers so that we can ensure values stored are copied *)
-  @ backup_saved_registers callee_saved_regs
-  @ (setup_call_to_func env curr_env [
-      (Sized(QWORD_PTR, Reg(heap_reg))); (* alloc_ptr in C *)
-      (Sized(QWORD_PTR, size)); (* bytes_needed in C *)
-      (Sized(QWORD_PTR, Reg(RBP))); (* first_frame in C *)
-      (Sized(QWORD_PTR, Reg(RSP))); (* stack_top in C *)
-    ] (Label "?try_gc") false)
-  @ restore_saved_registers callee_saved_regs
-  @ [
-    IInstrComment(IMov(Reg(heap_reg), Reg(RAX)), "assume gc success if returning here, so RAX holds the new heap_reg value");
-    ILabel(ok);
-  ]
-
-
 and get_env_callee_save_regs env = 
   let rec help env acc =
     match env with 

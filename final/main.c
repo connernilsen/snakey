@@ -638,6 +638,7 @@ SNAKEVAL tostr(SNAKEVAL *val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *o
 {
   if ((*val & STRING_TAG_MASK) == STRING_TAG)
   {
+    // TODO: this either needs to copy the string or signify that the heap ptr should not be updated
     return *val;
   }
   else if ((*val & NUM_TAG_MASK) == NUM_TAG)
