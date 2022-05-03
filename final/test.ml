@@ -309,6 +309,9 @@ let input_tests = [
     "efgh" "abcdefgh";
   tgc "input_almost_too_long" (builtins_size + 2) "input()" "abcdef" "abcdef";
   tgcerr "input_too_long" (builtins_size + 2) "input()" "abcdefg" "out of memory";
+  tgc "gc_after_input" (builtins_size + 8)
+    "let a = (lambda: input()), _ = print(a()), c = \"efgh\" in c"
+    "abcd" "abcdefgh";
 ]
 (* testing todos: ensure register allocation still works *)
 
