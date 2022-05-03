@@ -82,7 +82,6 @@ uint64_t *HEAP;
 uint64_t *HEAP_END;
 
 const int DEBUG_MEM = 0;
-const int STRING_SIZE = 100;
 
 SNAKEVAL set_stack_bottom(uint64_t *stack_bottom)
 {
@@ -345,6 +344,47 @@ uint64_t *reserve_memory(uint64_t *heap_pos, uint64_t size, uint64_t *old_rbp, u
   }
 }
 
+uint64_t *force_gc(uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
+{
+  uint64_t *new_heap = (uint64_t *)calloc(HEAP_SIZE + 15, sizeof(uint64_t));
+  uint64_t *old_heap = HEAP;
+  uint64_t *old_heap_end = HEAP_END;
+
+  uint64_t *new_r15 = (uint64_t *)(((uint64_t)new_heap + 15) & ~0xF);
+  uint64_t *new_heap_end = new_r15 + HEAP_SIZE;
+
+  FROM_S = (uint64_t *)(((uint64_t)HEAP + 15) & ~0xF);
+  FROM_E = HEAP_END;
+  TO_S = new_r15;
+  TO_E = new_heap_end;
+
+  /* printf("FROM_S = %p, FROM_E = %p, TO_S = %p, TO_E = %p\n", FROM_S, FROM_E, TO_S, TO_E); */
+  // naive_print_heap(FROM_S, FROM_E);
+
+  if (DEBUG_MEM)
+  {
+    smarter_print_heap(FROM_S, FROM_E, TO_S, TO_S);
+    printStack(BOOL_TRUE, old_rsp, old_rbp, 0);
+  }
+
+  // Abort early, if we can't allocate a new to-space
+  if (new_heap == NULL)
+  {
+    fprintf(stderr, "Out of memory: could not allocate a new semispace for garbage collection\n");
+    fflush(stderr);
+    if (old_heap != NULL)
+      free(old_heap);
+    exit(ERR_OUT_OF_MEMORY);
+  }
+
+  new_r15 = gc(STACK_BOTTOM, old_rbp, old_rsp, FROM_S, HEAP_END, new_r15);
+  HEAP = new_heap;
+  HEAP_END = new_heap_end;
+  free(old_heap);
+
+  return new_r15;
+}
+
 SNAKEVAL len(uint64_t val)
 {
   if ((val & STRING_TAG_MASK) == STRING_TAG)
@@ -368,31 +408,29 @@ SNAKEVAL len(uint64_t val)
 
 SNAKEVAL input(uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
-  char str[STRING_SIZE];
-  scanf("%s", str);
+  heap_pos = force_gc(heap_pos, old_rbp, old_rsp);
+  char *str = (char *)(heap_pos + 1);
+  uint64_t available_space = (uint64_t)HEAP_END - (uint64_t)str - 1;
+  char fmt_str[30];
+  sprintf(fmt_str, "%%%lds", available_space);
+  scanf(fmt_str, str);
   uint64_t str_len = 0;
-  // TODO: update to handle arbitrary input length
-  for (uint64_t i = 0; i < STRING_SIZE; i++)
+  while (str[str_len] != 0 && str_len < available_space)
   {
-    if (str[i] > 127)
+    if (str[str_len] > 127)
     {
-      error(ERR_INVALID_CHAR, str[i] << 1);
+      char ch = str[str_len] << 1;
+      error(ERR_INVALID_CHAR, ch);
     }
-    if (str[i] == 0)
-    {
-      str_len = i;
-      break;
-    }
+    str[str_len] = str[str_len] << 1;
+    str_len++;
   }
-  uint64_t byte_length = (str_len + 8 - 1) / 8;
-  uint64_t space_len = ((byte_length + 2) / 2) * 2;
-  uint64_t *ptr = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
-  ptr[0] = str_len * 2;
-  for (uint64_t i = 0; i < str_len; i++)
+  if (str_len == available_space)
   {
-    ((uint8_t *)ptr)[i + 8] = (uint8_t)(str[i] << 1);
+    error(ERR_OUT_OF_MEMORY, 0);
   }
-  return ((uint64_t)ptr) + STRING_TAG;
+  heap_pos[0] = str_len << 1;
+  return ((uint64_t)heap_pos) + STRING_TAG;
 }
 
 SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
@@ -1165,41 +1203,7 @@ void error(uint64_t code, SNAKEVAL val)
 */
 uint64_t *try_gc(uint64_t *alloc_ptr, uint64_t bytes_needed, uint64_t *cur_frame, uint64_t *cur_stack_top)
 {
-  uint64_t *new_heap = (uint64_t *)calloc(HEAP_SIZE + 15, sizeof(uint64_t));
-  uint64_t *old_heap = HEAP;
-  uint64_t *old_heap_end = HEAP_END;
-
-  uint64_t *new_r15 = (uint64_t *)(((uint64_t)new_heap + 15) & ~0xF);
-  uint64_t *new_heap_end = new_r15 + HEAP_SIZE;
-
-  FROM_S = (uint64_t *)(((uint64_t)HEAP + 15) & ~0xF);
-  FROM_E = HEAP_END;
-  TO_S = new_r15;
-  TO_E = new_heap_end;
-
-  /* printf("FROM_S = %p, FROM_E = %p, TO_S = %p, TO_E = %p\n", FROM_S, FROM_E, TO_S, TO_E); */
-  // naive_print_heap(FROM_S, FROM_E);
-
-  if (DEBUG_MEM)
-  {
-    smarter_print_heap(FROM_S, FROM_E, TO_S, TO_S);
-    printStack(BOOL_TRUE, cur_stack_top, cur_frame, 0);
-  }
-
-  // Abort early, if we can't allocate a new to-space
-  if (new_heap == NULL)
-  {
-    fprintf(stderr, "Out of memory: could not allocate a new semispace for garbage collection\n");
-    fflush(stderr);
-    if (old_heap != NULL)
-      free(old_heap);
-    exit(ERR_OUT_OF_MEMORY);
-  }
-
-  new_r15 = gc(STACK_BOTTOM, cur_frame, cur_stack_top, FROM_S, HEAP_END, new_r15);
-  HEAP = new_heap;
-  HEAP_END = new_heap_end;
-  free(old_heap);
+  uint64_t *new_r15 = force_gc(alloc_ptr, cur_frame, cur_stack_top);
 
   // Note: strict greater-than is correct here: if new_r15 + (bytes_needed / 8) == HEAP_END,
   // that does not mean we're *using* the byte at HEAP_END, but rather that it would be the
@@ -1209,13 +1213,13 @@ uint64_t *try_gc(uint64_t *alloc_ptr, uint64_t bytes_needed, uint64_t *cur_frame
     fprintf(stderr, "Allocation error: needed %ld words, but the heap is only %ld words\n",
             bytes_needed / sizeof(uint64_t), HEAP_SIZE);
     fflush(stderr);
-    if (new_heap != NULL)
+    if (HEAP != NULL)
     {
       if (DEBUG_MEM)
       {
         smarter_print_heap(FROM_S, FROM_S, TO_S, TO_E);
       }
-      free(new_heap);
+      free(HEAP);
     }
     exit(ERR_OUT_OF_MEMORY);
   }
@@ -1224,13 +1228,13 @@ uint64_t *try_gc(uint64_t *alloc_ptr, uint64_t bytes_needed, uint64_t *cur_frame
     fprintf(stderr, "Out of memory: needed %ld words, but only %ld remain after collection\n",
             bytes_needed / sizeof(uint64_t), (HEAP_END - new_r15));
     fflush(stderr);
-    if (new_heap != NULL)
+    if (HEAP != NULL)
     {
       if (DEBUG_MEM)
       {
         smarter_print_heap(FROM_S, FROM_S, TO_S, TO_E);
       }
-      free(new_heap);
+      free(HEAP);
     }
     exit(ERR_OUT_OF_MEMORY);
   }

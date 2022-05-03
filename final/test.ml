@@ -69,8 +69,8 @@ let tstring_wf = [
   terr "tstring_illegal" "\"é\"" "" "String é at tstring_illegal, 1:3-1:4 contains at least one illegal character.";
   terr "tstring_illegal_2" "\"€\"" "" "String € at tstring_illegal_2, 1:4-1:5 contains at least one illegal character.";
 ]
-let tstring_complex = [
-  (let long = "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
+
+let long = "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
   hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
   hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
   hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
@@ -82,7 +82,22 @@ let tstring_complex = [
   hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
   hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello
   hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello"
-   in t "very_long" ("\"\"\"" ^ long ^ "\"\"\"") "" long);
+;;
+let long_oneline = ("hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello" ^
+                    "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello" ^
+                    "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello" ^
+                    "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello" ^
+                    "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello" ^
+                    "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello" ^
+                    "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello" ^
+                    "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello" ^
+                    "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello" ^
+                    "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello" ^
+                    "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello" ^
+                    "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello")
+;;
+let tstring_complex = [
+  t "very_long" ("\"\"\"" ^ long ^ "\"\"\"") "" long;
   (* todo: string overflow? concat overflow? *)
   t "empty" "let s = \"\" in s" "" "";
   t "big" "let s = \"~\" in s" "" "~";
@@ -284,6 +299,17 @@ let contains_tests = [
   t "contains_incr" "contains(\"a aa aaa aaaa aaaaa\", \"aaaaa\")" "" "true";
   t "contains_incr_2" "contains(\"a aa aaa aaaa aaaaa\", \"aaaaaa\")" "" "false";
 ]
+
+let input_tests = [
+  t "input_basic" "input()" "hello" "hello";
+  t "input_reserve_after" "let a = input(), b = \"abcd\" in a ^ b" "hello" "helloabcd";
+  t "input_long" "let a = input() in a" long_oneline long_oneline;
+  tgc "input_force_alloc" (builtins_size + 8) 
+    "let a = (lambda: \"abcd\"), _ = print(a()), c = input() in c" 
+    "efgh" "abcdefgh";
+  tgc "input_almost_too_long" (builtins_size + 2) "input()" "abcdef" "abcdef";
+  tgcerr "input_too_long" (builtins_size + 2) "input()" "abcdefg" "out of memory";
+]
 (* testing todos: ensure register allocation still works *)
 
 let suite =
@@ -302,6 +328,7 @@ let suite =
   @ join_tests
   @ integration_tests
   @ contains_tests
+  @ input_tests
 
 let () =
   run_test_tt_main ("all_tests">:::[
