@@ -163,11 +163,11 @@ void printHelp(FILE *out, SNAKEVAL val, int verbose)
   {
     uint64_t *addr = (uint64_t *)(val - CLOSURE_TAG);
     fprintf(out, "[%p - 5] ==> <function arity %ld, closed %ld, fn-ptr %p>",
-            (uint64_t *)val, addr[0] / 2, addr[1] / 2, (uint64_t *)addr[2]);
+            (uint64_t *)val, addr[0] / 2, addr[2] / 2, (uint64_t *)addr[1]);
     if (verbose)
     {
       fprintf(out, "\nClosed-over values:\n");
-      for (uint64_t i = 0; i < addr[1] / 2; i++)
+      for (uint64_t i = 0; i < addr[2] / 2; i++)
       {
         if (i > 0)
         {
@@ -334,9 +334,9 @@ SNAKEVAL printStack(SNAKEVAL val, uint64_t *rsp, uint64_t *rbp, uint64_t args)
 
 uint64_t *reserve_memory(uint64_t *heap_pos, uint64_t size, uint64_t *old_rbp, uint64_t *old_rsp)
 {
-  if (heap_pos + size >= HEAP_END)
+  if ((uint64_t)(heap_pos + size) >= (uint64_t)HEAP_END)
   {
-    return try_gc(heap_pos, size, old_rbp, old_rsp);
+    return try_gc(heap_pos, size * sizeof(uint64_t), old_rbp, old_rsp);
   }
   else
   {
