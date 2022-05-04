@@ -12,7 +12,7 @@ open Pretty
 open Graph
 
 let te ?input:(input="") name program expected_err = name>::test_err ~std_input:input ~vg:false Naive program name expected_err;;
-let t name program input expected = name>::test_run ~args:[] ~std_input:input ~skip_newline:true Naive program name expected;;
+let t name program input expected = name>::test_run_strats ~args:[] ~std_input:input ~skip_newline:true program name expected;;
 let tr name program input expected = name>::test_run ~args:[] ~std_input:input ~skip_newline:true Register program name expected;;
 let ta name program input expected = name>::test_run_anf ~args:[] ~std_input:input program name expected;;
 let tgc name heap_size program input expected = name>::test_run ~args:[string_of_int heap_size] ~std_input:input ~skip_newline:true Naive program name expected;;
