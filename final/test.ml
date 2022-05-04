@@ -191,6 +191,7 @@ let conversions_and_istype = [
   t "get_char_long" "get_ascii_char(\"abcd\", 3)" "" "100";
   te "get_char_not_str" "get_ascii_char(false, 3)" "Value not a string";
   te "get_char_not_num" "get_ascii_char(\"false\", \"a\")" "substring expected num";
+  t "print_newlines" "print(\"hello\\nworld\")" "" "hello\nworldhello\nworld"
 ]
 
 let tconcat = [
@@ -206,7 +207,7 @@ let tconcat = [
   t "concat_let_2" "let a = \"abc\", b = \"def\", c = \"ghijkl\" in let d = a ^ b ^ c in d ^ a" "" "abcdefghijklabc";
   t "concat_equality" "let a = \"abc\" in equal(a ^ a, a ^ a)" "" "true";
   t "concat_equality_2" "let a = \"abc\", b = \"abc\" in equal(a ^ b, b ^ a)" "" "true";
-  tgc "concat_gc" (builtins_size + 12) "let a = (lambda: \"123456\") in (print(a()); \"abc\" ^ \"def\")" "" "123456abcdef";
+  tgc "concat_gc" (builtins_size + 10) "let a = (lambda: print(\"123456\")) in (a(); \"abc\" ^ \"def\")" "" "123456abcdef";
 ]
 
 let tsubstr = [

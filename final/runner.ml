@@ -216,20 +216,20 @@ let test_run ?no_builtins:(no_builtins=false) ?args:(args=[]) ?std_input:(std_in
     with err -> Error(Printexc.to_string err) in
   assert_equal (Ok(expected ^ (if skip_newline then "" else "\n"))) result ~cmp:cmp ~printer:result_printer
 
-let test_run_strats ?no_builtins:(no_builtins=false) ?args:(args=[]) ?std_input:(std_input="") program_str outfile expected ?cmp:(cmp=(=)) test_ctxt =
+let test_run_strats ?no_builtins:(no_builtins=false) ?args:(args=[]) ?std_input:(std_input="") ?skip_newline:(skip_newline=false) program_str outfile expected ?cmp:(cmp=(=)) test_ctxt =
   let full_outfile = "output/" ^ outfile in
   let result1 =
     try
       let program = parse_string outfile program_str in
       run program (full_outfile ^ "_stack") run_no_vg no_builtins args std_input Naive
     with err -> Error(Printexc.to_string err) in
-  assert_equal (Ok(expected ^ "\n")) result1 ~cmp:cmp ~printer:result_printer;
+  assert_equal (Ok(expected ^ (if skip_newline then "" else "\n"))) result1 ~cmp:cmp ~printer:result_printer;
   let result2 =
     try
       let program = parse_string outfile program_str in
       run program (full_outfile ^ "_register") run_no_vg no_builtins args std_input Register
     with err -> Error(Printexc.to_string err) in
-  assert_equal (Ok(expected ^ "\n")) result2 ~cmp:cmp ~printer:result_printer
+  assert_equal (Ok(expected ^ (if skip_newline then "" else "\n"))) result2 ~cmp:cmp ~printer:result_printer
 
 let test_run_anf ?args:(args=[]) ?std_input:(std_input="") program_anf outfile expected ?cmp:(cmp=(=))  test_ctxt =
   let full_outfile = "output/" ^ outfile in

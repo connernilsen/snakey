@@ -24,7 +24,7 @@ let check_name (name : string) : string =
   else name
 ;;
 
-let t name program expected = name>::test_run_strats program name expected;;
+let t name program expected = name>::test_run_strats  ~skip_newline:true program name expected;;
 
 let tcontains name program expected = name>::test_run ~args:[] Naive program name expected ~cmp:(fun check result ->
     match check, result with
@@ -32,7 +32,7 @@ let tcontains name program expected = name>::test_run ~args:[] Naive program nam
     | _ -> false
   );;
 
-let ti name program input expected = (check_name name)>::test_run ~args:[] ~std_input:input Naive program name expected;;
+let ti name program input expected = (check_name name)>::test_run ~skip_newline:true ~args:[] ~std_input:input Naive program name expected;;
 
 let ta name program_and_env expected = name>::test_run_anf program_and_env name expected;;
 
@@ -60,12 +60,12 @@ let teprog (filename : string) (expected : string) = filename>::test_err_input f
 
 let tdesugar (name : string) (program : string) (expected : string) = name>:: fun _ ->
     assert_equal (expected ^ "\n") (string_of_program (desugar (parse_string name program))) ~printer:(fun s->s);;
-let tgc name heap_size program input expected = name>::test_run ~args:[string_of_int heap_size] ~std_input:input Naive program name expected;;
-let tvgc name heap_size program input expected = name>::test_run_valgrind ~args:[string_of_int heap_size] ~std_input:input Naive program name expected;;
+let tgc name heap_size program input expected = name>::test_run ~skip_newline:true ~args:[string_of_int heap_size] ~std_input:input Naive program name expected;;
+let tvgc name heap_size program input expected = name>::test_run_valgrind ~skip_newline:true ~args:[string_of_int heap_size] ~std_input:input Naive program name expected;;
 let terr name program input expected = name>::test_err ~args:[] ~std_input:input Naive program name expected;;
 let tgcerr name heap_size program input expected = name>::test_err ~args:[string_of_int heap_size] ~std_input:input Naive program name expected;;
 
-let tvg name program expected = name>::test_run_valgrind Naive program name expected;;
+let tvg name program expected = name>::test_run_valgrind ~skip_newline:true Naive program name expected;;
 let teq_notstring name actual expected = (check_name name)>::fun _ ->
     assert_equal expected actual;;
 let teq_num name actual expected = (check_name name)>::fun _ ->
@@ -138,10 +138,10 @@ let old_tests =
     t "false" "false" "false";
     t "not_true" "!(true)" "false";
     t "not_false" "!(false)" "true";
-    t "print" "print(40)" "40\n40";
-    t "print2" "let _ = print(40) in 40" "40\n40";
-    t "print3" "let x = print(40) in x" "40\n40";
-    t "print4" "let x = print(40) in print(x)" "40\n40\n40";
+    t "print" "print(40)" "4040";
+    t "print2" "let _ = print(40) in 40" "4040";
+    t "print3" "let x = print(40) in x" "4040";
+    t "print4" "let x = print(40) in print(x)" "404040";
     t "isbool" "isbool(40)" "false";
     t "isboolT" "isbool(true)" "true";
     t "isnumT" "isnum(40)" "true";
@@ -384,78 +384,6 @@ let old_tests =
       ("((let x = 10, z = (let shadow x = (x + 1), y = (x * 2) in x - y), " ^
        "y = (if isnum(z): 1 else: z) in (if (sub1(sub1(y)) == sub1(y)): z else: (z - y))) - " ^
        "(if (let abcd = true in abcd): 11 else: -11))") "-23";
-
-    (* "setup_call_to_func_1">::(fun _ -> 
-        assert_equal [ICall(Label("label"))] 
-          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
-               (setup_call_to_func [] "" [] (Label("label")) false)) ~printer:to_asm);
-       "setup_call_to_func_2">::(fun _ ->
-        assert_equal [IMov(Reg(RDI), Const(1L)); ICall(Label("label"))]
-          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
-               (setup_call_to_func [] "" [Const(1L)] (Label("label")) false)) ~printer:to_asm);
-       "setup_call_to_func_3">::(fun _ -> 
-        assert_equal [
-          IMov(Reg(RDI), Const(1L));
-          IMov(Reg(RSI), Const(2L));
-          IMov(Reg(RDX), Const(3L));
-          IMov(Reg(RCX), Const(4L));
-          IMov(Reg(R8), Const(5L));
-          IMov(Reg(R9), Const(6L));
-          ICall(Label("label"))]
-          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
-               (setup_call_to_func [] ""
-                  [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L)] 
-                  (Label("label")) false)) ~printer:to_asm);
-       "setup_call_to_func_4">::(fun _ -> 
-        assert_equal [
-          IPush(Const(62L));
-          IMov(Reg(RDI), Const(1L));
-          IMov(Reg(RSI), Const(2L));
-          IMov(Reg(RDX), Const(3L));
-          IMov(Reg(RCX), Const(4L));
-          IMov(Reg(R8), Const(5L));
-          IMov(Reg(R9), Const(6L));
-          IPush(Const(7L));
-          ICall(Label("label"));
-          IAdd(Reg(RSP), Const(16L))]
-          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
-               (setup_call_to_func [] ""
-                  [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L)] 
-                  (Label("label")) false)) ~printer:to_asm);
-       "setup_call_to_func_5">::(fun _ -> 
-        assert_equal [
-          IMov(Reg(RDI), Const(1L));
-          IMov(Reg(RSI), Const(2L));
-          IMov(Reg(RDX), Const(3L));
-          IMov(Reg(RCX), Const(4L));
-          IMov(Reg(R8), Const(5L));
-          IMov(Reg(R9), Const(6L));
-          IPush(Const(8L));
-          IPush(Const(7L));
-          ICall(Label("label"));
-          IAdd(Reg(RSP), Const(16L))]
-          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
-               (setup_call_to_func [] ""
-                  [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L)] 
-                  (Label("label")) false)) ~printer:to_asm);
-       "setup_call_to_func_6">::(fun _ -> 
-        assert_equal [
-          IPush(Const(62L));
-          IMov(Reg(RDI), Const(1L));
-          IMov(Reg(RSI), Const(2L));
-          IMov(Reg(RDX), Const(3L));
-          IMov(Reg(RCX), Const(4L));
-          IMov(Reg(R8), Const(5L));
-          IMov(Reg(R9), Const(6L));
-          IPush(Const(9L));
-          IPush(Const(8L));
-          IPush(Const(7L));
-          ICall(Label("label"));
-          IAdd(Reg(RSP), Const(32L))]
-          (List.filter (fun arg -> match arg with | ILineComment(_) -> false | _ -> true)
-               (setup_call_to_func [] ""
-                  [Const(1L); Const(2L); Const(3L); Const(4L); Const(5L); Const(6L); Const(7L); Const(8L); Const(9L)] 
-                  (Label("label")) false)) ~printer:to_asm); *)
     tanf_improved "let_in_prim"
       "add1(let x = 5 in x)"
       "(alet x = 5 in add1(x))";
@@ -601,7 +529,7 @@ test(1, 2)"
       "def double_print(val):
       print(print(val))
     double_print(123)"
-      "123\n123\n123";
+      "123123123";
     t "recursion"
       "def print_dec(x):
       if x <= 0:
@@ -609,7 +537,7 @@ test(1, 2)"
       else:
         print_dec(sub1(print(x)))
     print_dec(7)"
-      "7\n6\n5\n4\n3\n2\n1\n0\n0";
+      "765432100";
     t "recursion-2"
       "def print_dec(x):
       if x <= 0:
@@ -620,7 +548,7 @@ test(1, 2)"
       "0";
     t "if_print_stmts"
       "if print(true): print(true) else: print(false)"
-      "true\ntrue\ntrue";
+      "truetruetrue";
     t "mutually_recursive"
       "def abs_dec(num):
       if num == 0:
@@ -644,7 +572,7 @@ test(1, 2)"
             pos = t1(false, dec_num) in 
             neg || pos
     t1(false, 4)"
-      "4\n-3\n2\n-1\n1\n-2\n1\n-1\n3\n-2\n1\n-1\n2\n-1\n1\ntrue";
+      "4-32-11-21-13-21-12-11true";
     te "eventual_error"
       "def abs_dec(num):
       if num == 0:
@@ -682,7 +610,7 @@ test(1, 2)"
         x && isnum(y) && isbool(z)
         && isnum(n) && isbool(b)
     f2(5, false)"
-      "false\n5\ntrue\n5\nfalse\ntrue";
+      "false5true5falsetrue";
     t "mutual_recursion_swap_args_and_counter"
       "def f1(b, n, i):
       if i == 10:
@@ -693,7 +621,7 @@ test(1, 2)"
     and def f2(n, b, i):
         f1(b, n, i)
     f2(5, false, 0)"
-      "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\ntrue";
+      "0123456789true";
     tvg "valgrind_mutual"
       "def f1(b, n, i):
       if i == 10:
@@ -704,7 +632,7 @@ test(1, 2)"
     and def f2(n, b, i):
         f1(b, n, i)
     f2(5, false, 0)"
-      "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\ntrue";
+      "0123456789true";
     tvg "valgrind_swap_tail_recursive"
       "def f1(a, b, c, i):
       if (a == 10) && (b == a) && (c == a):
@@ -740,10 +668,10 @@ test(1, 2)"
       "true";
     t "short_circuit_let_and"
       "let x = print(6) in false && x"
-      "6\nfalse";
+      "6false";
     t "short_circuit_let_or"
       "let x = print(6) in true || x"
-      "6\ntrue";
+      "6true";
     t "short_circuit_def_and"
       "def run(run): print(run)
     false && run(6)"
@@ -1208,9 +1136,9 @@ test(1, 2)"
     ti "expr_within_tuple_2" "(1 + 1, add1(2))" ""
       "(2, 3)";
     ti "print_within_tuple" "(print(2), add1(2))" ""
-      "2\n(2, 3)";
+      "2(2, 3)";
     ti "print_of_tuple_within_tuple" "(print((2, 3)), add1(2))" ""
-      "(2, 3)\n((2, 3), 3)";
+      "(2, 3)((2, 3), 3)";
     ti "get_value_from_tuple_0" "(1, 2, 3, 4, 5)[0]" "" "1";
     ti "get_value_from_tuple_1" "(1, 2, 3, 4, 5)[1]" "" "2";
     ti "get_value_from_tuple_2" "(1, 2, 3, 4, 5)[2]" "" "3";
@@ -1234,7 +1162,7 @@ test(1, 2)"
     ti "get_value_from_tuple_expr_set" "(1, 2, 3, 4, 5)[add1(3)] := 3" "" "3";
     ti "get_value_from_tuple_expr2_set" "(1, 2, 3, 4, 5)[sub1(1)] := 3" "" "3";
     ti "get_value_from_tuple_expr2_set_tuple" "(1, 2, 3, 4, 5)[sub1(1)] := (1, 2, 3)" "" "(1, 2, 3)";
-    ti "unchanged_modify_new_tuples" "print((1, 2, 3, 4, 5)); (1, 2, 3, 4, 5)[sub1(1)] := (1, 2, 3); (1, 2, 3, 4, 5)" "" "(1, 2, 3, 4, 5)\n(1, 2, 3, 4, 5)";
+    ti "unchanged_modify_new_tuples" "print((1, 2, 3, 4, 5)); (1, 2, 3, 4, 5)[sub1(1)] := (1, 2, 3); (1, 2, 3, 4, 5)" "" "(1, 2, 3, 4, 5)(1, 2, 3, 4, 5)";
     terr "get_value_from_tuple_low_idx_set" "(1, 2, 3, 4, 5)[-1] := 3" "" "index too small to get, got -1";
     terr "get_value_from_tuple_low_idx_expr_set" "(1, 2, 3, 4, 5)[sub1(0)] := 3" "" "index too small to get, got -1";
     terr "get_value_from_tuple_high_idx_set" "(1, 2, 3, 4, 5)[5] := 3" "" "index too large to get, got 5";
@@ -1261,8 +1189,8 @@ test(1, 2)"
     ti "isbool_nil" "isbool(())" "" "false";
     ti "isnum_tuple" "isnum((1, 2))" "" "false";
     ti "isnum_nil" "isnum(())" "" "false";
-    ti "input1" "let x = input() in x + 2" "123" "125";
-    ti "input_print_int" "print(input())" "5" "5\n5";
+    ti "input1" "let x = tonum(input()) in x + 2" "123" "125";
+    ti "input_print_int" "print(input())" "5" "55";
     ti "tup1" "let t = (4, (5, 6)) in
               t[0] := 7;
               t" "" "(7, (5, 6))";
@@ -1302,14 +1230,14 @@ test(1, 2)"
       "" "unable to destructure tuple with incorrect length, got (1, 2)";
     terr "tuple_destructure_invalid_2" "let (a, b) = (1, 2, 3) in (a, b)" "" "";
     terr "tuple_destructure_invalid_3" "let temp = (1, 2, 3), (a, b) = temp in (a, b)" "" "";
-    ti "let_blank" "let _ = print(5 * 5) in print(3)" "" "25\n3\n3";
+    ti "let_blank" "let _ = print(5 * 5) in print(3)" "" "2533";
     ti "tuple_modification"
       "let t = (1, 2, 3, 4),
          a = t[1],
          b = t[1] := t[a],
          _ = t[0] := a in
          print(t); print(a); print(b)" ""
-      "(2, 3, 3, 4)\n2\n3\n3";
+      "(2, 3, 3, 4)233";
     ti "tuple_double_modify"
       "let t = (1, 2, 3, 4) in
          t[0] := t[1];
@@ -1331,16 +1259,16 @@ test(1, 2)"
     ti "destructure_print"
       "let (a, _, c) = (1, print(2), 5) in (a, c)"
       ""
-      "2\n(1, 5)";
+      "2(1, 5)";
     ti "destructure_print_nested"
       "let (a, (b, _), c) = (1, (2, print(2)), 5) in (a, c)"
       ""
-      "2\n(1, 5)";
+      "2(1, 5)";
     ti "destructure_not_nested" 
       "let (a, b, c, d) = (1, (2, 3), (4, 5, 6), ()) in 
       print(a); print(b); print(c); d"
       ""
-      "1\n(2, 3)\n(4, 5, 6)\n()";
+      "1(2, 3)(4, 5, 6)()";
     ti "let_empty_pair"
       "let a = () in a"
       ""
@@ -1359,7 +1287,7 @@ test(1, 2)"
          b = (a, 2, 3) in
       a[1] := b; print(b); a"
       ""
-      "((1, <cyclic tuple 1>, 3), 2, 3)\n(1, (<cyclic tuple 3>, 2, 3), 3)";
+      "((1, <cyclic tuple 1>, 3), 2, 3)(1, (<cyclic tuple 3>, 2, 3), 3)";
     ti "print_cyclic_tuple_3"
       "let a = (nil, nil, nil),
          b = (nil, nil, a),
@@ -1420,10 +1348,10 @@ test(1, 2)"
     ti "let_with_print"
       "let x = print(1) in isnum(x)"
       ""
-      "1\ntrue";
-    ti "print_add" "print(5 * 5) ; 5 - 2" "" "25\n3";
+      "1true";
+    ti "print_add" "print(5 * 5) ; 5 - 2" "" "253";
     ti "add_twice" "5 * 5 ; 5 - 2" "" "3";
-    ti "sequencing" "print(5 * 5); print(3)" "" "25\n3\n3";
+    ti "sequencing" "print(5 * 5); print(3)" "" "2533";
     terr "overflow" "def f(a): if (a == 0): true else: f(a - 1)\nf(-1)" "" "Signalled with -10 while running output/overflow.";
     tcontains "compile_lambda_1_noapp" "(lambda (x): x)" "function";
     tcontains "compile_lambda_2_noapp" "(lambda (x): (lambda (x): x))" "function";
@@ -1517,7 +1445,7 @@ The identifier a, used at <def_no_shadow, 4:2-4:3>, is not in scope";
       b = (lambda(y): print(y); isdone(y))
       in b) in
     a(1)(4)"
-      "4\n3\n2\n1\n0";
+      "43210";
     t "let_in_lambda"
       "(lambda: let a = 5 in a)()"
       "5";
@@ -1582,14 +1510,14 @@ The identifier a, used at <def_no_shadow, 4:2-4:3>, is not in scope";
       "The identifier x, redefined at <wf_letrec_body_error, 1:23-1:24>, duplicates one at <wf_letrec_body_error, 1:20-1:21>
 The identifier x, redefined at <wf_letrec_body_error, 1:23-1:24>, duplicates one at <wf_letrec_body_error, 1:20-1:21>
 The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
-    t "compile_native_1" "let _ = print(10) in print(100)" "10\n100\n100";
-    t "compile_native_2" "let a = print((1, 2, 3)) in equal(a, (1, 2, 3))" "(1, 2, 3)\ntrue";
-    t "compile_native_in_closure_let" "let a = (lambda (y): print(y)) in a(6)" "6\n6";
-    t "compile_native_in_closure_noarg" "(lambda: print(6))()" "6\n6";
-    t "compile_native_in_closure" "(lambda (y): print(y))(6)" "6\n6";
+    t "compile_native_1" "let _ = print(10) in print(100)" "10100100";
+    t "compile_native_2" "let a = print((1, 2, 3)) in equal(a, (1, 2, 3))" "(1, 2, 3)true";
+    t "compile_native_in_closure_let" "let a = (lambda (y): print(y)) in a(6)" "66";
+    t "compile_native_in_closure_noarg" "(lambda: print(6))()" "66";
+    t "compile_native_in_closure" "(lambda (y): print(y))(6)" "66";
     t "compile_native_in_closure_temp" "let f = (lambda (x): x) in (lambda (y): f(y))(6)" "6";
-    t "compile_native_in_closure_multiple_args" "(lambda (x, y): print(y))(1, 6)" "6\n6";
-    t "compile_native_in_closure_more_args" "(lambda (x, y, z): print(z))(1, 1, 6)" "6\n6";
+    t "compile_native_in_closure_multiple_args" "(lambda (x, y): print(y))(1, 6)" "66";
+    t "compile_native_in_closure_more_args" "(lambda (x, y, z): print(z))(1, 1, 6)" "66";
     tcontains "print_stack" "printStack(1)" "Num args: 0";
     ti "compile_native_as_free" "let a = input in a()" "1" "1";
     ti "compile_input" "input()" "5" "5";
@@ -1599,8 +1527,8 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
     terr "arg_count_native_low" "equal(1)" "" "expected an arity of 2, but received 1 arguments";
     terr "arg_count_native_high" "equal(1, 2, 3)" "" "expected an arity of 2, but received 3 arguments";
     terr "print_arity" "print(1, 2)" "" "Parse error at line 1, col 8: token `,`";
-    t "sequencing_1" "print(1); print(2)" "1\n2\n2";
-    t "sequencing_2" "let _ = print(1) in print(2)" "1\n2\n2";
+    t "sequencing_1" "print(1); print(2)" "122";
+    t "sequencing_2" "let _ = print(1) in print(2)" "122";
     t "compile_lambda_recursion"
       "let rec y = (lambda(arg): if arg == 0: 0 else: 1 + y(arg - 1)) in y(4)"
       "4";
@@ -1617,10 +1545,10 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
     t "nested_lambda" "(lambda: (lambda: 1)())()" "1";
     t "free_in_nested_fun" "let x = 5 in (lambda: (lambda: x)())()" "5";
     t "prim1_in_lambda" "(lambda: 1 + 1)()" "2";
-    ti "input0" "input() + 2" "123" "125";
-    t "print0" "print(125) + 2" "125\n127";
-    ti "input1" "let x = input() in x + 2" "123" "125";
-    ti "input2" "let x = input() in print(x + 2)" "123" "125\n125";
+    ti "input0" "tonum(input()) + 2" "123" "125";
+    t "print0" "print(125) + 2" "125127";
+    ti "input2" "let x = tonum(input()) in x + 2" "123" "125";
+    ti "input3" "let x = tonum(input()) in print(x + 2)" "123" "125125";
     tgc "gc_lam1" (10 + builtins_size)
       "let f = (lambda: (1, 2)) in
   begin
@@ -1637,7 +1565,7 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
               c = (3,) in 
   print(c);
   a" ""
-      "(3, )\n(1, 2, nil)";
+      "(3, )(1, 2, nil)";
     tgc "gcc_many_refs" (16 + builtins_size)
       "let x = (5,), # 2
           y = (1, nil), # 4
@@ -1649,8 +1577,7 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
           print(x);
   print(y);
   z" ""
-      "(5, )\n(1, (3, (5, ), <cyclic tuple 3>, <cyclic tuple 2>))
-(3, (5, ), <cyclic tuple 5>, (1, <cyclic tuple 5>))";
+      "(5, )(1, (3, (5, ), <cyclic tuple 3>, <cyclic tuple 2>))(3, (5, ), <cyclic tuple 5>, (1, <cyclic tuple 5>))";
     tgc "copy_lambda_values" (18 + builtins_size)
       "let x = (lambda(x): 
           let y = (1, 2, x), 
@@ -1660,7 +1587,7 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
               b = (8, 9, 10) in 
           print(b);
           a(1)" ""
-      "(8, 9, 10)\n(1, 2, 123)";
+      "(8, 9, 10)(1, 2, 123)";
 
     tgc "one_hundred_gecs" (4 + 100 * 2 + builtins_size)
       "let rec x = (lambda(n): if n == 0: n else: let f = (1,) in x(n - 1))
@@ -1685,14 +1612,17 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
       "let f = ((lambda: 5),) in 
       (lambda(x): print((x, )))(4);
       print((6, 7, 8));
-      f[0]()"  "" "(4, )\n(6, 7, 8)\n5";
+      f[0]()"  "" "(4, )(6, 7, 8)5";
     tgcerr "oomgc1" (7 + builtins_size) "(1, (3, 4))" "" "Out of memory";
     tgc "oomgc2" (8 + builtins_size) "(1, (3, 4))" "" "(1, (3, 4))";
     tvgc "oomgc3" (8 + builtins_size) "(1, (3, 4))" "" "(1, (3, 4))";
     tvgc "oomgc4" (4 + builtins_size) "(3, 4)" "" "(3, 4)";
-    tgcerr "oomgc5" (3 + builtins_size) "(1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4)" "" "Allocation";
-    tgcerr "oomgc5_in_let" (3 + builtins_size) "let x = (1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4) in x" "" "Allocation";
-    tgcerr "oomgc5_in_blank_let" (3 + builtins_size) "let _ = (1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4) in 1" "" "Allocation";
+    tgcerr "oomgc5" builtins_size 
+      (sprintf "tuple(%d)" (builtins_size * 4 + 1)) "" "Allocation";
+    tgcerr "oomgc5_in_let" builtins_size
+      (sprintf "let x = tuple(%d) in x" (builtins_size * 4 + 1)) "" "Allocation";
+    tgcerr "oomgc5_in_blank_let" builtins_size 
+      (sprintf "let _ = tuple(%d) in 1" (builtins_size * 4 + 1)) "" "Allocation";
     tgc "oomgc6" (6 + builtins_size)
       "let a = (1, 2, nil),
           _ = a[2] := a,
@@ -1700,7 +1630,7 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
           c = (3,) in 
           print(c);
           a" ""
-      "(3, )\n(1, 2, <cyclic tuple 2>)";
+      "(3, )(1, 2, <cyclic tuple 2>)";
     tgcerr "oomgc7" (5 + builtins_size)
       "let a = (1, 2, nil),
           _ = a[2] := a,
@@ -1728,7 +1658,7 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
                     ctr1[0]) in
                 fn1)(1) in 
         fn(1)" ""
-      "9\n72\n50";
+      "97250";
     tgcerr "oomgc9" (16 + builtins_size)
       "let ctr1 = (8,), # 2
           fn = (lambda(dummy):
@@ -1772,7 +1702,7 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
         print(fn(1));
         print(ctr1);
         (1, 2, 3)" ""
-      "9\n72\n50\n(50, )\n(1, 2, 3)";
+      "97250(50, )(1, 2, 3)";
     tgc "oomgc11" (16 + builtins_size)
       "let ctr1 = (8,), # 2
           fn = (lambda(dummy):
@@ -1794,7 +1724,7 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
         print(fn(1));
         print(ctr1);
         (1, 2, 3)" ""
-      "9\n(50, )\n(1, 2, 3)";
+      "9(50, )(1, 2, 3)";
     tgcerr "oomgc12" (15 + builtins_size)
       "let ctr1 = (8,), # 2
           fn = (lambda(dummy):
@@ -1857,7 +1787,7 @@ The identifier b, used at <wf_letrec_body_error, 1:33-1:34>, is not in scope";
       print(x);
       print((4, 5, 6));
       x"
-      "" "(1, 2, (1, 2, 3))\n(1, 2, 5)\n(4, 5, 6)\n(1, 2, 5)";
+      "" "(1, 2, (1, 2, 3))(1, 2, 5)(4, 5, 6)(1, 2, 5)";
     tgcerr "tuple_replace_memory_invalid" (8 + builtins_size) 
       "let x = (1, 2, (1, 2, 3)) in
          (4,)"
