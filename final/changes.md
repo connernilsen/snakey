@@ -1,12 +1,12 @@
 # Strings in Racer
 
 # String Representation
-- SNAKEVAL strings are similar to tuples with a string length at the 
-  immediate string location representing the number of characters in the string
+- SNAKEVAL strings are a special type of tagged tuples where the values in the tuple are 
+  snake nums representing the first 7 ascii bits of the character (we don't support ascii > 127). 
 - Since each character is between `0` and `2^7`, each character value is doubled to ensure
-  it will be a valid snake num during garbage collection
-- For efficiency, each 8-byte offset in the string starting after the initial length value
-  contains 8 characters, filling the offset sequentially from start to end
+  it will be a valid snake num during garbage collection (since we do BFS GC). 
+- For efficiency, each 8-byte offset in the string starting after the length
+  contains 8 1-byte characters, filling the offset sequentially from start to end
 
 # Tag Updates
 - All tag masks except for numbers were extended from `0x7` to `0xf`
@@ -19,6 +19,7 @@
 - Conversion Prim1s were added to convert between Strings, numbers, and bools
 - Convenience `Tuple` Prim1 added to easily create tuples of a given length initialized to 0
 - String operation Prim2s added for `Concat`, `Split`, and `Join`
+- split, join, and concat prim2s were added since they require extra arg passing than the native funs
 - New `ESubstring` and `CSubstring` AST types added to allow string operations using Python substr syntax
 
 # Lexer and Parser Updates
