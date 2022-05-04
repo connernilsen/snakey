@@ -332,6 +332,14 @@ SNAKEVAL printStack(SNAKEVAL val, uint64_t *rsp, uint64_t *rbp, uint64_t args)
   return val;
 }
 
+/**
+ * Reserves memory from within the C runtime. Similar to try_gc, this function
+ * will return a heap pointer pointing to the next available location that can store
+ * the given amount of data.
+ *
+ * NOTE: size should be the number of words required, not the number of bytes
+ * NOTE: anything that calls this needs to update R15 after returning
+ */
 uint64_t *reserve_memory(uint64_t *heap_pos, uint64_t size, uint64_t *old_rbp, uint64_t *old_rsp)
 {
   if ((uint64_t)(heap_pos + size) >= (uint64_t)HEAP_END)
@@ -344,6 +352,11 @@ uint64_t *reserve_memory(uint64_t *heap_pos, uint64_t size, uint64_t *old_rbp, u
   }
 }
 
+/**
+ * Forces a GC pass. Unlike try_gc (which calls this), this function
+ * does not try to check the required amount of space and just
+ * performs copying/collection immediately.
+ */
 uint64_t *force_gc(uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
   uint64_t *new_heap = (uint64_t *)calloc(HEAP_SIZE + 15, sizeof(uint64_t));
@@ -385,6 +398,9 @@ uint64_t *force_gc(uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
   return new_r15;
 }
 
+/**
+ * Get the length of the given value. Only works on strings and tuples.
+ */
 SNAKEVAL len(uint64_t val)
 {
   if ((val & STRING_TAG_MASK) == STRING_TAG)
@@ -406,48 +422,73 @@ SNAKEVAL len(uint64_t val)
   }
 }
 
+/**
+ * Reads in an arbitrary length input (assuming enough memory is available) as a string.
+ *
+ * NOTE: If the read in string is >= 1 - the remaining amount of memory, an oome will
+ * be raised
+ */
 SNAKEVAL input(uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
+  // force gc immediately to be able to read in as much data into a string as possible
   heap_pos = force_gc(heap_pos, old_rbp, old_rsp);
+  // data should be read in at the next heap_pos offset, accounting for the string length value too
   char *str = (char *)(heap_pos + 1);
+  // the amount of space available for scanf to read into, accounting for an extra \0 char
   uint64_t available_space = (uint64_t)HEAP_END - (uint64_t)str - 1;
   char fmt_str[30];
+  // create a format string that won't write past the end of the heap
   sprintf(fmt_str, "%%%lds", available_space);
   scanf(fmt_str, str);
   uint64_t str_len = 0;
-  while (str[str_len] != 0 && str_len < available_space)
+  // keep looping until \0 is reached
+  while (str[str_len] != 0)
   {
+    // ensure valid char value
     if (str[str_len] > 127)
     {
       char ch = str[str_len] << 1;
       error(ERR_INVALID_CHAR, ch);
     }
+    // double char value and update length count
     str[str_len] = str[str_len] << 1;
     str_len++;
   }
+  // throw oome if we reached the end of the heap
   if (str_len == available_space)
   {
     error(ERR_OUT_OF_MEMORY, 0);
   }
+  // write the length and return
   heap_pos[0] = str_len << 1;
   return ((uint64_t)heap_pos) + STRING_TAG;
 }
 
+/**
+ * Concat 2 strings.
+ *
+ * NOTE: Two strings should be passed in as uint64_t**s on the stack, so that
+ * they can still be dereferenced after gc.
+ */
 SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
+  // get the strings and their lengths
   uint64_t *str1 = (uint64_t *)(strings_loc[1] - STRING_TAG);
   uint64_t *str2 = (uint64_t *)(strings_loc[0] - STRING_TAG);
   uint64_t str1_len = *str1 >> 1;
   uint64_t str2_len = *str2 >> 1;
 
+  // get the number of bytes and words needed
   uint64_t byte_length = (str1_len + str2_len + 8 - 1) / 8;
   uint64_t space_len = ((byte_length + 2) / 2) * 2;
 
   uint64_t *ptr = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
 
+  // re-get the strings, since their locations may have changed during gc
   str1 = (uint64_t *)(strings_loc[1] - STRING_TAG);
   str2 = (uint64_t *)(strings_loc[0] - STRING_TAG);
 
+  // set the resulting length and copy the strings into their destinations
   *ptr = (str1_len + str2_len) << 1;
   for (uint64_t i = 0; i < str1_len; i++)
   {
@@ -460,9 +501,17 @@ SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_rbp, ui
   return ((uint64_t)ptr) + STRING_TAG;
 }
 
+/**
+ * Get the substring of a string given by string_loc, from characters start to finish.
+ *
+ * NOTE: The string should be passed in as uint64_t**s on the stack, so that
+ * it can still be dereferenced after gc.
+ */
 SNAKEVAL substr(uint64_t *string_loc, uint64_t start, uint64_t finish, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
+  // get the string location from the stack
   uint64_t *string = (uint64_t *)(string_loc[0] - STRING_TAG);
+  // get the lengths and offsets as ints
   uint64_t str_len = *string >> 1;
   start >>= 1;
   finish >>= 1;
@@ -477,8 +526,10 @@ SNAKEVAL substr(uint64_t *string_loc, uint64_t start, uint64_t finish, uint64_t 
   uint64_t space_len = ((byte_length + 2) / 2) * 2;
 
   uint64_t *ptr = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
+  // re-get the string, since its location may have changed during gc
   string = (uint64_t *)(string_loc[0] - STRING_TAG);
 
+  // set the length and copy the values
   *ptr = new_str_len << 1;
   for (uint64_t i = 0; i < new_str_len; i++)
   {
@@ -487,15 +538,36 @@ SNAKEVAL substr(uint64_t *string_loc, uint64_t start, uint64_t finish, uint64_t 
   return ((uint64_t)ptr) + STRING_TAG;
 }
 
+/**
+ * Return a formatted string using a format specifier and string values to interpolate in.
+ * Values should be a tuple of strings (0 or more), where the first string is a format specifier
+ * containing exactly '{}' where values should be interpolated in order.
+ * The number of '{}' instances in the format string should match the number of values to interpolate.
+ *
+ * NOTE: The values should be passed in as uint64_t**s on the stack, so that
+ * it can still be dereferenced after gc.
+ */
 SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
+  // ensure a string is passed in
   if ((*values & TUPLE_TAG_MASK) != TUPLE_TAG)
   {
     error(ERR_INVALID_FORMAT_VALUES, *values);
   }
+  // re-get the string tuple, since its location may have changed during gc
   uint64_t *addr = (uint64_t *)(*values - TUPLE_TAG);
+  // get the length of format specifier and interpolate values
   uint64_t len = addr[0] >> 1;
+  // return with an empty string immediately if there is nothing to interpolate
+  if (len == 0)
+  {
+    uint64_t *res = reserve_memory(heap_pos, 2, old_rbp, old_rsp);
+    return ((uint64_t)res) + STRING_TAG;
+  }
+  // the length of the resulting string (+ 2, since we shouldn't count the fmt str as a substitution)
   uint64_t final_length = 2;
+  // loop through the format and substitution strings for length checking and validation
+  // starting from 1 to skip the initial tuple length value
   for (uint64_t i = 1; i <= len; i++)
   {
     if ((addr[i] & STRING_TAG_MASK) != STRING_TAG)
@@ -504,33 +576,40 @@ SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_
     }
     else
     {
+      // add the length of this string to the final length, - 2 to account for replacing the
+      // '{}' in the format string
       final_length += (((uint64_t *)(addr[i] - STRING_TAG))[0] / 2) - 2;
     }
   }
-  if (len == 0)
-  {
-    uint64_t *res = reserve_memory(heap_pos, 2, old_rbp, old_rsp);
-    return ((uint64_t)res) + STRING_TAG;
-  }
 
+  // calculate required space and reserve it
   uint64_t byte_length = (final_length + 8 - 1) / 8;
   uint64_t space_len = ((byte_length + 2) / 2) * 2;
   uint64_t *res = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
+
+  // set the length
   res[0] = (uint64_t)final_length << 1;
+  // re-get the tuple, since its location may have changed during gc
   addr = (uint64_t *)(*values - TUPLE_TAG);
 
+  // the current position in the resulting string
   uint64_t curr_pos = 0;
+  // the next value to be substituted, starting after the tuple length and format string
   uint64_t curr_subst = 2;
   uint64_t format_str_len = ((uint64_t *)(((uint64_t)addr[1]) - STRING_TAG))[0] / 2;
   uint8_t *format_str = (uint8_t *)((uint64_t)addr[1] - STRING_TAG);
+  // loop through and scan each char of the format string, copying values
   for (uint64_t i = 0; i < format_str_len; i++)
   {
+    // if a '{}' is encountered, and it's not preceeded by a '\', substitute
     if (format_str[8 + i] / 2 == '{' && i < format_str_len - 1 && format_str[9 + i] / 2 == '}' && (i == 0 || format_str[7 + i] / 2 != '\\'))
     {
+      // if there's nothing left to substitute, error
       if (curr_subst > len)
       {
         error(ERR_INCORRECT_FORMAT_ARITY, *values);
       }
+      // substitute the next string in and continue
       uint64_t *pre_subst = (uint64_t *)((uint64_t)addr[curr_subst] - STRING_TAG);
       uint64_t subst_len = pre_subst[0] >> 1;
       uint8_t *subst = (uint8_t *)pre_subst;
@@ -539,16 +618,19 @@ SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_
         ((uint8_t *)res)[curr_pos + 8] = subst[j + 8];
         curr_pos++;
       }
+      // move to the next subst item for next time this block is entered
       curr_subst++;
       // increment to skip over the closing }
       i++;
     }
+    // otherwise, copy the next character from the format string
     else
     {
       ((uint8_t *)res)[curr_pos + 8] = format_str[i + 8];
       curr_pos++;
     }
   }
+  // make sure all subst values were used
   if (curr_subst != len + 1)
   {
     error(ERR_INCORRECT_FORMAT_ARITY, *values);
@@ -557,6 +639,13 @@ SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_
   return ((uint64_t)res) + STRING_TAG;
 }
 
+/**
+ * Convert the given value to a bool.
+ * - bools are returned immediately
+ * - numbers are true if the value is not 0
+ * - strings are true if they aren't "false" or empty
+ * - tuples are true if they aren't empty
+ */
 SNAKEVAL tobool(SNAKEVAL val)
 {
   if ((val & BOOL_TAG_MASK) == BOOL_TAG)
@@ -627,6 +716,13 @@ SNAKEVAL tobool(SNAKEVAL val)
   return -1;
 }
 
+/**
+ * Convert the given value to a number.
+ * - numbers are returned immediately
+ * - strings are converted to number values, erroring if they can't be read as a number
+ * - bools are 0 if false, 1 if true
+ * - other values cannot be converted
+ */
 SNAKEVAL tonum(SNAKEVAL val)
 {
   if ((val & NUM_TAG_MASK) == NUM_TAG)
@@ -672,6 +768,18 @@ SNAKEVAL tonum(SNAKEVAL val)
   return -1;
 }
 
+/**
+ * Converts the given value to a string.
+ * - numbers are converted to a string representation of that number
+ * - bools are converted to a string representation of "true" or "false"
+ * - tuples are converted to "<tuple>", more complex printing should be handled by the user
+ * - other values result in an exception
+ *
+ * NOTE: a string should not be passed in here, the compiled code should
+ * determine if the value is a string and return early.
+ * NOTE: The value should be passed in as uint64_t**s on the stack, so that
+ * it can still be dereferenced after gc.
+ */
 SNAKEVAL tostr(SNAKEVAL *val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
   if ((*val & NUM_TAG_MASK) == NUM_TAG)
@@ -767,6 +875,12 @@ SNAKEVAL tostr(SNAKEVAL *val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *o
   return -1;
 }
 
+/**
+ * Creates a tuple of the given length. Each value is initialized to 0.
+ *
+ * NOTE: The values should be passed in as uint64_t**s on the stack, so that
+ * it can still be dereferenced after gc.
+ */
 SNAKEVAL tuple(uint64_t value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
   if ((value & NUM_TAG_MASK) == NUM_TAG && ((int64_t)value) > 0)
@@ -780,6 +894,13 @@ SNAKEVAL tuple(uint64_t value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *
   return -1;
 }
 
+/**
+ * Converts a tuple containing valid ascii number values to a string.
+ * The ascii values must be SNAKEVALS between 0 and 256.
+
+ * NOTE: The value should be passed in as uint64_t**s on the stack, so that
+ * it can still be dereferenced after gc.
+ */
 SNAKEVAL ascii_tuple_to_str(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
   if ((*value & TUPLE_TAG_MASK) == TUPLE_TAG)
@@ -789,11 +910,13 @@ SNAKEVAL ascii_tuple_to_str(uint64_t *value, uint64_t *heap_pos, uint64_t *old_r
     uint64_t byte_length = (len + 8 - 1) / 8;
     uint64_t space = ((byte_length + 2) / 2) * 2;
     uint64_t *str = reserve_memory(heap_pos, space, old_rbp, old_rsp);
+    // re-get the tuple, since its location may have changed during gc
     addr = (uint64_t *)(*value - TUPLE_TAG);
 
     str[0] = addr[0];
     for (uint64_t i = 0; i < len; i++)
     {
+      // raise an error if the next value in the tuple isn't a SNAKENUM between 0 and 256
       if ((addr[i + 1] & NUM_TAG_MASK) != NUM_TAG || addr[i + 1] > 255)
       {
         error(ERR_INVALID_CHAR, addr[i + 1]);
@@ -806,6 +929,12 @@ SNAKEVAL ascii_tuple_to_str(uint64_t *value, uint64_t *heap_pos, uint64_t *old_r
   return -1;
 }
 
+/**
+ * Converts a string to a tuple containing SNAKENUM ascii values.
+
+ * NOTE: The value should be passed in as uint64_t**s on the stack, so that
+ * it can still be dereferenced after gc.
+ */
 SNAKEVAL str_to_ascii_tuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
   if ((*value & STRING_TAG_MASK) != STRING_TAG)
@@ -817,6 +946,7 @@ SNAKEVAL str_to_ascii_tuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_r
 
   uint64_t space = ((len + 2) / 2) * 2;
   uint64_t *tuple = reserve_memory(heap_pos, space, old_rbp, old_rsp);
+  // re-get the string, since its location may have changed during gc
   addr = (uint64_t *)(*value - STRING_TAG);
 
   tuple[0] = addr[0];
@@ -977,6 +1107,10 @@ SNAKEVAL join(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *o
   return ((uint64_t)result_str) + STRING_TAG;
 }
 
+/**
+ * Determine if the given string contains the given substring.
+ * Returns true if so, false otherwise.
+ */
 SNAKEVAL contains(uint64_t *pre_body, uint64_t *pre_val)
 {
   if (((uint64_t)pre_body & STRING_TAG_MASK) != STRING_TAG)
@@ -992,11 +1126,15 @@ SNAKEVAL contains(uint64_t *pre_body, uint64_t *pre_val)
   uint8_t *body = (uint8_t *)((uint64_t)pre_body - STRING_TAG);
   uint8_t *val = (uint8_t *)((uint64_t)pre_val - STRING_TAG);
 
+  // if the substr is empty, short circuit
   if (val_len == 0)
   {
     return BOOL_TRUE;
   }
 
+  // loop through the main body until the first character of the substring is found,
+  // then loop through both to check if it's a match
+  // continue on if not until the end of the main body
   for (uint64_t i = 0; i < body_len; i++)
   {
     if (i + val_len > body_len)
@@ -1025,6 +1163,10 @@ SNAKEVAL contains(uint64_t *pre_body, uint64_t *pre_val)
   return BOOL_FALSE;
 }
 
+/**
+ * Get the SNAKENUM ascii representation of the character at the
+ * given offset of the given string.
+ */
 SNAKEVAL get_ascii_char(uint64_t *str, uint64_t offset)
 {
   if (((uint64_t)str & STRING_TAG_MASK) != STRING_TAG)
