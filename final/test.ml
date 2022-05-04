@@ -257,8 +257,8 @@ let len = [
 ]
 
 let split_tests = [
-  t "split_empty_empty"  "\"\".split(\"\")" "" "()";
-  t "split_empty_not_there"  "\"\".split(\"f\")" "" "()";
+  t "split_empty_empty"  "\"\".split(\"\")" "" "(\"\", )";
+  t "split_empty_not_there"  "\"\".split(\"f\")" "" "(\"\", )";
   t "split_miss"  "\"hi\".split(\"f\")" "" "(\"hi\", )";
   t "split_empty"  "\"hi\".split(\"\")" "" "(\"h\", \"i\")";
   t "split_space"  "\"hi friends i'm kyle\".split(\" \")" "" "(\"hi\", \"friends\", \"i'm\", \"kyle\")";
@@ -267,6 +267,9 @@ let split_tests = [
   t "split_empty_char"  "\"no\".split(\"n\")" "" "(\"\", \"o\")";
   terr "split_nonstring" "5.split(\" .z\")" "" "unable to split non-string 5";
   terr "split_nonstring_2" "\"\".split(5)" "" "unable to split non-string 5";
+  t "split_first_last" "\"abchelloabcworldabc\".split(\"abc\")" "" "(\"\", \"hello\", \"world\", \"\")";
+  t "split_first_almost_last" "\"abchelloabcworldabcn\".split(\"abc\")" "" "(\"\", \"hello\", \"world\", \"n\")";
+  t "split_almost_delim" "\"abcbacabbcabcacbbcaabc\".split(\"abc\")" "" "(\"\", \"bacabbc\", \"acbbca\", \"\")";
 ]
 let join_tests = [
   t "join_empty_empty"  "\"\".join(())" "" "";

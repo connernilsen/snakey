@@ -980,7 +980,8 @@ uint64_t find_next_substr(uint8_t *str, uint8_t *substr, uint64_t start_from)
   uint64_t substr_len = ((uint64_t *)substr)[0] >> 1;
   if (substr_len == 0)
   {
-    if (start_from >= str_len - 1)
+    // we're at the end if there are no more substrs possible or the string length is 0
+    if (start_from >= str_len - 1 || str_len == 0)
     {
       return BOOL_FALSE;
     }
@@ -1019,6 +1020,10 @@ uint64_t find_next_substr(uint8_t *str, uint8_t *substr, uint64_t start_from)
   return BOOL_FALSE;
 }
 
+/**
+ * Gets the number of words requried for a string on the heap given the number of characters
+ * the string contains.
+ */
 uint64_t get_str_words(uint64_t bytes)
 {
   uint64_t byte_length = (bytes + 8 - 1) / 8;
@@ -1030,10 +1035,18 @@ int align_16(int size)
   return ((size + 15) / 16) * 16;
 }
 
+/**
+ * Splits a string by a given delimiter. The delimiter does not act as a regex,
+ * and only splits on exact occurrences of the delimiter in the string.
+ *
+ * NOTE: The values should be passed in as uint64_t**s on the stack, so that
+ * it can still be dereferenced after gc.
+ */
 SNAKEVAL split(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
   uint64_t pre_original = args[0];
   uint64_t pre_delim = args[1];
+  // check types
   if ((pre_original & STRING_TAG_MASK) != STRING_TAG)
   {
     error(ERR_SPLIT_NOT_STR, pre_original);
@@ -1042,6 +1055,7 @@ SNAKEVAL split(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *
   {
     error(ERR_SPLIT_NOT_STR, pre_delim);
   }
+  // get untagged strings and their lengths
   uint8_t *original = (uint8_t *)(pre_original - STRING_TAG);
   uint64_t original_len = ((uint64_t *)(pre_original - STRING_TAG))[0] >> 1;
   uint8_t *delim = (uint8_t *)(pre_delim - STRING_TAG);
@@ -1049,50 +1063,67 @@ SNAKEVAL split(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *
 
   uint64_t num_splits = 0;
   uint64_t tot_str_length_words = 0;
-
   uint64_t pos = 0;
-  while (pos < original_len)
+  // count the number of split strings and their combined lengths (with padding)
+  // +1 is to make sure we add an extra "" if the delim is found at the end of the original
+  while (pos < original_len + 1)
   {
+    // get the start of the next substring (and update it to be the end if needed)
     uint64_t next_split = find_next_substr(original, delim, pos);
     if (next_split == BOOL_FALSE)
     {
-      next_split = original_len;
+      next_split = original_len + 1;
     }
+    // get the length of the split and required space
     uint64_t split_len = next_split - pos;
     uint64_t space = get_str_words(split_len);
 
+    // add to counters
     num_splits++;
     tot_str_length_words += space;
     pos = next_split;
     pos += delim_len;
   }
 
+  // get required space for the resulting tuple
   uint64_t space = ((num_splits + 2) / 2) * 2;
+  // add the required space for strings
   space += tot_str_length_words;
   uint64_t *ptr = reserve_memory(heap_pos, space, old_rbp, old_rsp);
 
+  // re-get the strings, since their locations may have changed during gc
   original = (uint8_t *)(args[0] - STRING_TAG);
   delim = (uint8_t *)(args[1] - STRING_TAG);
+  // get the tuple that will be returned at the end (all strings should be placed here)
   uint64_t *res_tuple = ptr + tot_str_length_words;
+  // set the length of the tuple
   res_tuple[0] = num_splits << 1;
 
   pos = 0;
+  // copy the split strings
   for (uint64_t i = 0; i < num_splits; i++)
   {
+    // get the next delim start (and set to end if none was found)
     uint64_t next_split = find_next_substr(original, delim, pos);
     if (next_split == BOOL_FALSE)
     {
       next_split = original_len;
     }
+    // get the length of the substr and set it in the string's metadata on heap
     uint64_t split_len = next_split - pos;
     ptr[0] = split_len << 1;
+
+    // copy the substr
     for (uint64_t j = 0; j < split_len; j++)
     {
       ((uint8_t *)ptr)[j + 8] = original[pos + j + 8];
     }
 
+    // tag the string and add it to the resulting tuple
     uint64_t tagged_str = ((uint64_t)ptr) + STRING_TAG;
     res_tuple[i + 1] = tagged_str;
+
+    // set ptr to start placing str info in the next string location and update counters
     uint64_t space = get_str_words(split_len);
     ptr += space;
     pos = next_split;
@@ -1104,8 +1135,8 @@ SNAKEVAL split(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *
 
 SNAKEVAL join(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
-  uint64_t strs = args[0];
-  uint64_t delim = args[1];
+  uint64_t strs = args[1];
+  uint64_t delim = args[0];
   if ((strs & TUPLE_TAG_MASK) != TUPLE_TAG)
   {
     error(ERR_JOIN_NOT_TUPLE, strs);
