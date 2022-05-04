@@ -102,8 +102,8 @@ let tstring_complex = [
   t "empty" "let s = \"\" in s" "" "";
   t "big" "let s = \"~\" in s" "" "~";
   t "tstring_in_let" "let s = \"test\" in s" "" "test";
-  t "string_in_tuple" "let s = \"test\" in (s, s, s)" "" "(test, test, test)";
-  t "string_in_lambda_in_tuple" "let s = (lambda: \"test\") in (s(), s(), s())" "" "(test, test, test)";
+  t "string_in_tuple" "let s = \"test\" in (s, s, s)" "" "(\"test\", \"test\", \"test\")";
+  t "string_in_lambda_in_tuple" "let s = (lambda: \"test\") in (s(), s(), s())" "" "(\"test\", \"test\", \"test\")";
 ]
 let tstring_gc = [
   tgc "tstring_gc_simple" (builtins_size + 2) "\"test\"" "" "test";
@@ -329,20 +329,20 @@ let input_tests = [
 let suite =
   "unit_tests">:::
   lexing_and_parsing
-  (* @ tstring
-     @ conversions_and_istype
-     @ tstring_wf
-     @ tstring_complex
-     @ tstring_gc
-     @ tconcat
-     @ tsubstr
-     @ format
-     @ len *)
+  @ tstring
+  @ conversions_and_istype
+  @ tstring_wf
+  @ tstring_complex
+  @ tstring_gc
+  @ tconcat
+  @ tsubstr
+  @ format
+  @ len
   @ split_tests
   @ join_tests
-(* @ integration_tests
-   @ contains_tests
-   @ input_tests *)
+  @ integration_tests
+  @ contains_tests
+  @ input_tests
 
 let () =
   run_test_tt_main ("all_tests">:::[

@@ -89,6 +89,16 @@ SNAKEVAL set_stack_bottom(uint64_t *stack_bottom)
   return 0;
 }
 
+/**
+ * Gets the number of words requried for a string on the heap given the number of characters
+ * the string contains.
+ */
+uint64_t get_str_words(uint64_t bytes)
+{
+  uint64_t byte_length = (bytes + 8 - 1) / 8;
+  return ((byte_length + 2) / 2) * 2;
+}
+
 uint64_t *FROM_S;
 uint64_t *FROM_E;
 uint64_t *TO_S;
@@ -487,8 +497,7 @@ SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_rbp, ui
   uint64_t str2_len = *str2 >> 1;
 
   // get the number of bytes and words needed
-  uint64_t byte_length = (str1_len + str2_len + 8 - 1) / 8;
-  uint64_t space_len = ((byte_length + 2) / 2) * 2;
+  uint64_t space_len = get_str_words(str1_len + str2_len);
 
   uint64_t *ptr = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
 
@@ -530,8 +539,7 @@ SNAKEVAL substr(uint64_t *string_loc, uint64_t start, uint64_t finish, uint64_t 
     error(ERR_SUBSTRING_OUT_OF_BOUNDS, string_loc[0]);
   }
 
-  uint64_t byte_length = (new_str_len + 8 - 1) / 8;
-  uint64_t space_len = ((byte_length + 2) / 2) * 2;
+  uint64_t space_len = get_str_words(new_str_len);
 
   uint64_t *ptr = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
   // re-get the string, since its location may have changed during gc
@@ -591,8 +599,7 @@ SNAKEVAL format(uint64_t *values, uint64_t *heap_pos, uint64_t *old_rbp, uint64_
   }
 
   // calculate required space and reserve it
-  uint64_t byte_length = (final_length + 8 - 1) / 8;
-  uint64_t space_len = ((byte_length + 2) / 2) * 2;
+  uint64_t space_len = get_str_words(final_length);
   uint64_t *res = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
 
   // set the length
@@ -812,8 +819,7 @@ SNAKEVAL tostr(SNAKEVAL *val, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *o
         iter_num /= 10;
       }
     }
-    int byte_length = (num_digits + neg + 8 - 1) / 8;
-    int space = ((byte_length + 2) / 2) * 2;
+    uint64_t space = get_str_words(num_digits + neg);
     int offset = 8;
     offset += neg;
     uint64_t *pre_str = reserve_memory(heap_pos, space, old_rbp, old_rsp);
@@ -915,8 +921,7 @@ SNAKEVAL ascii_tuple_to_str(uint64_t *value, uint64_t *heap_pos, uint64_t *old_r
   {
     uint64_t *addr = (uint64_t *)(*value - TUPLE_TAG);
     uint64_t len = addr[0] >> 1;
-    uint64_t byte_length = (len + 8 - 1) / 8;
-    uint64_t space = ((byte_length + 2) / 2) * 2;
+    uint64_t space = get_str_words(len);
     uint64_t *str = reserve_memory(heap_pos, space, old_rbp, old_rsp);
     // re-get the tuple, since its location may have changed during gc
     addr = (uint64_t *)(*value - TUPLE_TAG);
@@ -1018,16 +1023,6 @@ uint64_t find_next_substr(uint8_t *str, uint8_t *substr, uint64_t start_from)
     }
   }
   return BOOL_FALSE;
-}
-
-/**
- * Gets the number of words requried for a string on the heap given the number of characters
- * the string contains.
- */
-uint64_t get_str_words(uint64_t bytes)
-{
-  uint64_t byte_length = (bytes + 8 - 1) / 8;
-  return ((byte_length + 2) / 2) * 2;
 }
 
 /**
@@ -1181,6 +1176,7 @@ SNAKEVAL join(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *o
   result_str[0] = length << 1;
   // characters of strs we have already placed in string
   int str_chars = 0;
+  // loop through each string and add it to the result
   for (int i = 1; i <= strs_len; i++)
   {
     uint64_t *str_untagged = (uint64_t *)(strs_untagged[i] - STRING_TAG);
