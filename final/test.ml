@@ -98,12 +98,12 @@ let long_oneline = ("hellohellohellohellohellohellohellohellohellohellohellohell
 ;;
 let tstring_complex = [
   t "very_long" ("\"\"\"" ^ long ^ "\"\"\"") "" long;
-  (* todo: string overflow? concat overflow? *)
   t "empty" "let s = \"\" in s" "" "";
   t "big" "let s = \"~\" in s" "" "~";
   t "tstring_in_let" "let s = \"test\" in s" "" "test";
   t "string_in_tuple" "let s = \"test\" in (s, s, s)" "" "(\"test\", \"test\", \"test\")";
   t "string_in_lambda_in_tuple" "let s = (lambda: \"test\") in (s(), s(), s())" "" "(\"test\", \"test\", \"test\")";
+  tgcerr "string_literal_too_big" (builtins_size + 1) "let a = \"a\" in a" "" "Out of memory";
 ]
 let tstring_gc = [
   tgc "tstring_gc_simple" (builtins_size + 2) "\"test\"" "" "test";
@@ -324,7 +324,6 @@ let input_tests = [
     "let a = (lambda: print(input())), _ = a(), c = \"efgh\" in c"
     "abcd" "abcdefgh";
 ]
-(* testing todos: ensure register allocation still works *)
 
 let suite =
   "unit_tests">:::
@@ -347,6 +346,6 @@ let suite =
 let () =
   run_test_tt_main ("all_tests">:::[
       suite; 
-      (* old_tests; *)
+      old_tests;
       input_file_test_suite ()])
 ;;
