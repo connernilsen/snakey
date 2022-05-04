@@ -1030,11 +1030,6 @@ uint64_t get_str_words(uint64_t bytes)
   return ((byte_length + 2) / 2) * 2;
 }
 
-int align_16(int size)
-{
-  return ((size + 15) / 16) * 16;
-}
-
 /**
  * Splits a string by a given delimiter. The delimiter does not act as a regex,
  * and only splits on exact occurrences of the delimiter in the string.
@@ -1133,31 +1128,40 @@ SNAKEVAL split(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *
   return ((uint64_t)res_tuple) + TUPLE_TAG;
 }
 
+/**
+ * Joins a tuple of strings by a given delimiter.
+ *
+ * NOTE: The values should be passed in as uint64_t**s on the stack, so that
+ * it can still be dereferenced after gc.
+ */
 SNAKEVAL join(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
-  uint64_t strs = args[1];
-  uint64_t delim = args[0];
-  if ((strs & TUPLE_TAG_MASK) != TUPLE_TAG)
+  uint64_t pre_delim = args[0];
+  uint64_t pre_strs = args[1];
+  // check types
+  if ((pre_delim & STRING_TAG_MASK) != STRING_TAG)
   {
-    error(ERR_JOIN_NOT_TUPLE, strs);
+    error(ERR_JOIN_NOT_STR, pre_delim);
   }
-  if ((delim & STRING_TAG_MASK) != STRING_TAG)
+  if ((pre_strs & TUPLE_TAG_MASK) != TUPLE_TAG)
   {
-    error(ERR_JOIN_NOT_STR, delim);
+    error(ERR_JOIN_NOT_TUPLE, pre_strs);
   }
-  uint64_t *strs_untagged = (uint64_t *)(strs - TUPLE_TAG);
-  uint64_t strs_len = strs_untagged[0] >> 1;
-  uint64_t *delim_untagged = (uint64_t *)(delim - STRING_TAG);
+
+  // untag and get original lengths
+  uint64_t *delim_untagged = (uint64_t *)(pre_delim - STRING_TAG);
   uint64_t delim_len = delim_untagged[0] >> 1;
+  uint64_t *strs_untagged = (uint64_t *)(pre_strs - TUPLE_TAG);
+  uint64_t strs_len = strs_untagged[0] >> 1;
 
   int length = 0;
-  // calculate length
+  // calculate total length
   for (int i = 1; i <= strs_len; i++)
   {
     uint64_t str_tagged = strs_untagged[i];
     if ((((uint64_t)str_tagged) & STRING_TAG_MASK) != STRING_TAG)
     {
-      error(ERR_JOIN_NOT_STR, delim);
+      error(ERR_JOIN_NOT_STR, str_tagged);
     }
     uint64_t *str_untagged = (uint64_t *)(str_tagged - STRING_TAG);
     length += str_untagged[0] >> 1;
@@ -1168,33 +1172,33 @@ SNAKEVAL join(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *o
   }
 
   // add space for length
-  int space = align_16(length + 8);
+  int space = get_str_words(length);
   uint64_t *result_str = reserve_memory(heap_pos, space, old_rbp, old_rsp);
+
+  delim_untagged = (uint64_t *)(args[0] - STRING_TAG);
+  strs_untagged = (uint64_t *)(args[1] - TUPLE_TAG);
 
   result_str[0] = length << 1;
   // characters of strs we have already placed in string
   int str_chars = 0;
-  while (str_chars < length)
+  for (int i = 1; i <= strs_len; i++)
   {
-    for (int i = 1; i <= strs_len; i++)
+    uint64_t *str_untagged = (uint64_t *)(strs_untagged[i] - STRING_TAG);
+    int str_len = str_untagged[0] >> 1;
+    // while we still have chars from this string to copy...
+    int str_len_idx = 0;
+    while (str_chars < length && str_len_idx < str_len)
     {
-      uint64_t *str_untagged = (uint64_t *)(strs_untagged[i] - STRING_TAG);
-      int str_len = str_untagged[0] >> 1;
-      // while we still have chars from this string to copy...
-      int str_len_idx = 0;
-      while (str_chars < length && str_len_idx < str_len)
+      ((uint8_t *)result_str)[8 + str_chars] = ((uint8_t *)str_untagged)[8 + str_len_idx];
+      str_chars++;
+      str_len_idx++;
+    }
+    if (str_chars < length)
+    {
+      for (int i = 0; i < delim_len; i++)
       {
-        ((uint8_t *)result_str)[8 + str_chars] = ((uint8_t *)str_untagged)[8 + str_len_idx];
+        ((uint8_t *)result_str)[8 + str_chars] = ((uint8_t *)delim_untagged)[8 + i];
         str_chars++;
-        str_len_idx++;
-      }
-      if (str_chars < length)
-      {
-        for (int i = 0; i < delim_len; i++)
-        {
-          ((uint8_t *)result_str)[8 + str_chars] = ((uint8_t *)delim_untagged)[8 + i];
-          str_chars++;
-        }
       }
     }
   }
