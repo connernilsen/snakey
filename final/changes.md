@@ -19,7 +19,7 @@
 - Conversion Prim1s were added to convert between Strings, numbers, and bools
 - Convenience `Tuple` Prim1 added to easily create tuples of a given length initialized to 0
 - String operation Prim2s added for `Concat`, `Split`, and `Join`
-- split, join, and concat prim2s were added since they require extra arg passing than the native funs
+- `Split`, `Join`, and `Concat` prim2s were added since they require extra arg passing than the native funs
 - New `ESubstring` and `CSubstring` AST types added to allow string operations using Python substr syntax
 
 # Lexer and Parser Updates
