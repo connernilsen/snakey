@@ -259,12 +259,12 @@ let len = [
 let split_tests = [
   t "split_empty_empty"  "\"\".split(\"\")" "" "()";
   t "split_empty_not_there"  "\"\".split(\"f\")" "" "()";
-  t "split_miss"  "\"hi\".split(\"f\")" "" "(hi, )";
-  t "split_empty"  "\"hi\".split(\"\")" "" "(hi, )";
-  t "split_space"  "\"hi friends i'm kyle\".split(\" \")" "" "(hi, friends, i'm, kyle)";
-  t "split_multiple"  "\"hi friends.i'mzkyle\".split(\" .z\")" "" "(hi, friends, i'm, kyle)";
-  t "split_lets"  "let s1 = \"hi friends.i'mzkyle\", s2 = \" .z\" in s1.split(s2)" "" "(hi, friends, i'm, kyle)";
-  t "split_empty_char"  "\"no\".split(\"n\")" "" "(o, )";
+  t "split_miss"  "\"hi\".split(\"f\")" "" "(\"hi\", )";
+  t "split_empty"  "\"hi\".split(\"\")" "" "(\"h\", \"i\")";
+  t "split_space"  "\"hi friends i'm kyle\".split(\" \")" "" "(\"hi\", \"friends\", \"i'm\", \"kyle\")";
+  t "split_multiple"  "\"hiabcfriendsabci'mabckyle\".split(\"abc\")" "" "(\"hi\", \"friends\", \"i'm\", \"kyle\")";
+  t "split_lets"  "let s1 = \"hiabcfriendsabci'mabckyle\", s2 = \"abc\" in s1.split(s2)" "" "(\"hi\", \"friends\", \"i'm\", \"kyle\")";
+  t "split_empty_char"  "\"no\".split(\"n\")" "" "(\"\", \"o\")";
   terr "split_nonstring" "5.split(\" .z\")" "" "unable to split non-string 5";
   terr "split_nonstring_2" "\"\".split(5)" "" "unable to split non-string 5";
 ]
@@ -326,24 +326,24 @@ let input_tests = [
 let suite =
   "unit_tests">:::
   lexing_and_parsing
-  @ tstring
-  @ conversions_and_istype
-  @ tstring_wf
-  @ tstring_complex
-  @ tstring_gc
-  @ tconcat
-  @ tsubstr
-  @ format
-  @ len
+  (* @ tstring
+     @ conversions_and_istype
+     @ tstring_wf
+     @ tstring_complex
+     @ tstring_gc
+     @ tconcat
+     @ tsubstr
+     @ format
+     @ len *)
   @ split_tests
   @ join_tests
-  @ integration_tests
-  @ contains_tests
-  @ input_tests
+(* @ integration_tests
+   @ contains_tests
+   @ input_tests *)
 
 let () =
   run_test_tt_main ("all_tests">:::[
       suite; 
-      old_tests;
+      (* old_tests; *)
       input_file_test_suite ()])
 ;;

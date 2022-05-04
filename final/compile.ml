@@ -1502,7 +1502,9 @@ let c_call_arg_indirection call_label indirected_args normal_args tag env curren
   in
   let setup_indirected_args = 
     List.flatten 
-      (List.map (fun arg -> [IMov(Reg(scratch_reg_2), arg); IPush(Sized(QWORD_PTR, Reg(scratch_reg_2)))]) indirected_args) 
+      (List.map 
+         (fun arg -> [IMov(Reg(scratch_reg_2), arg); IPush(Sized(QWORD_PTR, Reg(scratch_reg_2)))]) 
+         (List.rev indirected_args)) 
   in
   let cleanup_indirected_args = 
     List.init indirected_args_len (fun i -> IPop(Reg(scratch_reg))) 
@@ -1805,10 +1807,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
           ICmp(Reg(scratch_reg), Sized(QWORD_PTR, e2_reg)); IJne(Label(label_DESTRUCTURE_INVALID_LEN));
           IMov(Reg(RAX), Sized(QWORD_PTR, e1_reg));]
       | Concat ->
-        [IPush(Reg(scratch_reg_2)); IMov(Reg(RAX), e1_reg)]
-        @ (tag_check e1_reg label_NOT_STR str_tag_mask str_tag)
-        @ IMov(Reg(RAX), e2_reg) :: (tag_check e2_reg label_NOT_STR str_tag_mask str_tag)
-        @ c_call_arg_indirection "?concat" [e1_reg; e2_reg] [Reg(heap_reg); Reg(RBP); Reg(RSP)] str_tag env current_env
+        c_call_arg_indirection "?concat" [e1_reg; e2_reg] [Reg(heap_reg); Reg(RBP); Reg(RSP)] str_tag env current_env
       | Split ->
         c_call_arg_indirection "?split" [e1_reg; e2_reg] [Reg(heap_reg); Reg(RBP); Reg(RSP)] tuple_tag env current_env
       | Join ->

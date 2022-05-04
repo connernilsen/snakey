@@ -227,7 +227,7 @@ void printHelp(FILE *out, SNAKEVAL val, int verbose)
     {
       if (i > 1)
         fprintf(out, ", ");
-      printHelp(out, addr[i], verbose);
+      printHelp(out, addr[i], 1);
     }
     if (len == 1)
       fprintf(out, ", ");
@@ -472,9 +472,17 @@ SNAKEVAL input(uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
  */
 SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
+  if ((strings_loc[0] & STRING_TAG_MASK) != STRING_TAG)
+  {
+    error(ERR_NOT_STR, strings_loc[0]);
+  }
+  if ((strings_loc[1] & STRING_TAG_MASK) != STRING_TAG)
+  {
+    error(ERR_NOT_STR, strings_loc[1]);
+  }
   // get the strings and their lengths
-  uint64_t *str1 = (uint64_t *)(strings_loc[1] - STRING_TAG);
-  uint64_t *str2 = (uint64_t *)(strings_loc[0] - STRING_TAG);
+  uint64_t *str1 = (uint64_t *)(strings_loc[0] - STRING_TAG);
+  uint64_t *str2 = (uint64_t *)(strings_loc[1] - STRING_TAG);
   uint64_t str1_len = *str1 >> 1;
   uint64_t str2_len = *str2 >> 1;
 
@@ -485,8 +493,8 @@ SNAKEVAL concat(uint64_t *strings_loc, uint64_t *heap_pos, uint64_t *old_rbp, ui
   uint64_t *ptr = reserve_memory(heap_pos, space_len, old_rbp, old_rsp);
 
   // re-get the strings, since their locations may have changed during gc
-  str1 = (uint64_t *)(strings_loc[1] - STRING_TAG);
-  str2 = (uint64_t *)(strings_loc[0] - STRING_TAG);
+  str1 = (uint64_t *)(strings_loc[0] - STRING_TAG);
+  str2 = (uint64_t *)(strings_loc[1] - STRING_TAG);
 
   // set the resulting length and copy the strings into their destinations
   *ptr = (str1_len + str2_len) << 1;
@@ -958,22 +966,63 @@ SNAKEVAL str_to_ascii_tuple(uint64_t *value, uint64_t *heap_pos, uint64_t *old_r
 }
 
 /**
- * @brief turns pointer to snake string (untagged) into char*
+ * Loops through str starting at idx substr until a match for substr is found.
+ * Returns the index of the start of the substr in str if a match is found,
+ * or BOOL_FALSE otherwise (since it isn't representable as a number in snakeval,
+ * so no string can be of length BOOL_FALSE).
  *
- * @param str untagged snake string pointer
- * @return char* string
+ * If the length of substr is 0, then either start_from++ is returned or
+ * BOOL_FALSE if start_from == str length - 1.
  */
-char *snake_to_char_pointer(uint64_t *str)
+uint64_t find_next_substr(uint8_t *str, uint8_t *substr, uint64_t start_from)
 {
-  str = ((uint64_t *)(((uint64_t)str) - STRING_TAG));
-  int len = *str;
-  char *result = malloc(len + 1);
-  for (int i = 0; i < len; i++)
+  uint64_t str_len = ((uint64_t *)str)[0] >> 1;
+  uint64_t substr_len = ((uint64_t *)substr)[0] >> 1;
+  if (substr_len == 0)
   {
-    result[i] = ((uint8_t *)str)[8 + i] >> 1;
+    if (start_from >= str_len - 1)
+    {
+      return BOOL_FALSE;
+    }
+    else
+    {
+      return start_from + 1;
+    }
   }
-  result[len] = '\0';
-  return result;
+  // loop through the main str until the first character of the substring is found,
+  // then loop through both to check if it's a match
+  // continue on if not until the end of the main str
+  for (uint64_t i = start_from; i < str_len; i++)
+  {
+    if (i + substr_len > str_len)
+    {
+      break;
+    }
+    if (str[i + 8] != substr[8])
+    {
+      continue;
+    }
+    int found = 0;
+    for (uint64_t j = 0; j < substr_len; j++)
+    {
+      if (str[8 + i + j] != substr[8 + j])
+      {
+        found = 1;
+        break;
+      }
+    }
+    if (!found)
+    {
+      return i;
+    }
+  }
+  return BOOL_FALSE;
+}
+
+uint64_t get_str_words(uint64_t bytes)
+{
+  uint64_t byte_length = (bytes + 8 - 1) / 8;
+  return ((byte_length + 2) / 2) * 2;
 }
 
 int align_16(int size)
@@ -983,60 +1032,74 @@ int align_16(int size)
 
 SNAKEVAL split(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
 {
-  uint64_t delim = args[0];
-  uint64_t original = args[1];
-  if ((original & STRING_TAG_MASK) != STRING_TAG)
+  uint64_t pre_original = args[0];
+  uint64_t pre_delim = args[1];
+  if ((pre_original & STRING_TAG_MASK) != STRING_TAG)
   {
-    error(ERR_SPLIT_NOT_STR, original);
+    error(ERR_SPLIT_NOT_STR, pre_original);
   }
-  if ((delim & STRING_TAG_MASK) != STRING_TAG)
+  if ((pre_delim & STRING_TAG_MASK) != STRING_TAG)
   {
-    error(ERR_SPLIT_NOT_STR, delim);
+    error(ERR_SPLIT_NOT_STR, pre_delim);
   }
+  uint8_t *original = (uint8_t *)(pre_original - STRING_TAG);
+  uint64_t original_len = ((uint64_t *)(pre_original - STRING_TAG))[0] >> 1;
+  uint8_t *delim = (uint8_t *)(pre_delim - STRING_TAG);
+  uint64_t delim_len = ((uint64_t *)(pre_delim - STRING_TAG))[0] >> 1;
 
-  char *original_as_string = snake_to_char_pointer((uint64_t *)original);
-  char original_as_string2[strlen(original_as_string)];
-  strcpy(original_as_string2, original_as_string);
-  char *delim_as_string = snake_to_char_pointer((uint64_t *)delim);
+  uint64_t num_splits = 0;
+  uint64_t tot_str_length_words = 0;
 
-  uint64_t tuple_len = 0;
-  uint64_t len = 0;
-
-  char *split = strtok(original_as_string, delim_as_string);
-  while (split != NULL)
+  uint64_t pos = 0;
+  while (pos < original_len)
   {
-    tuple_len++;
-    len += align_16(8 + strlen(split));
-    split = strtok(NULL, delim_as_string);
-  }
-  uint64_t tuple_byte_size = align_16(tuple_len * 8 + 8);
-
-  uint64_t *reserved = reserve_memory(heap_pos, len + tuple_byte_size, old_rbp, old_rsp);
-
-  // set first spot to tuple
-  reserved[0] = tuple_len << 1;
-  uint64_t next_string_spot = tuple_byte_size;
-
-  char *split2 = strtok(original_as_string2, delim_as_string);
-  uint64_t i = 0;
-  while (split2 != NULL)
-  {
-    reserved[i + 1] = ((uint64_t)reserved) + next_string_spot + STRING_TAG;
-    uint64_t str_len = strlen(split2);
-    ((uint8_t *)reserved)[next_string_spot] = str_len << 1;
-    for (uint64_t j = 0; j < str_len; j++)
+    uint64_t next_split = find_next_substr(original, delim, pos);
+    if (next_split == BOOL_FALSE)
     {
-      ((uint8_t *)reserved)[next_string_spot + 8 + j] = split2[j] << 1;
+      next_split = original_len;
     }
-    next_string_spot = align_16(next_string_spot + str_len + 8);
-    i++;
-    split2 = strtok(NULL, delim_as_string);
+    uint64_t split_len = next_split - pos;
+    uint64_t space = get_str_words(split_len);
+
+    num_splits++;
+    tot_str_length_words += space;
+    pos = next_split;
+    pos += delim_len;
   }
 
-  free(original_as_string);
-  free(delim_as_string);
+  uint64_t space = ((num_splits + 2) / 2) * 2;
+  space += tot_str_length_words;
+  uint64_t *ptr = reserve_memory(heap_pos, space, old_rbp, old_rsp);
 
-  return (uint64_t)reserved + TUPLE_TAG;
+  original = (uint8_t *)(args[0] - STRING_TAG);
+  delim = (uint8_t *)(args[1] - STRING_TAG);
+  uint64_t *res_tuple = ptr + tot_str_length_words;
+  res_tuple[0] = num_splits << 1;
+
+  pos = 0;
+  for (uint64_t i = 0; i < num_splits; i++)
+  {
+    uint64_t next_split = find_next_substr(original, delim, pos);
+    if (next_split == BOOL_FALSE)
+    {
+      next_split = original_len;
+    }
+    uint64_t split_len = next_split - pos;
+    ptr[0] = split_len << 1;
+    for (uint64_t j = 0; j < split_len; j++)
+    {
+      ((uint8_t *)ptr)[j + 8] = original[pos + j + 8];
+    }
+
+    uint64_t tagged_str = ((uint64_t)ptr) + STRING_TAG;
+    res_tuple[i + 1] = tagged_str;
+    uint64_t space = get_str_words(split_len);
+    ptr += space;
+    pos = next_split;
+    pos += delim_len;
+  }
+
+  return ((uint64_t)res_tuple) + TUPLE_TAG;
 }
 
 SNAKEVAL join(uint64_t *args, uint64_t *heap_pos, uint64_t *old_rbp, uint64_t *old_rsp)
@@ -1121,7 +1184,6 @@ SNAKEVAL contains(uint64_t *pre_body, uint64_t *pre_val)
   {
     error(ERR_NOT_STR, pre_val);
   }
-  uint64_t body_len = ((uint64_t *)(((uint64_t)pre_body) - STRING_TAG))[0] >> 1;
   uint64_t val_len = ((uint64_t *)(((uint64_t)pre_val) - STRING_TAG))[0] >> 1;
   uint8_t *body = (uint8_t *)((uint64_t)pre_body - STRING_TAG);
   uint8_t *val = (uint8_t *)((uint64_t)pre_val - STRING_TAG);
@@ -1132,35 +1194,14 @@ SNAKEVAL contains(uint64_t *pre_body, uint64_t *pre_val)
     return BOOL_TRUE;
   }
 
-  // loop through the main body until the first character of the substring is found,
-  // then loop through both to check if it's a match
-  // continue on if not until the end of the main body
-  for (uint64_t i = 0; i < body_len; i++)
+  if (find_next_substr(body, val, 0) != BOOL_FALSE)
   {
-    if (i + val_len > body_len)
-    {
-      break;
-    }
-    if (body[i + 8] != val[8])
-    {
-      continue;
-    }
-    int failed = 0;
-    for (uint64_t j = 0; j < val_len; j++)
-    {
-      if (body[8 + i + j] != val[8 + j])
-      {
-        failed = 1;
-        break;
-      }
-    }
-    if (!failed)
-    {
-      return BOOL_TRUE;
-    }
+    return BOOL_TRUE;
   }
-
-  return BOOL_FALSE;
+  else
+  {
+    return BOOL_FALSE;
+  }
 }
 
 /**
