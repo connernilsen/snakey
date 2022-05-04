@@ -225,11 +225,15 @@ let tsubstr = [
   t "substr_equality" "let a = \"hello friends\" in equal(a[0:2], a[0:2])" "" "true";
   t "substr_eqeq" "let a = \"hello friends\" in a[0: 2] == a[0: 2]" "" "false";
   te "substr_tuple_access" "\"hello\"[3]" "get expected tuple";
-  te "tuple_substr_access" "(1, 2, 3)[0:1]" "Value not a string"
+  te "tuple_substr_access" "(1, 2, 3)[0:1]" "Value not a string";
+  tgc "substr_gc" (builtins_size + 8) 
+    "let a = \"abcd\", b = (lambda: print(\"efgh\")), _ = b() in a[0:2]"
+    "" "efghab";
 ]
 
 let format = [
   t "format_empty" "format()" "" "";
+  t "format_smaller" "format(\"{}\", 1)" "" "1";
   t "format_no_subst" "format(\"hello world\")" "" "hello world";
   t "format_one_subst" "format(\"my name is {}\", \"conner nilsen\")" "" "my name is conner nilsen";
   t "format_two_subst" "format(\"my name is {} {}\", \"kyle\", \"into\")" "" "my name is kyle into";
@@ -237,6 +241,9 @@ let format = [
   te "format_error_low" "format(\"{}\")" "incorrect arity for format replacement values";
   te "format_error_low_2" "format(\"{}{}\", 5)" "incorrect arity for format replacement values";
   te "format_error_high" "format(\"abcd\", 1)" "incorrect arity for format replacement values";
+  tgc "format_gc" (builtins_size + 16)
+    "let a = (lambda: print(\"efgh\")), _ = a() in format(\"{}\", 1)"
+    "" "efgh1";
 ]
 
 let len = [

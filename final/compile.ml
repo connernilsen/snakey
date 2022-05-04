@@ -1722,7 +1722,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
       | Print -> (setup_call_to_func env current_env [e_reg] (Label("?print")) false)
       | PrintStack -> (setup_call_to_func env current_env [e_reg; Reg(RSP); Reg(RBP); Const(Int64.of_int num_args)] (Label("?print_stack")) false)
       | IsStr -> 
-        let label_not_str = (sprintf "%s%n" label_NOT_STR tag) in 
+        let label_not_str = (sprintf "not_str_%n" tag) in 
         let label_done = (sprintf "%s%n_str" label_DONE tag) in 
         IMov(Reg(RAX), e_reg) ::
         (tag_check const_true label_not_str str_tag_mask str_tag)
@@ -1733,7 +1733,7 @@ and compile_cexpr (e : tag cexpr) env num_args is_tail current_env =
           ILabel(label_done);
         ]
       | ToStr -> 
-        let label_not_str = sprintf "%s%n" label_NOT_STR tag in 
+        let label_not_str = sprintf "not_str_%n" tag in 
         let label_done = sprintf "%s%n_to_str" label_DONE tag in
         IMov(Reg(RAX), e_reg)
         :: tag_check e_reg label_not_str str_tag_mask str_tag
