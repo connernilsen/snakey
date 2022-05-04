@@ -106,10 +106,10 @@ let tstring_complex = [
   t "string_in_lambda_in_tuple" "let s = (lambda: \"test\") in (s(), s(), s())" "" "(test, test, test)";
 ]
 let tstring_gc = [
-  tgc "tstring_gc_simple" (builtins_size + 6) "\"test\"" "" "test";
-  tgc "tstring_gc_repeat" (builtins_size + 6) "\"test\"; \"test\"; \"tesc\"; \"tesh\"" "" "tesh";
-  tgc "tstring_gc_odd" (builtins_size + 6) "let a = \"a\" in let b = \"b\";\"c\" in let c = \"c\" in a" "" "a";
-  tgc "tstring_gc_lambda" (builtins_size + 12) "let a = \"a\" in let b = (lambda: \"ccccc\") in print(b()); print(\"aaaaa\"); a" "" "cccccaaaaaa";
+  tgc "tstring_gc_simple" (builtins_size + 2) "\"test\"" "" "test";
+  tgc "tstring_gc_repeat" (builtins_size + 2) "\"test\"; \"test\"; \"tesc\"; \"tesh\"" "" "tesh";
+  tgc "tstring_gc_odd" (builtins_size + 6) "let a = \"a\" in let b = \"b\"; \"c\" in let c = \"c\" in a" "" "a";
+  tgc "tstring_gc_lambda" (builtins_size + 8) "let a = \"a\" in let b = (lambda: print(\"ccccc\")) in b(); print(\"aaaaa\"); a" "" "cccccaaaaaa";
 ]
 let conversions_and_istype = [
   t "isstr_str" "isstr(\"hello\")" "" "true";
@@ -305,13 +305,13 @@ let input_tests = [
   t "input_basic" "input()" "hello" "hello";
   t "input_reserve_after" "let a = input(), b = \"abcd\" in a ^ b" "hello" "helloabcd";
   t "input_long" "let a = input() in a" long_oneline long_oneline;
-  tgc "input_force_alloc" (builtins_size + 8) 
-    "let a = (lambda: \"abcd\"), _ = print(a()), c = input() in c" 
+  tgc "input_force_alloc" (builtins_size + 6) 
+    "let a = (lambda: print(\"abcd\")), _ = a(), c = input() in c" 
     "efgh" "abcdefgh";
   tgc "input_almost_too_long" (builtins_size + 2) "input()" "abcdef" "abcdef";
   tgcerr "input_too_long" (builtins_size + 2) "input()" "abcdefg" "out of memory";
-  tgc "gc_after_input" (builtins_size + 8)
-    "let a = (lambda: input()), _ = print(a()), c = \"efgh\" in c"
+  tgc "gc_after_input" (builtins_size + 6)
+    "let a = (lambda: print(input())), _ = a(), c = \"efgh\" in c"
     "abcd" "abcdefgh";
 ]
 (* testing todos: ensure register allocation still works *)
