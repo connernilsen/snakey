@@ -1,4 +1,4 @@
-# Snakepiler
+# Snakey
 
 A compiler created by [@connernilsen](https://github.com/connernilsen) and [@kinto0](https://github.com/kinto0)!
 
