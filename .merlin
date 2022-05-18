@@ -1,16 +1,6 @@
-S hw0/*
-S hw1/*
-S hw2/*
-S hw3/*
-S hw4/*
-S hw5/*
-S hw6/*
-S hw8/*
-
 PKG extlib
 PKG oUnit
 PKG unix
 PKG batteries
 PKG base
-
-B **/_build/*
+B _build/**
